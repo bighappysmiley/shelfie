@@ -69,10 +69,7 @@ export function HomePage() {
           <div className="mt-4 flex flex-col gap-2">
             <ButtonLink to="/add" className="w-full">Add a book</ButtonLink>
             <ButtonLink to="/add?mode=scan" variant="secondary" className="w-full">
-              Scan barcode
-            </ButtonLink>
-            <ButtonLink to="/add?mode=shelf" variant="secondary" className="w-full">
-              Scan bookshelf
+              Scan with barcode scanner
             </ButtonLink>
             <ButtonLink to="/loaned" variant="ghost" className="w-full">
               Who has my books?

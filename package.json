@@ -12,12 +12,10 @@
   "dependencies": {
     "@netlify/blobs": "^11.0.2",
     "@netlify/functions": "^3.1.10",
-    "html5-qrcode": "^2.3.8",
     "idb": "^8.0.3",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "react-router-dom": "^7.18.3",
-    "tesseract.js": "^7.0.0"
+    "react-router-dom": "^7.18.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",

@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { Html5Qrcode } from "html5-qrcode";
-import { isValidIsbn, normalizeIsbn } from "@/lib/isbn";
+import { isValidIsbn, normalizeIsbn, isbnHint } from "@/lib/isbn";
 import { Button } from "./Button";
 import { FormError } from "./form";
 
+/**
+ * Hardware barcode scanner input (USB / Bluetooth).
+ * These scanners act as a keyboard: they type the ISBN then press Enter.
+ */
 export function BarcodeScanner({
   onScan,
   onClose,
@@ -11,52 +14,149 @@ export function BarcodeScanner({
   onScan: (isbn: string) => void;
   onClose: () => void;
 }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [value, setValue] = useState("");
   const [error, setError] = useState("");
-  const scannerRef = useRef<Html5Qrcode | null>(null);
-  const runningRef = useRef(false);
+  const [lastScanned, setLastScanned] = useState("");
+  const bufferRef = useRef("");
+  const lastKeyAt = useRef(0);
 
+  const submitIsbn = (raw: string) => {
+    const isbn = normalizeIsbn(raw);
+    if (!isbn) return;
+    if (!isValidIsbn(isbn) && isbn.length !== 10 && isbn.length !== 13) {
+      setError("That didn’t look like an ISBN-10 or ISBN-13. Try again.");
+      return;
+    }
+    setError("");
+    setLastScanned(isbn);
+    setValue("");
+    bufferRef.current = "";
+    onScan(isbn);
+  };
+
+  // Keep focus on the scan field so the wedge scanner always types here
   useEffect(() => {
-    const scanner = new Html5Qrcode("barcode-reader");
-    scannerRef.current = scanner;
+    inputRef.current?.focus();
+    const keepFocus = () => {
+      // Don't steal focus from buttons
+      const active = document.activeElement;
+      if (active === inputRef.current) return;
+      if (active?.closest("button, a, [role='button']")) return;
+      inputRef.current?.focus();
+    };
+    const id = window.setInterval(keepFocus, 800);
+    return () => window.clearInterval(id);
+  }, []);
 
-    scanner
-      .start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 280, height: 120 } },
-        (decoded) => {
-          const isbn = normalizeIsbn(decoded);
-          if (isValidIsbn(isbn) || isbn.length === 10 || isbn.length === 13) {
-            scanner.stop().catch(() => {});
-            runningRef.current = false;
-            onScan(isbn);
-          }
-        },
-        () => {},
-      )
-      .then(() => {
-        runningRef.current = true;
-      })
-      .catch((err) => {
-        setError(err instanceof Error ? err.message : "Camera access denied");
-      });
+  // Catch fast wedge input even if focus briefly drifts
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      // Ignore when typing in other form fields (not our scan box)
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        target !== inputRef.current &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
 
-    return () => {
-      if (runningRef.current && scannerRef.current) {
-        scannerRef.current.stop().catch(() => {});
+      const now = Date.now();
+      // Scanners type very fast; human typing resets the wedge buffer
+      if (now - lastKeyAt.current > 80) {
+        bufferRef.current = "";
+      }
+      lastKeyAt.current = now;
+
+      if (e.key === "Enter") {
+        // Input field handles Enter itself when focused
+        if (target === inputRef.current) return;
+        const buf = bufferRef.current;
+        if (buf) {
+          e.preventDefault();
+          submitIsbn(buf);
+        }
+        return;
+      }
+
+      if (target === inputRef.current) return;
+
+      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        bufferRef.current += e.key;
       }
     };
-  }, [onScan]);
+
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [value, onScan]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      <div className="rounded-xl border border-black/8 bg-accent-soft px-4 py-5 text-center dark:border-white/10">
+        <p className="text-lg font-semibold">Ready to scan</p>
+        <p className="mt-2 text-sm text-muted">
+          Connect a USB or Bluetooth barcode scanner, then scan the ISBN on the book.
+          Most scanners work like a keyboard — no camera needed.
+        </p>
+      </div>
+
       {error && <FormError message={error} />}
-      <div id="barcode-reader" className="overflow-hidden rounded-xl" />
-      <p className="text-center text-sm text-muted">
-        Point your camera at the ISBN-10 or ISBN-13 barcode
-      </p>
-      <Button variant="secondary" onClick={onClose} className="w-full">
-        Cancel
-      </Button>
+
+      <label className="block">
+        <span className="mb-1.5 block text-sm font-medium">Scan or type ISBN</span>
+        <input
+          ref={inputRef}
+          value={value}
+          onChange={(e) => {
+            setValue(e.target.value);
+            setError("");
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              submitIsbn(value);
+            }
+          }}
+          className="w-full rounded-lg border border-black/10 bg-surface px-3.5 py-3 text-center font-mono text-lg tracking-wide text-foreground placeholder:text-muted/70 dark:border-white/10"
+          placeholder="Waiting for scanner…"
+          inputMode="text"
+          autoComplete="off"
+          autoCapitalize="characters"
+          spellCheck={false}
+          aria-label="ISBN from barcode scanner"
+        />
+        <span className="mt-1.5 block text-center text-sm text-muted">
+          {value ? isbnHint(value) : "Scanners usually send Enter after the code"}
+        </span>
+      </label>
+
+      {lastScanned && (
+        <p className="text-center text-sm text-muted">
+          Last scanned: <span className="font-mono text-foreground">{lastScanned}</span>
+        </p>
+      )}
+
+      <div className="flex gap-3">
+        <Button
+          className="flex-1"
+          disabled={!normalizeIsbn(value)}
+          onClick={() => submitIsbn(value)}
+        >
+          Look up ISBN
+        </Button>
+        <Button variant="secondary" onClick={onClose}>
+          Cancel
+        </Button>
+      </div>
+
+      <ul className="space-y-1.5 text-sm text-muted">
+        <li>Pair a Bluetooth scanner in your phone/Mac settings, or plug in USB.</li>
+        <li>Put the cursor in the box above (it stays focused), then scan.</li>
+        <li>Works with ISBN-10 and ISBN-13 barcodes.</li>
+      </ul>
     </div>
   );
 }

@@ -6,7 +6,7 @@ Personal library catalog and lending tracker. A clean, installable PWA for iPhon
 
 ## Features
 
-- **Add books** via barcode scan, cover photo OCR, shelf-spine OCR, or manual entry
+- **Add books** via Bluetooth/USB barcode scanner or manual entry
 - **ISBN lookup** from Open Library and Google Books (free)
 - **Lending system** with borrower profiles and loan history
 - **Full cataloging** — status, location, series, tags, ratings, condition, purchase info
@@ -22,7 +22,7 @@ Personal library catalog and lending tracker. A clean, installable PWA for iPhon
 - Tailwind CSS v4 (BoardView design system)
 - **Netlify Blobs** for storage (free tier — no Database feature needed)
 - Netlify Functions for API
-- On-device OCR (Tesseract.js) for cover/shelf photos
+- Bluetooth / USB barcode scanners (keyboard-wedge)
 - PWA with service worker
 
 ## Environment variables
