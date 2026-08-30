@@ -1,6 +1,5 @@
 import type { Config } from "@netlify/functions";
-import { eq, isNull, and, desc } from "drizzle-orm";
-import { db, schema } from "../../db/index";
+import { loadData, saveData, newId, nowIso, todayDate, type Loan } from "./lib/store";
 import { json, error, handleOptions, parseBody } from "./utils";
 
 export const config: Config = {
@@ -15,20 +14,25 @@ export default async (request: Request) => {
   const activeOnly = url.searchParams.get("active") === "true";
 
   try {
-    if (request.method === "GET") {
-      const conditions = activeOnly ? [isNull(schema.loans.dateReturned)] : [];
+    const data = await loadData();
 
-      const rows = await db
-        .select({
-          loan: schema.loans,
-          book: schema.books,
-          borrower: schema.borrowers,
+    if (request.method === "GET") {
+      let loans = data.loans;
+      if (activeOnly) loans = loans.filter((l) => !l.dateReturned);
+
+      const rows = loans
+        .map((loan) => {
+          const book = data.books.find((b) => b.id === loan.bookId);
+          const borrower = data.borrowers.find((b) => b.id === loan.borrowerId);
+          if (!book || !borrower) return null;
+          return { loan, book, borrower };
         })
-        .from(schema.loans)
-        .innerJoin(schema.books, eq(schema.loans.bookId, schema.books.id))
-        .innerJoin(schema.borrowers, eq(schema.loans.borrowerId, schema.borrowers.id))
-        .where(conditions.length ? and(...conditions) : undefined)
-        .orderBy(desc(schema.loans.dueDate));
+        .filter(Boolean)
+        .sort((a, b) => {
+          const aDue = a!.loan.dueDate ?? "9999";
+          const bDue = b!.loan.dueDate ?? "9999";
+          return bDue.localeCompare(aDue);
+        });
 
       return json(rows);
     }
@@ -46,29 +50,24 @@ export default async (request: Request) => {
         return error("bookId and borrowerId are required");
       }
 
-      const existing = await db
-        .select()
-        .from(schema.loans)
-        .where(and(eq(schema.loans.bookId, body.bookId), isNull(schema.loans.dateReturned)))
-        .limit(1);
+      const alreadyOut = data.loans.find(
+        (l) => l.bookId === body.bookId && !l.dateReturned,
+      );
+      if (alreadyOut) return error("This book is already loaned out", 409);
 
-      if (existing.length > 0) {
-        return error("This book is already loaned out", 409);
-      }
+      const loan: Loan = {
+        id: newId(),
+        bookId: body.bookId,
+        borrowerId: body.borrowerId,
+        dateLoaned: body.dateLoaned ?? todayDate(),
+        dueDate: body.dueDate || null,
+        dateReturned: null,
+        notes: body.notes || null,
+        createdAt: nowIso(),
+      };
 
-      const today = new Date().toISOString().slice(0, 10);
-
-      const [loan] = await db
-        .insert(schema.loans)
-        .values({
-          bookId: body.bookId,
-          borrowerId: body.borrowerId,
-          dateLoaned: body.dateLoaned ?? today,
-          dueDate: body.dueDate || null,
-          notes: body.notes || null,
-        })
-        .returning();
-
+      data.loans.push(loan);
+      await saveData(data);
       return json(loan, 201);
     }
 
@@ -77,15 +76,15 @@ export default async (request: Request) => {
       const body = await parseBody<{ action?: string; dateReturned?: string }>(request);
 
       if (body.action === "return") {
-        const today = new Date().toISOString().slice(0, 10);
-        const [loan] = await db
-          .update(schema.loans)
-          .set({ dateReturned: body.dateReturned ?? today })
-          .where(eq(schema.loans.id, id))
-          .returning();
+        const idx = data.loans.findIndex((l) => l.id === id);
+        if (idx < 0) return error("Loan not found", 404);
 
-        if (!loan) return error("Loan not found", 404);
-        return json(loan);
+        data.loans[idx] = {
+          ...data.loans[idx],
+          dateReturned: body.dateReturned ?? todayDate(),
+        };
+        await saveData(data);
+        return json(data.loans[idx]);
       }
 
       return error("Unknown action");

@@ -2,7 +2,7 @@
 
 Personal library catalog and lending tracker. A clean, installable PWA for iPhone and Mac.
 
-**100% free to run** — no paid API keys required.
+**100% free to run** — no paid API keys, no Netlify Database plan required.
 
 ## Features
 
@@ -20,14 +20,20 @@ Personal library catalog and lending tracker. A clean, installable PWA for iPhon
 
 - Vite + React + TypeScript
 - Tailwind CSS v4 (BoardView design system)
-- Netlify Database (Postgres via Drizzle ORM) — free on Netlify
+- **Netlify Blobs** for storage (free tier — no Database feature needed)
 - Netlify Functions for API
-- On-device OCR (Tesseract.js) for cover/shelf photos — no AI API
+- On-device OCR (Tesseract.js) for cover/shelf photos
 - PWA with service worker
 
 ## Environment variables
 
-**None required.** Cover and shelf photos use free on-device OCR. Book metadata comes from Open Library and Google Books (no keys).
+**None required.**
+
+## Deploy (GitHub → Netlify)
+
+1. Connect the repo in Netlify (branch: `main`)
+2. Build settings are in `netlify.toml` — no changes needed
+3. Redeploy after this update so the old Database provisioning step is gone
 
 ## Local development
 
@@ -36,21 +42,8 @@ npm install
 npm run dev
 ```
 
-For full API + database locally:
+For API + Blobs locally:
 
 ```bash
 npx netlify dev
 ```
-
-## Deploy (GitHub → Netlify)
-
-1. Connect the repo in Netlify (branch: `main`)
-2. Build settings are in `netlify.toml` — no changes needed
-3. First deploy provisions the database and applies migrations
-
-## Database schema
-
-- `books` — library catalog
-- `borrowers` — lending contacts
-- `loans` — loan history
-- `tags` / `book_tags` — freeform tags

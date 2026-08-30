@@ -1,6 +1,5 @@
 import type { Config } from "@netlify/functions";
-import { eq, asc } from "drizzle-orm";
-import { db, schema } from "../../db/index";
+import { loadData, saveData, newId, nowIso, type Borrower } from "./lib/store";
 import { json, error, handleOptions, parseBody } from "./utils";
 
 export const config: Config = {
@@ -14,27 +13,28 @@ export default async (request: Request) => {
   const id = url.searchParams.get("id");
 
   try {
+    const data = await loadData();
+
     if (request.method === "GET") {
       if (id) {
-        const borrower = await db.query.borrowers.findFirst({
-          where: eq(schema.borrowers.id, id),
-        });
+        const borrower = data.borrowers.find((b) => b.id === id);
         if (!borrower) return error("Borrower not found", 404);
 
-        const loanHistory = await db
-          .select({
-            loan: schema.loans,
-            book: schema.books,
-          })
-          .from(schema.loans)
-          .innerJoin(schema.books, eq(schema.loans.bookId, schema.books.id))
-          .where(eq(schema.loans.borrowerId, id))
-          .orderBy(schema.loans.dateLoaned);
+        const loans = data.loans
+          .filter((l) => l.borrowerId === id)
+          .map((loan) => ({
+            loan,
+            book: data.books.find((b) => b.id === loan.bookId)!,
+          }))
+          .filter((row) => row.book)
+          .sort((a, b) => b.loan.dateLoaned.localeCompare(a.loan.dateLoaned));
 
-        return json({ ...borrower, loans: loanHistory });
+        return json({ ...borrower, loans });
       }
 
-      const borrowers = await db.select().from(schema.borrowers).orderBy(asc(schema.borrowers.name));
+      const borrowers = [...data.borrowers].sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+      );
       return json(borrowers);
     }
 
@@ -48,21 +48,25 @@ export default async (request: Request) => {
 
       if (!body.name?.trim()) return error("Name is required");
 
-      const [borrower] = await db
-        .insert(schema.borrowers)
-        .values({
-          name: body.name.trim(),
-          phone: body.phone || null,
-          email: body.email || null,
-          avatarUrl: body.avatarUrl || null,
-        })
-        .returning();
+      const borrower: Borrower = {
+        id: newId(),
+        name: body.name.trim(),
+        phone: body.phone || null,
+        email: body.email || null,
+        avatarUrl: body.avatarUrl || null,
+        createdAt: nowIso(),
+      };
 
+      data.borrowers.push(borrower);
+      await saveData(data);
       return json(borrower, 201);
     }
 
     if (request.method === "PUT") {
       if (!id) return error("Borrower id required");
+      const idx = data.borrowers.findIndex((b) => b.id === id);
+      if (idx < 0) return error("Borrower not found", 404);
+
       const body = await parseBody<{
         name?: string;
         phone?: string;
@@ -70,24 +74,22 @@ export default async (request: Request) => {
         avatarUrl?: string;
       }>(request);
 
-      const [borrower] = await db
-        .update(schema.borrowers)
-        .set({
-          ...(body.name && { name: body.name.trim() }),
-          ...(body.phone !== undefined && { phone: body.phone || null }),
-          ...(body.email !== undefined && { email: body.email || null }),
-          ...(body.avatarUrl !== undefined && { avatarUrl: body.avatarUrl || null }),
-        })
-        .where(eq(schema.borrowers.id, id))
-        .returning();
+      const borrower = { ...data.borrowers[idx] };
+      if (body.name) borrower.name = body.name.trim();
+      if (body.phone !== undefined) borrower.phone = body.phone || null;
+      if (body.email !== undefined) borrower.email = body.email || null;
+      if (body.avatarUrl !== undefined) borrower.avatarUrl = body.avatarUrl || null;
 
-      if (!borrower) return error("Borrower not found", 404);
+      data.borrowers[idx] = borrower;
+      await saveData(data);
       return json(borrower);
     }
 
     if (request.method === "DELETE") {
       if (!id) return error("Borrower id required");
-      await db.delete(schema.borrowers).where(eq(schema.borrowers.id, id));
+      data.borrowers = data.borrowers.filter((b) => b.id !== id);
+      data.loans = data.loans.filter((l) => l.borrowerId !== id);
+      await saveData(data);
       return json({ ok: true });
     }
 

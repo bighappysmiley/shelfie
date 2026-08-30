@@ -1,6 +1,5 @@
 import type { Config } from "@netlify/functions";
-import { eq, ilike, or, desc, asc, and, isNull } from "drizzle-orm";
-import { db, schema } from "../../db/index";
+import { loadData, saveData, newId, nowIso, type Book } from "./lib/store";
 import { json, error, handleOptions, parseBody } from "./utils";
 
 export const config: Config = {
@@ -14,73 +13,65 @@ export default async (request: Request) => {
   const id = url.searchParams.get("id");
 
   try {
+    const data = await loadData();
+
     if (request.method === "GET") {
       if (id) {
-        const book = await db.query.books.findFirst({
-          where: eq(schema.books.id, id),
-        });
+        const book = data.books.find((b) => b.id === id);
         if (!book) return error("Book not found", 404);
 
-        const bookTagRows = await db
-          .select({ name: schema.tags.name })
-          .from(schema.bookTags)
-          .innerJoin(schema.tags, eq(schema.bookTags.tagId, schema.tags.id))
-          .where(eq(schema.bookTags.bookId, id));
-
-        const activeLoan = await db
-          .select({
-            loan: schema.loans,
-            borrower: schema.borrowers,
-          })
-          .from(schema.loans)
-          .innerJoin(schema.borrowers, eq(schema.loans.borrowerId, schema.borrowers.id))
-          .where(and(eq(schema.loans.bookId, id), isNull(schema.loans.dateReturned)))
-          .limit(1);
+        const activeLoan = data.loans.find(
+          (l) => l.bookId === id && !l.dateReturned,
+        );
+        const borrower = activeLoan
+          ? data.borrowers.find((b) => b.id === activeLoan.borrowerId)
+          : null;
 
         return json({
           ...book,
-          tags: bookTagRows.map((r) => r.name),
-          activeLoan: activeLoan[0] ?? null,
+          activeLoan:
+            activeLoan && borrower
+              ? { loan: activeLoan, borrower }
+              : null,
         });
       }
 
-      const q = url.searchParams.get("q") ?? "";
+      const q = (url.searchParams.get("q") ?? "").toLowerCase();
       const status = url.searchParams.get("status");
       const sort = url.searchParams.get("sort") ?? "title";
-      const order = url.searchParams.get("order") === "desc" ? "desc" : "asc";
+      const order = url.searchParams.get("order") === "desc" ? -1 : 1;
 
-      let query = db.select().from(schema.books).$dynamic();
+      let books = [...data.books];
 
-      const conditions = [];
       if (q) {
-        conditions.push(
-          or(
-            ilike(schema.books.title, `%${q}%`),
-            ilike(schema.books.authors, `%${q}%`),
-            ilike(schema.books.isbn, `%${q}%`),
-            ilike(schema.books.seriesName, `%${q}%`),
-            ilike(schema.books.locationRoom, `%${q}%`),
-            ilike(schema.books.locationShelf, `%${q}%`),
-          ),
+        books = books.filter((b) =>
+          [b.title, b.authors, b.isbn, b.seriesName, b.locationRoom, b.locationShelf]
+            .filter(Boolean)
+            .some((v) => String(v).toLowerCase().includes(q)),
         );
       }
       if (status) {
-        conditions.push(eq(schema.books.readingStatus, status));
+        books = books.filter((b) => b.readingStatus === status);
       }
 
-      if (conditions.length > 0) {
-        query = query.where(and(...conditions));
-      }
+      books.sort((a, b) => {
+        const pick = (book: Book) => {
+          switch (sort) {
+            case "author":
+              return book.authors ?? "";
+            case "added":
+              return book.createdAt;
+            case "published":
+              return String(book.publishYear ?? 0);
+            case "rating":
+              return String(book.personalRating ?? 0);
+            default:
+              return book.title ?? "";
+          }
+        };
+        return pick(a).localeCompare(pick(b), undefined, { sensitivity: "base" }) * order;
+      });
 
-      const sortCol = {
-        title: schema.books.title,
-        author: schema.books.authors,
-        added: schema.books.createdAt,
-        published: schema.books.publishYear,
-        rating: schema.books.personalRating,
-      }[sort] ?? schema.books.title;
-
-      const books = await query.orderBy(order === "desc" ? desc(sortCol) : asc(sortCol));
       return json(books);
     }
 
@@ -90,10 +81,10 @@ export default async (request: Request) => {
         authors?: string;
         isbn?: string;
         coverUrl?: string;
-        format?: string;
+        format?: Book["format"];
         locationRoom?: string;
         locationShelf?: string;
-        readingStatus?: string;
+        readingStatus?: Book["readingStatus"];
         personalRating?: number;
         seriesName?: string;
         seriesNumber?: string;
@@ -113,16 +104,12 @@ export default async (request: Request) => {
       if (!body.title?.trim()) return error("Title is required");
 
       if (body.isbn && !body.allowDuplicate) {
-        const existing = await db
-          .select()
-          .from(schema.books)
-          .where(eq(schema.books.isbn, body.isbn))
-          .limit(1);
-        if (existing.length > 0) {
+        const existing = data.books.find((b) => b.isbn === body.isbn.trim());
+        if (existing) {
           return json(
             {
               duplicate: true,
-              existing: existing[0],
+              existing,
               message: "A book with this ISBN already exists",
             },
             409,
@@ -130,106 +117,73 @@ export default async (request: Request) => {
         }
       }
 
-      const [book] = await db
-        .insert(schema.books)
-        .values({
-          title: body.title.trim(),
-          authors: body.authors?.trim() ?? "",
-          isbn: body.isbn?.trim() || null,
-          coverUrl: body.coverUrl || null,
-          format: body.format ?? "paperback",
-          locationRoom: body.locationRoom || null,
-          locationShelf: body.locationShelf || null,
-          readingStatus: body.readingStatus ?? "owned",
-          personalRating: body.personalRating ?? null,
-          seriesName: body.seriesName || null,
-          seriesNumber: body.seriesNumber || null,
-          purchaseDate: body.purchaseDate || null,
-          purchasePrice: body.purchasePrice || null,
-          condition: body.condition || null,
-          notes: body.notes || null,
-          pageCount: body.pageCount ?? null,
-          publisher: body.publisher || null,
-          publishYear: body.publishYear ?? null,
-          description: body.description || null,
-          copyNumber: body.copyNumber ?? 1,
-        })
-        .returning();
+      const now = nowIso();
+      const book: Book = {
+        id: newId(),
+        title: body.title.trim(),
+        authors: body.authors?.trim() ?? "",
+        isbn: body.isbn?.trim() || null,
+        coverUrl: body.coverUrl || null,
+        format: body.format ?? "paperback",
+        locationRoom: body.locationRoom || null,
+        locationShelf: body.locationShelf || null,
+        readingStatus: body.readingStatus ?? "owned",
+        personalRating: body.personalRating ?? null,
+        seriesName: body.seriesName || null,
+        seriesNumber: body.seriesNumber || null,
+        purchaseDate: body.purchaseDate || null,
+        purchasePrice: body.purchasePrice || null,
+        condition: body.condition || null,
+        notes: body.notes || null,
+        pageCount: body.pageCount ?? null,
+        publisher: body.publisher || null,
+        publishYear: body.publishYear ?? null,
+        description: body.description || null,
+        copyNumber: body.copyNumber ?? 1,
+        tags: (body.tags ?? []).map((t) => t.trim().toLowerCase()).filter(Boolean),
+        createdAt: now,
+        updatedAt: now,
+      };
 
-      if (body.tags?.length) {
-        for (const tagName of body.tags) {
-          const trimmed = tagName.trim().toLowerCase();
-          if (!trimmed) continue;
-          let [tag] = await db
-            .select()
-            .from(schema.tags)
-            .where(eq(schema.tags.name, trimmed))
-            .limit(1);
-          if (!tag) {
-            [tag] = await db.insert(schema.tags).values({ name: trimmed }).returning();
-          }
-          await db
-            .insert(schema.bookTags)
-            .values({ bookId: book.id, tagId: tag.id })
-            .onConflictDoNothing();
-        }
-      }
-
+      data.books.push(book);
+      await saveData(data);
       return json(book, 201);
     }
 
     if (request.method === "PUT" || request.method === "PATCH") {
       if (!id) return error("Book id required");
-      const body = await parseBody<Record<string, unknown>>(request);
+      const idx = data.books.findIndex((b) => b.id === id);
+      if (idx < 0) return error("Book not found", 404);
 
-      const allowed = [
+      const body = await parseBody<Record<string, unknown>>(request);
+      const book = { ...data.books[idx] };
+      const fields: (keyof Book)[] = [
         "title", "authors", "isbn", "coverUrl", "format", "locationRoom",
         "locationShelf", "readingStatus", "personalRating", "seriesName",
         "seriesNumber", "purchaseDate", "purchasePrice", "condition", "notes",
         "pageCount", "publisher", "publishYear", "description", "copyNumber",
-      ] as const;
+      ];
 
-      const updates: Partial<typeof schema.books.$inferInsert> = {
-        updatedAt: new Date(),
-      };
-
-      for (const f of allowed) {
+      for (const f of fields) {
         if (body[f] !== undefined) {
-          (updates as Record<string, unknown>)[f] = body[f];
+          (book as Record<string, unknown>)[f] = body[f];
         }
       }
-
-      const [book] = await db
-        .update(schema.books)
-        .set(updates)
-        .where(eq(schema.books.id, id))
-        .returning();
-
-      if (!book) return error("Book not found", 404);
-
       if (Array.isArray(body.tags)) {
-        await db.delete(schema.bookTags).where(eq(schema.bookTags.bookId, id));
-        for (const tagName of body.tags as string[]) {
-          const trimmed = tagName.trim().toLowerCase();
-          if (!trimmed) continue;
-          let [tag] = await db
-            .select()
-            .from(schema.tags)
-            .where(eq(schema.tags.name, trimmed))
-            .limit(1);
-          if (!tag) {
-            [tag] = await db.insert(schema.tags).values({ name: trimmed }).returning();
-          }
-          await db.insert(schema.bookTags).values({ bookId: id, tagId: tag.id });
-        }
+        book.tags = (body.tags as string[]).map((t) => t.trim().toLowerCase()).filter(Boolean);
       }
+      book.updatedAt = nowIso();
 
+      data.books[idx] = book;
+      await saveData(data);
       return json(book);
     }
 
     if (request.method === "DELETE") {
       if (!id) return error("Book id required");
-      await db.delete(schema.books).where(eq(schema.books.id, id));
+      data.books = data.books.filter((b) => b.id !== id);
+      data.loans = data.loans.filter((l) => l.bookId !== id);
+      await saveData(data);
       return json({ ok: true });
     }
 

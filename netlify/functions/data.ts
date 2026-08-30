@@ -1,6 +1,5 @@
 import type { Config } from "@netlify/functions";
-import { eq, isNull } from "drizzle-orm";
-import { db, schema } from "../../db/index";
+import { loadData, saveData, newId, nowIso, type Book } from "./lib/store";
 import { json, error, handleOptions, parseBody } from "./utils";
 
 export const config: Config = {
@@ -23,41 +22,36 @@ export default async (request: Request) => {
   const action = url.searchParams.get("action");
 
   try {
-    if (request.method === "GET" && action === "export") {
-      const books = await db.select().from(schema.books).orderBy(schema.books.title);
-      const loans = await db
-        .select({
-          loan: schema.loans,
-          bookTitle: schema.books.title,
-          borrowerName: schema.borrowers.name,
-        })
-        .from(schema.loans)
-        .innerJoin(schema.books, eq(schema.loans.bookId, schema.books.id))
-        .innerJoin(schema.borrowers, eq(schema.loans.borrowerId, schema.borrowers.id));
+    const data = await loadData();
 
+    if (request.method === "GET" && action === "export") {
       const bookHeaders = [
-        "id", "title", "authors", "isbn", "format", "location_room", "location_shelf",
-        "reading_status", "personal_rating", "series_name", "series_number",
-        "purchase_date", "purchase_price", "condition", "notes", "page_count",
-        "publisher", "publish_year", "copy_number", "created_at",
+        "id", "title", "authors", "isbn", "format", "locationRoom", "locationShelf",
+        "readingStatus", "personalRating", "seriesName", "seriesNumber",
+        "purchaseDate", "purchasePrice", "condition", "notes", "pageCount",
+        "publisher", "publishYear", "copyNumber", "createdAt",
       ];
 
-      const bookRows = books.map((b) =>
-        bookHeaders.map((h) => {
-          const key = h.replace(/_([a-z])/g, (_, c) => c.toUpperCase()) as keyof typeof b;
-          return escapeCsv(b[key] as string | number | null);
-        }).join(","),
+      const bookRows = data.books.map((b) =>
+        bookHeaders.map((h) => escapeCsv(b[h as keyof Book] as string | number | null)).join(","),
       );
 
       const loanHeaders = [
         "loan_id", "book_title", "borrower_name", "date_loaned", "due_date", "date_returned", "notes",
       ];
-      const loanRows = loans.map((r) =>
-        [
-          r.loan.id, r.bookTitle, r.borrowerName,
-          r.loan.dateLoaned, r.loan.dueDate, r.loan.dateReturned, r.loan.notes,
-        ].map(escapeCsv).join(","),
-      );
+      const loanRows = data.loans.map((loan) => {
+        const book = data.books.find((b) => b.id === loan.bookId);
+        const borrower = data.borrowers.find((b) => b.id === loan.borrowerId);
+        return [
+          loan.id,
+          book?.title,
+          borrower?.name,
+          loan.dateLoaned,
+          loan.dueDate,
+          loan.dateReturned,
+          loan.notes,
+        ].map(escapeCsv).join(",");
+      });
 
       const csv = [
         "# Books",
@@ -78,12 +72,7 @@ export default async (request: Request) => {
     }
 
     if (request.method === "GET" && action === "stats") {
-      const allBooks = await db.select().from(schema.books);
-      const activeLoans = await db
-        .select()
-        .from(schema.loans)
-        .where(isNull(schema.loans.dateReturned));
-
+      const activeLoans = data.loans.filter((l) => !l.dateReturned);
       const today = new Date().toISOString().slice(0, 10);
       const overdue = activeLoans.filter((l) => l.dueDate && l.dueDate < today);
 
@@ -92,7 +81,7 @@ export default async (request: Request) => {
       const byFormat: Record<string, number> = {};
       let totalValue = 0;
 
-      for (const b of allBooks) {
+      for (const b of data.books) {
         byStatus[b.readingStatus] = (byStatus[b.readingStatus] ?? 0) + 1;
         const loc = [b.locationRoom, b.locationShelf].filter(Boolean).join(" / ") || "Unsorted";
         byLocation[loc] = (byLocation[loc] ?? 0) + 1;
@@ -100,71 +89,85 @@ export default async (request: Request) => {
         if (b.purchasePrice) totalValue += parseFloat(b.purchasePrice);
       }
 
-      const loanCounts = await db
-        .select({
-          bookId: schema.loans.bookId,
-          count: schema.loans.id,
-        })
-        .from(schema.loans);
-
-      const countMap: Record<string, number> = {};
-      for (const l of loanCounts) {
-        countMap[l.bookId] = (countMap[l.bookId] ?? 0) + 1;
-      }
-
-      const seriesMap: Record<string, { owned: string[]; all: Set<string> }> = {};
-      for (const b of allBooks) {
+      const seriesMap: Record<string, string[]> = {};
+      for (const b of data.books) {
         if (!b.seriesName) continue;
-        if (!seriesMap[b.seriesName]) {
-          seriesMap[b.seriesName] = { owned: [], all: new Set() };
-        }
-        if (b.seriesNumber) {
-          seriesMap[b.seriesName].owned.push(b.seriesNumber);
-          seriesMap[b.seriesName].all.add(b.seriesNumber);
-        }
+        if (!seriesMap[b.seriesName]) seriesMap[b.seriesName] = [];
+        if (b.seriesNumber) seriesMap[b.seriesName].push(b.seriesNumber);
       }
 
       return json({
-        totalBooks: allBooks.length,
+        totalBooks: data.books.length,
         byStatus,
         byLocation,
         byFormat,
         totalValue: Math.round(totalValue * 100) / 100,
         activeLoans: activeLoans.length,
         overdueCount: overdue.length,
-        series: Object.entries(seriesMap).map(([name, data]) => ({
+        series: Object.entries(seriesMap).map(([name, owned]) => ({
           name,
-          owned: data.owned.sort(),
+          owned: owned.sort(),
         })),
       });
     }
 
     if (request.method === "POST" && action === "import") {
-      const body = await parseBody<{ books: Record<string, string>[]; format?: string }>(request);
+      const body = await parseBody<{ books: Record<string, string>[] }>(request);
       if (!body.books?.length) return error("No books to import");
 
       let imported = 0;
+      const now = nowIso();
+
       for (const row of body.books) {
         const title = row.title || row.Title;
         if (!title) continue;
 
-        await db.insert(schema.books).values({
+        const book: Book = {
+          id: newId(),
           title,
-          authors: row.authors || row.Author || row.authors || "",
+          authors: row.authors || row.Author || "",
           isbn: row.isbn || row.ISBN || null,
           coverUrl: row.cover_url || row["Cover Image"] || null,
-          readingStatus: row.reading_status || row["Exclusive Shelf"]?.toLowerCase()?.replace(" ", "_") || "owned",
-          personalRating: row.personal_rating ? parseInt(row.personal_rating, 10) : row["My Rating"] ? parseInt(row["My Rating"], 10) : null,
+          format: "paperback",
+          locationRoom: null,
+          locationShelf: null,
+          readingStatus: (row.reading_status as Book["readingStatus"])
+            || (row["Exclusive Shelf"]?.toLowerCase()?.replace(" ", "_") as Book["readingStatus"])
+            || "owned",
+          personalRating: row.personal_rating
+            ? parseInt(row.personal_rating, 10)
+            : row["My Rating"]
+              ? parseInt(row["My Rating"], 10)
+              : null,
           seriesName: row.series_name || row["Book Series"] || null,
           seriesNumber: row.series_number || null,
+          purchaseDate: null,
+          purchasePrice: null,
+          condition: null,
           notes: row.notes || row["Private Notes"] || null,
+          pageCount: row.page_count
+            ? parseInt(row.page_count, 10)
+            : row["Number of Pages"]
+              ? parseInt(row["Number of Pages"], 10)
+              : null,
           publisher: row.publisher || row.Publisher || null,
-          publishYear: row.publish_year ? parseInt(row.publish_year, 10) : row["Year Published"] ? parseInt(row["Year Published"], 10) : null,
-          pageCount: row.page_count ? parseInt(row.page_count, 10) : row["Number of Pages"] ? parseInt(row["Number of Pages"], 10) : null,
-        });
+          publishYear: row.publish_year
+            ? parseInt(row.publish_year, 10)
+            : row["Year Published"]
+              ? parseInt(row["Year Published"], 10)
+              : null,
+          description: null,
+          copyNumber: 1,
+          tags: [],
+          createdAt: now,
+          updatedAt: now,
+        };
+
+        data.books.push(book);
         imported++;
       }
 
+      await saveData(data);
       return json({ imported });
     }
 

@@ -1,61 +1,43 @@
-# Database Schema
+# Data storage
 
-Shelfie uses Netlify Database (Postgres) with Drizzle ORM.
+Shelfie stores data in **Netlify Blobs** (included on free Netlify plans). No database plan or connection string is required.
 
-## Tables
+## Store
 
-### books
-| Column | Type | Notes |
-|--------|------|-------|
-| id | uuid | Primary key |
-| title | text | Required |
-| authors | text | Comma-separated |
-| isbn | text | Nullable; duplicates allowed for multi-copy |
-| cover_url | text | |
-| format | text | hardcover, paperback, ebook, audiobook |
-| location_room | text | |
-| location_shelf | text | |
-| reading_status | text | owned, reading, read, want_to_read, wishlist |
-| personal_rating | integer | 1–5 |
-| series_name | text | |
-| series_number | text | |
-| purchase_date | date | |
-| purchase_price | numeric(10,2) | |
-| condition | text | new, good, worn, damaged |
-| notes | text | |
-| page_count | integer | |
-| publisher | text | |
-| publish_year | integer | |
-| description | text | |
-| copy_number | integer | Default 1, for multi-copy |
-| created_at | timestamptz | |
-| updated_at | timestamptz | |
+- Store name: `shelfie`
+- Key: `library`
+- Value: one JSON document
 
-### borrowers
-| Column | Type | Notes |
-|--------|------|-------|
-| id | uuid | Primary key |
-| name | text | Required |
-| phone | text | |
-| email | text | |
-| avatar_url | text | |
-| created_at | timestamptz | |
+```json
+{
+  "books": [ /* Book */ ],
+  "borrowers": [ /* Borrower */ ],
+  "loans": [ /* Loan */ ]
+}
+```
 
-### loans
-| Column | Type | Notes |
-|--------|------|-------|
-| id | uuid | Primary key |
-| book_id | uuid | FK → books |
-| borrower_id | uuid | FK → borrowers |
-| date_loaned | date | Required |
-| due_date | date | |
-| date_returned | date | Null = currently out |
-| notes | text | |
-| created_at | timestamptz | |
+## Book
 
-### tags / book_tags
-Many-to-many tagging. Tag names are unique and stored lowercase.
+| Field | Type | Notes |
+|-------|------|-------|
+| id | string (uuid) | |
+| title | string | Required |
+| authors | string | |
+| isbn | string \| null | |
+| coverUrl | string \| null | |
+| format | string | hardcover, paperback, ebook, audiobook |
+| locationRoom / locationShelf | string \| null | |
+| readingStatus | string | owned, reading, read, want_to_read, wishlist |
+| personalRating | number \| null | 1–5 |
+| seriesName / seriesNumber | string \| null | |
+| purchaseDate / purchasePrice | string \| null | |
+| condition | string \| null | |
+| notes | string \| null | |
+| pageCount / publisher / publishYear / description | mixed | |
+| copyNumber | number | Default 1 |
+| tags | string[] | |
+| createdAt / updatedAt | ISO string | |
 
-## Migrations
+## Borrower / Loan
 
-Located in `netlify/database/migrations/`. Applied automatically on Netlify deploy.
+Same shape as before: borrowers have name/phone/email; loans link `bookId` + `borrowerId` with dates. `dateReturned: null` means currently out.
