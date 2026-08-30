@@ -26,6 +26,38 @@ function escapeXml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-export function bookCoverUrl(book: { coverUrl?: string | null; title: string; authors: string }): string {
-  return book.coverUrl || coverPlaceholder(book.title, book.authors);
+/** Route remote cover hosts through our proxy so images aren't blanked by hotlink protection. */
+export function resolveCoverSrc(
+  coverUrl: string | null | undefined,
+  isbn?: string | null,
+): string | null {
+  if (!coverUrl) {
+    if (isbn) return `/api/cover-proxy?isbn=${encodeURIComponent(isbn)}`;
+    return null;
+  }
+  if (
+    coverUrl.startsWith("/api/") ||
+    coverUrl.startsWith("data:") ||
+    coverUrl.startsWith("blob:")
+  ) {
+    return coverUrl;
+  }
+  if (coverUrl.startsWith("http://") || coverUrl.startsWith("https://")) {
+    const params = new URLSearchParams({ url: coverUrl });
+    if (isbn) params.set("isbn", isbn);
+    return `/api/cover-proxy?${params.toString()}`;
+  }
+  return coverUrl;
+}
+
+export function bookCoverUrl(book: {
+  coverUrl?: string | null;
+  title: string;
+  authors: string;
+  isbn?: string | null;
+}): string {
+  return (
+    resolveCoverSrc(book.coverUrl, book.isbn) ||
+    coverPlaceholder(book.title, book.authors)
+  );
 }

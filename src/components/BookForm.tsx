@@ -154,6 +154,7 @@ export function BookForm({
         value={form.coverUrl}
         title={form.title}
         authors={form.authors}
+        isbn={form.isbn}
         onChange={(url) => update("coverUrl", url)}
       />
 

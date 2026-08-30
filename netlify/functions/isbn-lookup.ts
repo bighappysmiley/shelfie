@@ -19,9 +19,9 @@ interface BookMetadata {
   seriesNumber?: string;
 }
 
-/** Reliable free cover CDN keyed by ISBN (Open Library). */
+/** Reliable free cover via our same-origin proxy (avoids blank hotlinked images). */
 function coverFromIsbn(isbn: string): string {
-  return `https://covers.openlibrary.org/b/isbn/${normalizeIsbn(isbn)}-L.jpg`;
+  return `/api/cover-proxy?isbn=${encodeURIComponent(normalizeIsbn(isbn))}`;
 }
 
 function preferHttps(url?: string): string | undefined {
@@ -38,12 +38,21 @@ function enlargeGoogleCover(url?: string): string | undefined {
     .replace("&edge=curl", "");
 }
 
+/** Proxy remote covers through our API so the browser always gets a same-origin image. */
+function proxiedCover(isbn: string, remoteUrl?: string): string {
+  if (remoteUrl && !remoteUrl.startsWith("/api/")) {
+    return `/api/cover-proxy?isbn=${encodeURIComponent(normalizeIsbn(isbn))}&url=${encodeURIComponent(remoteUrl)}`;
+  }
+  return coverFromIsbn(isbn);
+}
+
 function withCover(meta: BookMetadata, isbn: string): BookMetadata {
-  const coverUrl =
-    enlargeGoogleCover(meta.coverUrl) ||
-    preferHttps(meta.coverUrl) ||
-    coverFromIsbn(isbn);
-  return { ...meta, coverUrl, isbn: meta.isbn || isbn };
+  const remote = enlargeGoogleCover(meta.coverUrl) || preferHttps(meta.coverUrl);
+  return {
+    ...meta,
+    coverUrl: proxiedCover(isbn, remote),
+    isbn: meta.isbn || isbn,
+  };
 }
 
 async function lookupOpenLibrary(isbn: string): Promise<BookMetadata | null> {
@@ -57,9 +66,7 @@ async function lookupOpenLibrary(isbn: string): Promise<BookMetadata | null> {
     if (!book) return null;
 
     const authors = (book.authors ?? []).map((a: { name: string }) => a.name).join(", ");
-    const coverUrl =
-      preferHttps(book.cover?.large ?? book.cover?.medium ?? book.cover?.small) ||
-      coverFromIsbn(isbn);
+    const coverUrl = preferHttps(book.cover?.large ?? book.cover?.medium ?? book.cover?.small);
 
     return {
       title: book.title ?? "",
@@ -95,8 +102,7 @@ async function lookupGoogleBooks(isbn: string): Promise<BookMetadata | null> {
     const resolvedIsbn = isbn13 ?? isbn10 ?? isbn;
     const coverUrl =
       enlargeGoogleCover(item.imageLinks?.thumbnail) ||
-      enlargeGoogleCover(item.imageLinks?.smallThumbnail) ||
-      coverFromIsbn(resolvedIsbn);
+      enlargeGoogleCover(item.imageLinks?.smallThumbnail);
 
     return {
       title: item.title ?? "",
@@ -160,17 +166,20 @@ export default async (request: Request) => {
       )?.identifier;
       const resolvedIsbn = isbn13 ?? isbn10;
 
-      const coverUrl =
+      const remote =
         enlargeGoogleCover(item.imageLinks?.thumbnail) ||
-        enlargeGoogleCover(item.imageLinks?.smallThumbnail) ||
-        (resolvedIsbn ? coverFromIsbn(resolvedIsbn) : undefined);
+        enlargeGoogleCover(item.imageLinks?.smallThumbnail);
 
       return json({
         source: "googlebooks",
         title: item.title ?? title,
         authors: (item.authors ?? [authors]).filter(Boolean).join(", "),
         isbn: resolvedIsbn,
-        coverUrl,
+        coverUrl: resolvedIsbn
+          ? proxiedCover(resolvedIsbn, remote)
+          : remote
+            ? `/api/cover-proxy?url=${encodeURIComponent(remote)}`
+            : undefined,
         pageCount: item.pageCount,
         publisher: item.publisher,
         publishYear: item.publishedDate ? parseInt(item.publishedDate.slice(0, 4), 10) : undefined,

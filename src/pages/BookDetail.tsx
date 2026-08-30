@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import type { Book, Borrower } from "@/lib/types";
 import { STATUS_LABELS, FORMAT_LABELS, emptyBookForm } from "@/lib/types";
-import { bookCoverUrl } from "@/lib/cover";
+import { CoverImage } from "@/components/CoverImage";
 import { BookForm, formToPayload } from "@/components/BookForm";
 import { PageHeader, Card, Badge } from "@/components/layout";
 import { Button } from "@/components/Button";
@@ -112,10 +112,9 @@ export function BookDetailPage() {
       />
 
       <div className="grid gap-6 lg:grid-cols-[200px_1fr]">
-        <img
-          src={bookCoverUrl(book)}
-          alt=""
-          className="w-full max-w-[200px] rounded-lg"
+        <CoverImage
+          book={book}
+          className="w-full max-w-[200px] rounded-lg bg-accent-soft"
         />
 
         <div className="space-y-4">

@@ -1,24 +1,24 @@
 import { useRef, useState } from "react";
 import { compressCover } from "@/lib/cover-upload";
-import { bookCoverUrl } from "@/lib/cover";
+import { CoverImage } from "./CoverImage";
 import { Button } from "./Button";
 
 export function CoverPhotoField({
   value,
   title,
   authors,
+  isbn,
   onChange,
 }: {
   value: string;
   title: string;
   authors: string;
+  isbn?: string;
   onChange: (url: string) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
-
-  const previewSrc = value || bookCoverUrl({ coverUrl: null, title: title || "Book", authors });
 
   const upload = async (file: File) => {
     if (!file.type.startsWith("image/")) {
@@ -48,22 +48,23 @@ export function CoverPhotoField({
     }
   };
 
+  const fromLookup =
+    value.includes("/api/cover-proxy") ||
+    value.includes("covers.openlibrary.org") ||
+    value.includes("books.google");
+
   return (
     <div>
       <span className="mb-1.5 block text-sm font-medium">Cover</span>
       <div className="flex items-start gap-4">
-        <img
-          key={previewSrc}
-          src={previewSrc}
-          alt=""
+        <CoverImage
+          book={{ coverUrl: value || null, title: title || "Book", authors, isbn }}
           className="h-36 w-24 shrink-0 rounded-md object-cover bg-accent-soft"
         />
         <div className="min-w-0 flex-1 space-y-2">
           <p className="text-sm text-muted">
-            {value
-              ? value.includes("covers.openlibrary.org") || value.includes("books.google")
-                ? "Cover loaded from ISBN lookup. You can replace it with your own photo."
-                : "Take a photo or choose an image from your library."
+            {fromLookup
+              ? "Cover loaded from ISBN lookup. You can replace it with your own photo."
               : "Take a photo or choose an image from your library."}
           </p>
           <div className="flex flex-wrap gap-2">

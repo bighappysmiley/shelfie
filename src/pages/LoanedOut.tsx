@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import type { LoanWithDetails } from "@/lib/types";
-import { bookCoverUrl } from "@/lib/cover";
+import { CoverImage } from "@/components/CoverImage";
 import { PageHeader, Card, Badge, EmptyState } from "@/components/layout";
 import { Button } from "@/components/Button";
 
@@ -48,10 +48,9 @@ export function LoanedOutPage() {
             return (
               <Card key={loan.id}>
                 <div className="flex gap-4">
-                  <img
-                    src={bookCoverUrl(book)}
-                    alt=""
-                    className="h-20 w-14 shrink-0 rounded-md object-cover"
+                  <CoverImage
+                    book={book}
+                    className="h-20 w-14 shrink-0 rounded-md object-cover bg-accent-soft"
                   />
                   <div className="min-w-0 flex-1">
                     <Link to={`/book/${book.id}`} className="font-medium hover:underline">

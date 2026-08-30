@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import type { Book } from "@/lib/types";
-import { bookCoverUrl } from "@/lib/cover";
+import { CoverImage } from "./CoverImage";
 import { Badge } from "./layout";
 import { STATUS_LABELS } from "@/lib/types";
 
@@ -18,11 +18,9 @@ export function BookCard({
   const content = (
   <>
       <div className="flex gap-4">
-        <img
-          src={bookCoverUrl(book)}
-          alt=""
-          className="h-24 w-16 shrink-0 rounded-md object-cover"
-          loading="lazy"
+        <CoverImage
+          book={book}
+          className="h-24 w-16 shrink-0 rounded-md object-cover bg-accent-soft"
         />
         <div className="min-w-0 flex-1">
           <h3 className="font-medium leading-snug">{book.title}</h3>
