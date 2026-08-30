@@ -160,9 +160,16 @@ export function BookForm({
 
       <TextField
         label="Cover image URL (optional)"
-        value={form.coverUrl.startsWith("/api/covers") ? "" : form.coverUrl}
-        onChange={(e) => update("coverUrl", e.target.value)}
-        type="url"
+        value={form.coverUrl.startsWith("/api/") ? "" : form.coverUrl}
+        onChange={(e) => {
+          const next = e.target.value.trim();
+          // Don't wipe an internal / uploaded cover when the optional URL field is empty
+          if (!next && form.coverUrl.startsWith("/api/")) return;
+          update("coverUrl", next);
+        }}
+        type="text"
+        inputMode="url"
+        placeholder="https://…"
         hint="Or paste a link if you already have one online"
       />
 
