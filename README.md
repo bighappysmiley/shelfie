@@ -2,10 +2,12 @@
 
 Personal library catalog and lending tracker. A clean, installable PWA for iPhone and Mac.
 
+**100% free to run** — no paid API keys required.
+
 ## Features
 
-- **Add books** via barcode scan, cover photo (AI), shelf-spine batch scan (AI), or manual entry
-- **ISBN lookup** from Open Library and Google Books
+- **Add books** via barcode scan, cover photo OCR, shelf-spine OCR, or manual entry
+- **ISBN lookup** from Open Library and Google Books (free)
 - **Lending system** with borrower profiles and loan history
 - **Full cataloging** — status, location, series, tags, ratings, condition, purchase info
 - **Search & filters** across your entire library
@@ -18,9 +20,14 @@ Personal library catalog and lending tracker. A clean, installable PWA for iPhon
 
 - Vite + React + TypeScript
 - Tailwind CSS v4 (BoardView design system)
-- Netlify Database (Postgres via Drizzle ORM)
+- Netlify Database (Postgres via Drizzle ORM) — free on Netlify
 - Netlify Functions for API
+- On-device OCR (Tesseract.js) for cover/shelf photos — no AI API
 - PWA with service worker
+
+## Environment variables
+
+**None required.** Cover and shelf photos use free on-device OCR. Book metadata comes from Open Library and Google Books (no keys).
 
 ## Local development
 
@@ -29,30 +36,17 @@ npm install
 npm run dev
 ```
 
-For full API + database locally, use Netlify Dev:
+For full API + database locally:
 
 ```bash
 npx netlify dev
 ```
 
-## Environment variables
+## Deploy (GitHub → Netlify)
 
-Set in the Netlify dashboard (Site settings → Environment variables):
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `ANTHROPIC_API_KEY` | For AI features | Your Anthropic API key for cover photo and shelf-spine scanning |
-
-Get an API key at [console.anthropic.com](https://console.anthropic.com/).
-
-## Deploy
-
-```bash
-npx netlify deploy        # preview
-npx netlify deploy --prod # production
-```
-
-Netlify auto-provisions the database and applies migrations from `netlify/database/migrations/` on deploy.
+1. Connect the repo in Netlify (branch: `main`)
+2. Build settings are in `netlify.toml` — no changes needed
+3. First deploy provisions the database and applies migrations
 
 ## Database schema
 

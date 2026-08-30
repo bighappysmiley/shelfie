@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { emptyBookForm, type BookFormData } from "@/lib/types";
+import { parseCoverText, parseShelfText, readImageText } from "@/lib/ocr";
 import { BookForm, formToPayload } from "@/components/BookForm";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { PhotoCapture } from "@/components/PhotoCapture";
@@ -19,6 +20,7 @@ export function AddBookPage() {
   const [form, setForm] = useState(emptyBookForm());
   const [duplicateWarning, setDuplicateWarning] = useState("");
   const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState("");
   const [shelfBooks, setShelfBooks] = useState<{ title: string; author: string; confidence: number }[]>([]);
 
   const fillFromLookup = async (data: Record<string, unknown>) => {
@@ -40,6 +42,7 @@ export function AddBookPage() {
 
   const handleIsbnScan = async (isbn: string) => {
     setLoading(true);
+    setStatus("Looking up ISBN…");
     try {
       const data = await api.isbn.lookup(isbn);
       await fillFromLookup(data);
@@ -48,43 +51,58 @@ export function AddBookPage() {
       setMode("manual");
     } finally {
       setLoading(false);
+      setStatus("");
     }
   };
 
-  const handleCoverPhoto = async (dataUrl: string, mediaType: string) => {
+  const handleCoverPhoto = async (dataUrl: string) => {
     setLoading(true);
+    setStatus("Reading cover text (on-device, free)…");
     try {
-      const result = await api.vision.cover(dataUrl, mediaType);
-      if (result.found) {
-        const lookup = await api.isbn.search(result.title, result.author);
-        if (lookup.title) {
-          await fillFromLookup(lookup);
-        } else {
-          setForm((f) => ({
-            ...f,
-            title: result.title,
-            authors: result.author,
-          }));
-          setMode("manual");
-        }
+      const text = await readImageText(dataUrl);
+      const guess = parseCoverText(text);
+      if (!guess) {
+        alert("Couldn't read text from that photo. Try again or add the book manually.");
+        return;
+      }
+
+      setStatus("Looking up book details…");
+      const lookup = await api.isbn.search(guess.title, guess.author);
+      if (lookup.title) {
+        await fillFromLookup(lookup);
+      } else {
+        setForm((f) => ({
+          ...f,
+          title: guess.title,
+          authors: guess.author,
+        }));
+        setMode("manual");
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Vision failed");
+      alert(err instanceof Error ? err.message : "Could not read cover");
     } finally {
       setLoading(false);
+      setStatus("");
     }
   };
 
-  const handleShelfPhoto = async (dataUrl: string, mediaType: string) => {
+  const handleShelfPhoto = async (dataUrl: string) => {
     setLoading(true);
+    setStatus("Reading shelf text (on-device, free)…");
     try {
-      const result = await api.vision.shelf(dataUrl, mediaType);
-      setShelfBooks(result.books);
+      const text = await readImageText(dataUrl);
+      const books = parseShelfText(text);
+      if (books.length === 0) {
+        alert("Couldn't read any spines. Try better lighting or add books with barcode/manual.");
+        return;
+      }
+      setShelfBooks(books);
       setMode("shelf-review");
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Vision failed");
+      alert(err instanceof Error ? err.message : "Could not read shelf");
     } finally {
       setLoading(false);
+      setStatus("");
     }
   };
 
@@ -147,7 +165,9 @@ export function AddBookPage() {
       </div>
 
       <Card>
-        {loading && <p className="mb-4 text-muted">Looking up book…</p>}
+        {loading && (
+          <p className="mb-4 text-muted">{status || "Working…"}</p>
+        )}
 
         {mode === "manual" && (
           <BookForm
@@ -168,16 +188,16 @@ export function AddBookPage() {
 
         {mode === "cover" && (
           <PhotoCapture
-            label="Take a photo of the book cover. We'll identify the title and look up details."
-            onCapture={handleCoverPhoto}
+            label="Take a photo of the book cover. Text is read on your device (free), then looked up via Open Library / Google Books."
+            onCapture={(dataUrl) => handleCoverPhoto(dataUrl)}
             onClose={() => setMode("manual")}
           />
         )}
 
         {mode === "shelf" && (
           <PhotoCapture
-            label="Take a photo of your bookshelf. We'll read every visible spine."
-            onCapture={handleShelfPhoto}
+            label="Take a photo of your bookshelf. Spine text is read on your device (free) — review and confirm each book before adding."
+            onCapture={(dataUrl) => handleShelfPhoto(dataUrl)}
             onClose={() => setMode("manual")}
           />
         )}
