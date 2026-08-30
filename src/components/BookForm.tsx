@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { BookFormData, BookFormat, BookCondition, ReadingStatus } from "@/lib/types";
 import { FORMAT_LABELS, STATUS_LABELS } from "@/lib/types";
 import { TextField, SelectField, TextArea, FormError } from "./form";
+import { CoverPhotoField } from "./CoverPhotoField";
 import { Button } from "./Button";
 
 interface BookFormProps {
@@ -75,11 +76,20 @@ export function BookForm({
         onChange={(e) => update("isbn", e.target.value)}
         inputMode="numeric"
       />
-      <TextField
-        label="Cover image URL"
+
+      <CoverPhotoField
         value={form.coverUrl}
+        title={form.title}
+        authors={form.authors}
+        onChange={(url) => update("coverUrl", url)}
+      />
+
+      <TextField
+        label="Cover image URL (optional)"
+        value={form.coverUrl.startsWith("/api/covers") ? "" : form.coverUrl}
         onChange={(e) => update("coverUrl", e.target.value)}
         type="url"
+        hint="Or paste a link if you already have one online"
       />
 
       <div className="grid gap-5 sm:grid-cols-2">
