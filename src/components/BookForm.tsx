@@ -1,6 +1,8 @@
 import { useState } from "react";
 import type { BookFormData, BookFormat, BookCondition, ReadingStatus } from "@/lib/types";
 import { FORMAT_LABELS, STATUS_LABELS } from "@/lib/types";
+import { api } from "@/lib/api";
+import { isbnHint, isValidIsbn, normalizeIsbn } from "@/lib/isbn";
 import { TextField, SelectField, TextArea, FormError } from "./form";
 import { CoverPhotoField } from "./CoverPhotoField";
 import { Button } from "./Button";
@@ -23,9 +25,50 @@ export function BookForm({
   const [form, setForm] = useState<BookFormData>(initial);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [lookingUp, setLookingUp] = useState(false);
 
   const update = (field: keyof BookFormData, value: string | number | boolean) => {
     setForm((f) => ({ ...f, [field]: value }));
+  };
+
+  const handleIsbnChange = (raw: string) => {
+    const cleaned = raw.replace(/[^0-9Xx\-\s]/g, "");
+    update("isbn", cleaned);
+  };
+
+  const lookupIsbn = async () => {
+    const isbn = normalizeIsbn(form.isbn);
+    if (!isValidIsbn(isbn)) {
+      setError("Enter a valid ISBN-10 or ISBN-13");
+      return;
+    }
+    setLookingUp(true);
+    setError("");
+    try {
+      const data = await api.isbn.lookup(isbn);
+      if (!data.title) {
+        setError("No book found for that ISBN — you can still save it manually");
+        update("isbn", isbn);
+        return;
+      }
+      setForm((f) => ({
+        ...f,
+        isbn: (data.isbn as string) || isbn,
+        title: (data.title as string) || f.title,
+        authors: (data.authors as string) || f.authors,
+        coverUrl: (data.coverUrl as string) || f.coverUrl,
+        pageCount: (data.pageCount as number) || f.pageCount,
+        publisher: (data.publisher as string) || f.publisher,
+        publishYear: (data.publishYear as number) || f.publishYear,
+        description: (data.description as string) || f.description,
+        seriesName: (data.seriesName as string) || f.seriesName,
+        seriesNumber: (data.seriesNumber as string) || f.seriesNumber,
+      }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Lookup failed");
+    } finally {
+      setLookingUp(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -34,10 +77,15 @@ export function BookForm({
       setError("Title is required");
       return;
     }
+    const isbn = normalizeIsbn(form.isbn);
+    if (isbn && !isValidIsbn(isbn)) {
+      setError("ISBN must be a valid ISBN-10 or ISBN-13 (leave blank if unknown)");
+      return;
+    }
     setSaving(true);
     setError("");
     try {
-      await onSubmit(form);
+      await onSubmit({ ...form, isbn });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save");
     } finally {
@@ -70,12 +118,33 @@ export function BookForm({
         value={form.authors}
         onChange={(e) => update("authors", e.target.value)}
       />
-      <TextField
-        label="ISBN"
-        value={form.isbn}
-        onChange={(e) => update("isbn", e.target.value)}
-        inputMode="numeric"
-      />
+
+      <div>
+        <span className="mb-1.5 block text-sm font-medium">ISBN</span>
+        <div className="flex gap-2">
+          <input
+            className="w-full rounded-lg border border-black/10 bg-surface px-3.5 py-2.5 text-base text-foreground placeholder:text-muted/70 transition-colors hover:border-black/20 focus-visible:border-accent dark:border-white/10 dark:hover:border-white/20"
+            value={form.isbn}
+            onChange={(e) => handleIsbnChange(e.target.value)}
+            placeholder="ISBN-10 or ISBN-13"
+            inputMode="text"
+            autoCapitalize="characters"
+            autoComplete="off"
+            spellCheck={false}
+            maxLength={17}
+            aria-label="ISBN"
+          />
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={lookingUp || !normalizeIsbn(form.isbn)}
+            onClick={lookupIsbn}
+          >
+            {lookingUp ? "…" : "Look up"}
+          </Button>
+        </div>
+        <span className="mt-1.5 block text-sm text-muted">{isbnHint(form.isbn)}</span>
+      </div>
 
       <CoverPhotoField
         value={form.coverUrl}
@@ -204,10 +273,11 @@ export function BookForm({
 }
 
 export function formToPayload(form: BookFormData) {
+  const isbn = normalizeIsbn(form.isbn);
   return {
     title: form.title,
     authors: form.authors,
-    isbn: form.isbn || undefined,
+    isbn: isbn || undefined,
     coverUrl: form.coverUrl || undefined,
     format: form.format,
     locationRoom: form.locationRoom || undefined,

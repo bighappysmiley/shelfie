@@ -1,5 +1,6 @@
 import type { Config } from "@netlify/functions";
 import { json, error, handleOptions } from "./utils";
+import { isbnVariants, normalizeIsbn, isIsbn10, isIsbn13 } from "./lib/isbn";
 
 export const config: Config = {
   path: "/api/isbn-lookup",
@@ -37,8 +38,8 @@ async function lookupOpenLibrary(isbn: string): Promise<BookMetadata | null> {
       isbn,
       coverUrl,
       pageCount: book.number_of_pages,
-      publisher: book.publishers?.[0],
-      publishYear: book.publish_date ? parseInt(book.publish_date.slice(-4), 10) : undefined,
+      publisher: book.publishers?.[0]?.name ?? book.publishers?.[0],
+      publishYear: book.publish_date ? parseInt(String(book.publish_date).slice(-4), 10) : undefined,
       description: typeof book.notes === "string" ? book.notes : undefined,
     };
   } catch {
@@ -55,19 +56,24 @@ async function lookupGoogleBooks(isbn: string): Promise<BookMetadata | null> {
     const item = data.items?.[0]?.volumeInfo;
     if (!item) return null;
 
-    const seriesInfo = item.seriesInfo?.bookDisplayNumber;
+    const isbn13 = item.industryIdentifiers?.find(
+      (i: { type: string }) => i.type === "ISBN_13",
+    )?.identifier;
+    const isbn10 = item.industryIdentifiers?.find(
+      (i: { type: string }) => i.type === "ISBN_10",
+    )?.identifier;
 
     return {
       title: item.title ?? "",
       authors: (item.authors ?? []).join(", "),
-      isbn,
+      isbn: isbn13 ?? isbn10 ?? isbn,
       coverUrl: item.imageLinks?.thumbnail?.replace("http:", "https:"),
       pageCount: item.pageCount,
       publisher: item.publisher,
       publishYear: item.publishedDate ? parseInt(item.publishedDate.slice(0, 4), 10) : undefined,
       description: item.description,
       seriesName: item.seriesInfo?.seriesTitle,
-      seriesNumber: seriesInfo,
+      seriesNumber: item.seriesInfo?.bookDisplayNumber,
     };
   } catch {
     return null;
@@ -79,18 +85,26 @@ export default async (request: Request) => {
   if (request.method !== "GET") return error("Method not allowed", 405);
 
   const url = new URL(request.url);
-  const isbn = url.searchParams.get("isbn")?.replace(/[-\s]/g, "");
+  const rawIsbn = url.searchParams.get("isbn");
   const title = url.searchParams.get("title");
   const authors = url.searchParams.get("authors");
 
-  if (!isbn && !title) return error("isbn or title required");
+  if (!rawIsbn && !title) return error("isbn or title required");
 
-  if (isbn) {
-    const ol = await lookupOpenLibrary(isbn);
-    if (ol?.title) return json({ source: "openlibrary", ...ol });
+  if (rawIsbn) {
+    const isbn = normalizeIsbn(rawIsbn);
+    if (!isIsbn10(isbn) && !isIsbn13(isbn)) {
+      return error("Invalid ISBN — use ISBN-10 or ISBN-13");
+    }
 
-    const gb = await lookupGoogleBooks(isbn);
-    if (gb?.title) return json({ source: "googlebooks", ...gb });
+    // Try entered form first, then ISBN-10 ↔ ISBN-13 equivalent
+    for (const variant of isbnVariants(isbn)) {
+      const ol = await lookupOpenLibrary(variant);
+      if (ol?.title) return json({ source: "openlibrary", ...ol, isbn: variant });
+
+      const gb = await lookupGoogleBooks(variant);
+      if (gb?.title) return json({ source: "googlebooks", ...gb });
+    }
 
     return json({ found: false, isbn });
   }

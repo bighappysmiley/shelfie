@@ -1,5 +1,6 @@
 import type { Config } from "@netlify/functions";
 import { loadData, saveData, newId, nowIso, type Book } from "./lib/store";
+import { isbnVariants, normalizeIsbn } from "./lib/isbn";
 import { json, error, handleOptions, parseBody } from "./utils";
 
 export const config: Config = {
@@ -104,7 +105,11 @@ export default async (request: Request) => {
       if (!body.title?.trim()) return error("Title is required");
 
       if (body.isbn && !body.allowDuplicate) {
-        const existing = data.books.find((b) => b.isbn === body.isbn.trim());
+        const variants = new Set(isbnVariants(body.isbn));
+        const existing = data.books.find((b) => {
+          if (!b.isbn) return false;
+          return isbnVariants(b.isbn).some((v) => variants.has(v));
+        });
         if (existing) {
           return json(
             {
@@ -122,7 +127,7 @@ export default async (request: Request) => {
         id: newId(),
         title: body.title.trim(),
         authors: body.authors?.trim() ?? "",
-        isbn: body.isbn?.trim() || null,
+        isbn: body.isbn ? normalizeIsbn(body.isbn) : null,
         coverUrl: body.coverUrl || null,
         format: body.format ?? "paperback",
         locationRoom: body.locationRoom || null,
@@ -168,6 +173,9 @@ export default async (request: Request) => {
         if (body[f] !== undefined) {
           (book as Record<string, unknown>)[f] = body[f];
         }
+      }
+      if (typeof body.isbn === "string") {
+        book.isbn = body.isbn ? normalizeIsbn(body.isbn) : null;
       }
       if (Array.isArray(body.tags)) {
         book.tags = (body.tags as string[]).map((t) => t.trim().toLowerCase()).filter(Boolean);
