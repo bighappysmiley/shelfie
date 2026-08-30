@@ -29,7 +29,8 @@ export function AddBookPage() {
       title: (data.title as string) ?? f.title,
       authors: (data.authors as string) ?? f.authors,
       isbn: (data.isbn as string) ?? f.isbn,
-      coverUrl: (data.coverUrl as string) ?? f.coverUrl,
+      // Always take cover from lookup when present
+      coverUrl: (data.coverUrl as string) || f.coverUrl,
       pageCount: (data.pageCount as number) ?? f.pageCount,
       publisher: (data.publisher as string) ?? f.publisher,
       publishYear: (data.publishYear as number) ?? f.publishYear,

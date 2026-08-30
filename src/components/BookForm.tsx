@@ -46,16 +46,20 @@ export function BookForm({
     setError("");
     try {
       const data = await api.isbn.lookup(isbn);
-      if (!data.title) {
+      if (!data.title && !data.coverUrl) {
         setError("No book found for that ISBN — you can still save it manually");
         update("isbn", isbn);
         return;
+      }
+      if (!data.title) {
+        setError("No metadata found — cover attached if available");
       }
       setForm((f) => ({
         ...f,
         isbn: (data.isbn as string) || isbn,
         title: (data.title as string) || f.title,
         authors: (data.authors as string) || f.authors,
+        // Always sync cover from ISBN lookup when one is returned
         coverUrl: (data.coverUrl as string) || f.coverUrl,
         pageCount: (data.pageCount as number) || f.pageCount,
         publisher: (data.publisher as string) || f.publisher,

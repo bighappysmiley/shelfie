@@ -19,6 +19,33 @@ interface BookMetadata {
   seriesNumber?: string;
 }
 
+/** Reliable free cover CDN keyed by ISBN (Open Library). */
+function coverFromIsbn(isbn: string): string {
+  return `https://covers.openlibrary.org/b/isbn/${normalizeIsbn(isbn)}-L.jpg`;
+}
+
+function preferHttps(url?: string): string | undefined {
+  if (!url) return undefined;
+  return url.replace(/^http:/, "https:");
+}
+
+/** Prefer a larger Google Books image when we only got a tiny thumbnail. */
+function enlargeGoogleCover(url?: string): string | undefined {
+  if (!url) return undefined;
+  return preferHttps(url)
+    ?.replace("zoom=5", "zoom=1")
+    .replace("zoom=1", "zoom=0")
+    .replace("&edge=curl", "");
+}
+
+function withCover(meta: BookMetadata, isbn: string): BookMetadata {
+  const coverUrl =
+    enlargeGoogleCover(meta.coverUrl) ||
+    preferHttps(meta.coverUrl) ||
+    coverFromIsbn(isbn);
+  return { ...meta, coverUrl, isbn: meta.isbn || isbn };
+}
+
 async function lookupOpenLibrary(isbn: string): Promise<BookMetadata | null> {
   try {
     const res = await fetch(
@@ -30,7 +57,9 @@ async function lookupOpenLibrary(isbn: string): Promise<BookMetadata | null> {
     if (!book) return null;
 
     const authors = (book.authors ?? []).map((a: { name: string }) => a.name).join(", ");
-    const coverUrl = book.cover?.large ?? book.cover?.medium ?? book.cover?.small;
+    const coverUrl =
+      preferHttps(book.cover?.large ?? book.cover?.medium ?? book.cover?.small) ||
+      coverFromIsbn(isbn);
 
     return {
       title: book.title ?? "",
@@ -63,11 +92,17 @@ async function lookupGoogleBooks(isbn: string): Promise<BookMetadata | null> {
       (i: { type: string }) => i.type === "ISBN_10",
     )?.identifier;
 
+    const resolvedIsbn = isbn13 ?? isbn10 ?? isbn;
+    const coverUrl =
+      enlargeGoogleCover(item.imageLinks?.thumbnail) ||
+      enlargeGoogleCover(item.imageLinks?.smallThumbnail) ||
+      coverFromIsbn(resolvedIsbn);
+
     return {
       title: item.title ?? "",
       authors: (item.authors ?? []).join(", "),
-      isbn: isbn13 ?? isbn10 ?? isbn,
-      coverUrl: item.imageLinks?.thumbnail?.replace("http:", "https:"),
+      isbn: resolvedIsbn,
+      coverUrl,
       pageCount: item.pageCount,
       publisher: item.publisher,
       publishYear: item.publishedDate ? parseInt(item.publishedDate.slice(0, 4), 10) : undefined,
@@ -97,16 +132,16 @@ export default async (request: Request) => {
       return error("Invalid ISBN — use ISBN-10 or ISBN-13");
     }
 
-    // Try entered form first, then ISBN-10 ↔ ISBN-13 equivalent
     for (const variant of isbnVariants(isbn)) {
       const ol = await lookupOpenLibrary(variant);
-      if (ol?.title) return json({ source: "openlibrary", ...ol, isbn: variant });
+      if (ol?.title) return json({ source: "openlibrary", ...withCover(ol, variant) });
 
       const gb = await lookupGoogleBooks(variant);
-      if (gb?.title) return json({ source: "googlebooks", ...gb });
+      if (gb?.title) return json({ source: "googlebooks", ...withCover(gb, variant) });
     }
 
-    return json({ found: false, isbn });
+    // No metadata — still return cover URL so the UI can show it
+    return json({ found: false, isbn, coverUrl: coverFromIsbn(isbn) });
   }
 
   if (title) {
@@ -123,13 +158,19 @@ export default async (request: Request) => {
       const isbn10 = item.industryIdentifiers?.find(
         (i: { type: string }) => i.type === "ISBN_10",
       )?.identifier;
+      const resolvedIsbn = isbn13 ?? isbn10;
+
+      const coverUrl =
+        enlargeGoogleCover(item.imageLinks?.thumbnail) ||
+        enlargeGoogleCover(item.imageLinks?.smallThumbnail) ||
+        (resolvedIsbn ? coverFromIsbn(resolvedIsbn) : undefined);
 
       return json({
         source: "googlebooks",
         title: item.title ?? title,
         authors: (item.authors ?? [authors]).filter(Boolean).join(", "),
-        isbn: isbn13 ?? isbn10,
-        coverUrl: item.imageLinks?.thumbnail?.replace("http:", "https:"),
+        isbn: resolvedIsbn,
+        coverUrl,
         pageCount: item.pageCount,
         publisher: item.publisher,
         publishYear: item.publishedDate ? parseInt(item.publishedDate.slice(0, 4), 10) : undefined,

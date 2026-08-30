@@ -53,13 +53,18 @@ export function CoverPhotoField({
       <span className="mb-1.5 block text-sm font-medium">Cover</span>
       <div className="flex items-start gap-4">
         <img
+          key={previewSrc}
           src={previewSrc}
           alt=""
-          className="h-36 w-24 shrink-0 rounded-md object-cover"
+          className="h-36 w-24 shrink-0 rounded-md object-cover bg-accent-soft"
         />
         <div className="min-w-0 flex-1 space-y-2">
           <p className="text-sm text-muted">
-            Take a photo or choose an image from your library.
+            {value
+              ? value.includes("covers.openlibrary.org") || value.includes("books.google")
+                ? "Cover loaded from ISBN lookup. You can replace it with your own photo."
+                : "Take a photo or choose an image from your library."
+              : "Take a photo or choose an image from your library."}
           </p>
           <div className="flex flex-wrap gap-2">
             <Button
