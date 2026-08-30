@@ -48,7 +48,11 @@ export function StatsPage() {
           <dl className="mt-4 space-y-2">
             {Object.entries(stats.byStatus).map(([k, v]) => (
               <div key={k} className="flex justify-between text-sm">
-                <dt className="text-muted">{STATUS_LABELS[k as keyof typeof STATUS_LABELS] ?? k}</dt>
+                <dt className="text-muted">
+                  {k === "on_loan"
+                    ? "On loan"
+                    : STATUS_LABELS[k as keyof typeof STATUS_LABELS] ?? k}
+                </dt>
                 <dd className="font-medium">{v}</dd>
               </div>
             ))}

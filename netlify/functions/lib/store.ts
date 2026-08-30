@@ -1,12 +1,7 @@
 import { getStore } from "@netlify/blobs";
 import { randomUUID } from "node:crypto";
 
-export type ReadingStatus =
-  | "owned"
-  | "reading"
-  | "read"
-  | "want_to_read"
-  | "wishlist";
+export type LibraryStatus = "available" | "wishlist" | "missing";
 
 export type BookFormat = "hardcover" | "paperback" | "ebook" | "audiobook";
 
@@ -19,7 +14,7 @@ export interface Book {
   format: BookFormat;
   locationRoom: string | null;
   locationShelf: string | null;
-  readingStatus: ReadingStatus;
+  readingStatus: LibraryStatus;
   personalRating: number | null;
   seriesName: string | null;
   seriesNumber: string | null;
@@ -35,6 +30,12 @@ export interface Book {
   tags: string[];
   createdAt: string;
   updatedAt: string;
+}
+
+export function normalizeLibraryStatus(raw: string | null | undefined): LibraryStatus {
+  if (raw === "wishlist" || raw === "to-read" || raw === "to_read") return "wishlist";
+  if (raw === "missing") return "missing";
+  return "available";
 }
 
 export interface Borrower {

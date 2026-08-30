@@ -32,10 +32,14 @@ export function BookCard({
             </p>
           )}
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {showStatus && book.readingStatus !== "owned" && (
-              <Badge>{STATUS_LABELS[book.readingStatus]}</Badge>
+            {book.activeLoan ? (
+              <Badge variant="warning">On loan</Badge>
+            ) : (
+              showStatus &&
+              book.readingStatus !== "available" && (
+                <Badge>{STATUS_LABELS[book.readingStatus] ?? book.readingStatus}</Badge>
+              )
             )}
-            {book.activeLoan && <Badge variant="warning">On loan</Badge>}
             {book.personalRating && (
               <span className="text-xs text-muted">★ {book.personalRating}</span>
             )}

@@ -1,5 +1,12 @@
 import type { Config } from "@netlify/functions";
-import { loadData, saveData, newId, nowIso, type Book } from "./lib/store";
+import {
+  loadData,
+  saveData,
+  newId,
+  nowIso,
+  normalizeLibraryStatus,
+  type Book,
+} from "./lib/store";
 import { json, error, handleOptions, parseBody } from "./utils";
 
 export const config: Config = {
@@ -76,13 +83,26 @@ export default async (request: Request) => {
       const today = new Date().toISOString().slice(0, 10);
       const overdue = activeLoans.filter((l) => l.dueDate && l.dueDate < today);
 
-      const byStatus: Record<string, number> = {};
+      const byStatus: Record<string, number> = {
+        available: 0,
+        on_loan: 0,
+        wishlist: 0,
+        missing: 0,
+      };
       const byLocation: Record<string, number> = {};
       const byFormat: Record<string, number> = {};
       let totalValue = 0;
+      const loanedBookIds = new Set(
+        activeLoans.map((l) => l.bookId),
+      );
 
       for (const b of data.books) {
-        byStatus[b.readingStatus] = (byStatus[b.readingStatus] ?? 0) + 1;
+        if (loanedBookIds.has(b.id)) {
+          byStatus.on_loan += 1;
+        } else {
+          const status = normalizeLibraryStatus(b.readingStatus);
+          byStatus[status] = (byStatus[status] ?? 0) + 1;
+        }
         const loc = [b.locationRoom, b.locationShelf].filter(Boolean).join(" / ") || "Unsorted";
         byLocation[loc] = (byLocation[loc] ?? 0) + 1;
         byFormat[b.format] = (byFormat[b.format] ?? 0) + 1;
@@ -131,9 +151,11 @@ export default async (request: Request) => {
           format: "paperback",
           locationRoom: null,
           locationShelf: null,
-          readingStatus: (row.reading_status as Book["readingStatus"])
-            || (row["Exclusive Shelf"]?.toLowerCase()?.replace(" ", "_") as Book["readingStatus"])
-            || "owned",
+          readingStatus: normalizeLibraryStatus(
+            row.reading_status ||
+              row["Exclusive Shelf"]?.toLowerCase()?.replace(/\s+/g, "_") ||
+              "available",
+          ),
           personalRating: row.personal_rating
             ? parseInt(row.personal_rating, 10)
             : row["My Rating"]

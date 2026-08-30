@@ -1,9 +1,7 @@
-export type ReadingStatus =
-  | "owned"
-  | "reading"
-  | "read"
-  | "want_to_read"
-  | "wishlist";
+export type LibraryStatus = "available" | "wishlist" | "missing";
+
+/** @deprecated Use LibraryStatus — kept as alias during migration */
+export type ReadingStatus = LibraryStatus;
 
 export type BookFormat = "hardcover" | "paperback" | "ebook" | "audiobook";
 export type BookCondition = "new" | "good" | "worn" | "damaged";
@@ -17,7 +15,7 @@ export interface Book {
   format: BookFormat;
   locationRoom: string | null;
   locationShelf: string | null;
-  readingStatus: ReadingStatus;
+  readingStatus: LibraryStatus;
   personalRating: number | null;
   seriesName: string | null;
   seriesNumber: string | null;
@@ -74,7 +72,7 @@ export interface BookFormData {
   format: BookFormat;
   locationRoom: string;
   locationShelf: string;
-  readingStatus: ReadingStatus;
+  readingStatus: LibraryStatus;
   personalRating: number | "";
   seriesName: string;
   seriesNumber: string;
@@ -91,13 +89,20 @@ export interface BookFormData {
   allowDuplicate?: boolean;
 }
 
-export const STATUS_LABELS: Record<ReadingStatus, string> = {
-  owned: "Owned",
-  reading: "Reading",
-  read: "Read",
-  want_to_read: "Want to Read",
+/** Catalog statuses only — "On loan" comes from the lending system. */
+export const STATUS_LABELS: Record<LibraryStatus, string> = {
+  available: "Available",
   wishlist: "Wishlist",
+  missing: "Missing",
 };
+
+/** Map legacy reading-habit statuses to library statuses. */
+export function normalizeLibraryStatus(raw: string | null | undefined): LibraryStatus {
+  if (raw === "wishlist" || raw === "to-read" || raw === "to_read") return "wishlist";
+  if (raw === "missing") return "missing";
+  // owned, reading, read, want_to_read, and anything else → available
+  return "available";
+}
 
 export const FORMAT_LABELS: Record<BookFormat, string> = {
   hardcover: "Hardcover",
@@ -115,7 +120,7 @@ export function emptyBookForm(): BookFormData {
     format: "paperback",
     locationRoom: "",
     locationShelf: "",
-    readingStatus: "owned",
+    readingStatus: "available",
     personalRating: "",
     seriesName: "",
     seriesNumber: "",

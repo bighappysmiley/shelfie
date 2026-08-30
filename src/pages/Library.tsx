@@ -96,9 +96,13 @@ export function LibraryPage() {
             className="w-auto min-w-[140px]"
           >
             <option value="">All statuses</option>
-            {Object.entries(STATUS_LABELS).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
-            ))}
+            <option value="available">Available</option>
+            <option value="on_loan">On loan</option>
+            {Object.entries(STATUS_LABELS)
+              .filter(([k]) => k !== "available")
+              .map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
           </SelectField>
           <SelectField
             label=""

@@ -1,11 +1,37 @@
 import type { Config } from "@netlify/functions";
-import { loadData, saveData, newId, nowIso, type Book } from "./lib/store";
+import {
+  loadData,
+  saveData,
+  newId,
+  nowIso,
+  normalizeLibraryStatus,
+  type Book,
+} from "./lib/store";
 import { isbnVariants, normalizeIsbn } from "./lib/isbn";
 import { json, error, handleOptions, parseBody } from "./utils";
 
 export const config: Config = {
   path: "/api/books",
 };
+
+function withActiveLoan(
+  book: Book,
+  loans: { bookId: string; dateReturned: string | null; borrowerId: string }[],
+  borrowers: { id: string }[],
+) {
+  const activeLoan = loans.find((l) => l.bookId === book.id && !l.dateReturned);
+  const borrower = activeLoan
+    ? borrowers.find((b) => b.id === activeLoan.borrowerId)
+    : null;
+  return {
+    ...book,
+    readingStatus: normalizeLibraryStatus(book.readingStatus),
+    activeLoan:
+      activeLoan && borrower
+        ? { loan: activeLoan, borrower }
+        : null,
+  };
+}
 
 export default async (request: Request) => {
   if (request.method === "OPTIONS") return handleOptions();
@@ -20,21 +46,7 @@ export default async (request: Request) => {
       if (id) {
         const book = data.books.find((b) => b.id === id);
         if (!book) return error("Book not found", 404);
-
-        const activeLoan = data.loans.find(
-          (l) => l.bookId === id && !l.dateReturned,
-        );
-        const borrower = activeLoan
-          ? data.borrowers.find((b) => b.id === activeLoan.borrowerId)
-          : null;
-
-        return json({
-          ...book,
-          activeLoan:
-            activeLoan && borrower
-              ? { loan: activeLoan, borrower }
-              : null,
-        });
+        return json(withActiveLoan(book, data.loans, data.borrowers));
       }
 
       const q = (url.searchParams.get("q") ?? "").toLowerCase();
@@ -42,7 +54,7 @@ export default async (request: Request) => {
       const sort = url.searchParams.get("sort") ?? "title";
       const order = url.searchParams.get("order") === "desc" ? -1 : 1;
 
-      let books = [...data.books];
+      let books = data.books.map((b) => withActiveLoan(b, data.loans, data.borrowers));
 
       if (q) {
         books = books.filter((b) =>
@@ -51,8 +63,16 @@ export default async (request: Request) => {
             .some((v) => String(v).toLowerCase().includes(q)),
         );
       }
-      if (status) {
-        books = books.filter((b) => b.readingStatus === status);
+      if (status === "on_loan") {
+        books = books.filter((b) => b.activeLoan);
+      } else if (status === "available") {
+        books = books.filter(
+          (b) => normalizeLibraryStatus(b.readingStatus) === "available" && !b.activeLoan,
+        );
+      } else if (status) {
+        books = books.filter(
+          (b) => normalizeLibraryStatus(b.readingStatus) === status,
+        );
       }
 
       books.sort((a, b) => {
@@ -85,7 +105,7 @@ export default async (request: Request) => {
         format?: Book["format"];
         locationRoom?: string;
         locationShelf?: string;
-        readingStatus?: Book["readingStatus"];
+        readingStatus?: string;
         personalRating?: number;
         seriesName?: string;
         seriesNumber?: string;
@@ -132,7 +152,7 @@ export default async (request: Request) => {
         format: body.format ?? "paperback",
         locationRoom: body.locationRoom || null,
         locationShelf: body.locationShelf || null,
-        readingStatus: body.readingStatus ?? "owned",
+        readingStatus: normalizeLibraryStatus(body.readingStatus ?? "available"),
         personalRating: body.personalRating ?? null,
         seriesName: body.seriesName || null,
         seriesNumber: body.seriesNumber || null,
@@ -176,6 +196,9 @@ export default async (request: Request) => {
       }
       if (typeof body.isbn === "string") {
         book.isbn = body.isbn ? normalizeIsbn(body.isbn) : null;
+      }
+      if (typeof body.readingStatus === "string") {
+        book.readingStatus = normalizeLibraryStatus(body.readingStatus);
       }
       if (Array.isArray(body.tags)) {
         book.tags = (body.tags as string[]).map((t) => t.trim().toLowerCase()).filter(Boolean);

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { BookFormData, BookFormat, BookCondition, ReadingStatus } from "@/lib/types";
+import type { BookFormData, BookFormat, BookCondition, LibraryStatus } from "@/lib/types";
 import { FORMAT_LABELS, STATUS_LABELS } from "@/lib/types";
 import { api } from "@/lib/api";
 import { isbnHint, isValidIsbn, normalizeIsbn } from "@/lib/isbn";
@@ -186,7 +186,7 @@ export function BookForm({
         <SelectField
           label="Status"
           value={form.readingStatus}
-          onChange={(e) => update("readingStatus", e.target.value as ReadingStatus)}
+          onChange={(e) => update("readingStatus", e.target.value as LibraryStatus)}
         >
           {Object.entries(STATUS_LABELS).map(([k, v]) => (
             <option key={k} value={k}>{v}</option>

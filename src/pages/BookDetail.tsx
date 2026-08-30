@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import type { Book, Borrower } from "@/lib/types";
-import { STATUS_LABELS, FORMAT_LABELS, emptyBookForm } from "@/lib/types";
+import { STATUS_LABELS, FORMAT_LABELS, emptyBookForm, normalizeLibraryStatus } from "@/lib/types";
 import { CoverImage } from "@/components/CoverImage";
 import { BookForm, formToPayload } from "@/components/BookForm";
 import { PageHeader, Card, Badge } from "@/components/layout";
@@ -75,7 +75,7 @@ export function BookDetailPage() {
               format: book.format,
               locationRoom: book.locationRoom ?? "",
               locationShelf: book.locationShelf ?? "",
-              readingStatus: book.readingStatus,
+              readingStatus: normalizeLibraryStatus(book.readingStatus),
               personalRating: book.personalRating ?? "",
               seriesName: book.seriesName ?? "",
               seriesNumber: book.seriesNumber ?? "",
@@ -119,10 +119,13 @@ export function BookDetailPage() {
 
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
-            <Badge>{STATUS_LABELS[book.readingStatus]}</Badge>
+            {book.activeLoan ? (
+              <Badge variant="warning">On loan</Badge>
+            ) : (
+              <Badge>{STATUS_LABELS[normalizeLibraryStatus(book.readingStatus)]}</Badge>
+            )}
             <Badge>{FORMAT_LABELS[book.format]}</Badge>
             {book.personalRating && <Badge>★ {book.personalRating}</Badge>}
-            {book.activeLoan && <Badge variant="warning">On loan</Badge>}
           </div>
 
           <dl className="grid gap-3 text-sm sm:grid-cols-2">
