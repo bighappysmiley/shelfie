@@ -24,7 +24,7 @@ Built as a Vite + React PWA on Netlify Functions + Netlify Blobs, with Supabase 
 | `VITE_SUPABASE_ANON_KEY` | Same anon key (needed at build time) |
 | `GEMINI_API_KEY` | Optional — enables cover & shelf photo features |
 
-In Supabase Auth settings, set **Site URL** to your Netlify site URL and add it under redirect URLs.
+In Supabase → Authentication → URL configuration, set **Site URL** to `https://shelfielibrary.netlify.app` (Management API; not available via MCP). Email confirmation is auto-handled in the database so sign-up can sign in immediately.
 
 ### Local development
 

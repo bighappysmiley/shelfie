@@ -10,6 +10,8 @@ import {
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 
+export const APP_URL = "https://shelfielibrary.netlify.app";
+
 type AuthContextValue = {
   session: Session | null;
   user: User | null;
@@ -51,9 +53,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signUp = useCallback(async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${APP_URL}/library`,
+      },
+    });
     if (error) throw error;
-    return { needsConfirmation: !data.session };
+
+    if (data.session) return { needsConfirmation: false };
+
+    // Auto-confirm trigger may have confirmed the user without returning a session
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+    if (!signInError) return { needsConfirmation: false };
+
+    return { needsConfirmation: true };
   }, []);
 
   const signOut = useCallback(async () => {
