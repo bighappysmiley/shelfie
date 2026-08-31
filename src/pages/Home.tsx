@@ -217,6 +217,22 @@ export function HomePage() {
           </Group>
         )}
       </section>
+      <section>
+        <GroupHeader
+          action={
+            <Link to="/support" className="text-accent">
+              Live chat
+            </Link>
+          }
+        >
+          Quick links
+        </GroupHeader>
+        <Group>
+          <ListRow title="Borrowers" to="/borrowers" chevron />
+          <ListRow title="Reports" to="/stats" chevron />
+          <ListRow title="Settings" to="/settings" chevron />
+        </Group>
+      </section>
     </div>
   );
 }

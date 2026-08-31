@@ -6,7 +6,7 @@ import {
   IconLibrary,
   IconPlus,
   IconLoan,
-  IconPeople,
+  IconChat,
   IconSettings,
 } from "./Icons";
 
@@ -93,8 +93,8 @@ const mobileItems = [
   { to: "/home", label: "Home", icon: IconHome, end: true },
   { to: "/library", label: "Library", icon: IconLibrary },
   { to: "/add", label: "Add", icon: IconPlus, emphasize: true },
+  { to: "/support", label: "Chat", icon: IconChat },
   { to: "/loaned", label: "Loans", icon: IconLoan },
-  { to: "/borrowers", label: "Borrowers", icon: IconPeople },
 ];
 
 export function MobileNav() {

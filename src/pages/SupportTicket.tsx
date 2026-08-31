@@ -1,184 +1,32 @@
-import { useCallback, useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
+import { Link, useParams } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
-import type { Ticket, TicketMessage } from "@/lib/support-types";
-import { ChatBubble } from "@/components/ChatBubble";
-import { Button } from "@/components/Button";
-import { TextArea, FormError } from "@/components/form";
-import { Group } from "@/components/layout";
+import { SupportChat } from "@/components/SupportChat";
 
 export function SupportTicketPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const { user, isStaff, staffProfile } = useAuth();
-  const [ticket, setTicket] = useState<Ticket | null>(null);
-  const [messages, setMessages] = useState<TicketMessage[]>([]);
-  const [reply, setReply] = useState("");
-  const [error, setError] = useState("");
-  const [sending, setSending] = useState(false);
-  const [ready, setReady] = useState(false);
+  const { isStaff } = useAuth();
 
-  const load = useCallback(async () => {
-    if (!id) return;
-    const [{ data: ticketRow }, { data: messageRows }] = await Promise.all([
-      supabase.from("tickets").select("*").eq("id", id).single(),
-      supabase
-        .from("ticket_messages")
-        .select("*")
-        .eq("ticket_id", id)
-        .order("created_at"),
-    ]);
-    setTicket((ticketRow as Ticket | null) ?? null);
-    setMessages((messageRows ?? []) as TicketMessage[]);
-  }, [id]);
-
-  useEffect(() => {
-    load().finally(() => setReady(true));
-  }, [load]);
-
-  useEffect(() => {
-    if (!id) return;
-    const channel = supabase
-      .channel(`ticket:${id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "ticket_messages",
-          filter: `ticket_id=eq.${id}`,
-        },
-        () => {
-          load();
-        },
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [id, load]);
-
-  if (!ready) return <p className="text-muted">Loading…</p>;
-  if (!ticket) {
+  if (!id) {
     return (
       <div>
-        <p className="text-sm text-muted">This ticket could not be found.</p>
-        <Link to="/support" className="mt-4 inline-block text-sm font-medium text-foreground hover:underline">
-          Return to support
+        <p className="text-[0.9375rem] text-muted">Conversation not found.</p>
+        <Link to="/support" className="mt-4 inline-block text-accent">
+          Back to live chat
         </Link>
       </div>
     );
   }
 
   const backHref = isStaff ? "/admin" : "/support";
-  const canReply = ticket.status === "open" || isStaff;
-
-  const sendReply = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user || !reply.trim()) return;
-    setError("");
-    setSending(true);
-
-    const { error: insertError } = await supabase.from("ticket_messages").insert({
-      ticket_id: ticket.id,
-      author_id: user.id,
-      body: reply.trim(),
-      kind: isStaff ? "staff" : "user",
-      author_name: isStaff
-        ? [staffProfile?.display_name, staffProfile?.title].filter(Boolean).join(" · ") ||
-          "Support"
-        : null,
-    });
-
-    setSending(false);
-    if (insertError) {
-      setError(insertError.message);
-      return;
-    }
-    setReply("");
-    await load();
-  };
-
-  const setStatus = async (status: Ticket["status"]) => {
-    if (!isStaff) return;
-    await supabase.from("tickets").update({ status }).eq("id", ticket.id);
-    await load();
-  };
 
   return (
     <div>
       <Link to={backHref} className="text-[0.9375rem] text-accent">
-        {isStaff ? "Support Inbox" : "Support"}
+        {isStaff ? "Support Inbox" : "Live chat"}
       </Link>
-      <h1 className="mt-2 text-[1.75rem] font-bold tracking-tight">{ticket.subject}</h1>
-      <p className="mt-1 text-[0.9375rem] text-muted">
-        {isStaff && <span>{ticket.contact_email} · </span>}
-        {ticket.status === "open" ? "Open" : "Closed"}
-      </p>
-
-      <ol className="mt-6 space-y-3">
-        {messages.map((message) => (
-          <ChatBubble
-            key={message.id}
-            message={message}
-            viewerId={user?.id}
-            viewerIsStaff={isStaff}
-            visitorLabel={isStaff ? ticket.contact_email : "You"}
-          />
-        ))}
-      </ol>
-
-      {error && (
-        <div className="mt-6">
-          <FormError message={error} />
-        </div>
-      )}
-
-      {canReply ? (
-        <Group className="mt-6">
-          <form onSubmit={sendReply} className="p-4 space-y-4">
-            <TextArea
-              label={isStaff ? "Reply" : "Message"}
-              value={reply}
-              onChange={(e) => setReply(e.target.value)}
-              hint="Press Enter to send. Shift+Enter for a new line."
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  e.currentTarget.form?.requestSubmit();
-                }
-              }}
-            />
-            <div className="flex flex-wrap gap-2">
-              <Button type="submit" disabled={sending || !reply.trim()}>
-                {sending ? "Sending…" : "Send"}
-              </Button>
-              {isStaff && ticket.status === "open" && (
-                <Button type="button" variant="tinted" onClick={() => setStatus("closed")}>
-                  Close
-                </Button>
-              )}
-              {isStaff && ticket.status === "closed" && (
-                <Button type="button" variant="tinted" onClick={() => setStatus("open")}>
-                  Reopen
-                </Button>
-              )}
-            </div>
-          </form>
-        </Group>
-      ) : (
-        <p className="mt-6 text-sm text-muted">
-          This ticket is closed.{" "}
-          <button
-            type="button"
-            className="text-accent"
-            onClick={() => navigate("/support")}
-          >
-            Submit a new request
-          </button>
-        </p>
-      )}
+      <div className="mt-4">
+        <SupportChat ticketId={id} />
+      </div>
     </div>
   );
 }

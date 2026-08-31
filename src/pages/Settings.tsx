@@ -95,7 +95,7 @@ export function SettingsPage() {
         <section>
           <GroupHeader>Support</GroupHeader>
           <Group>
-            <ListRow title="Contact Support" to="/support" chevron />
+            <ListRow title="Live Chat" to="/support" chevron />
             {isStaff && <ListRow title="Support Inbox" to="/admin" chevron />}
           </Group>
         </section>

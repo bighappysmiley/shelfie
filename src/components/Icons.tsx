@@ -69,6 +69,14 @@ export function IconPeople(props: IconProps) {
   );
 }
 
+export function IconChat(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M21 12a8 8 0 0 1-8 8H7l-4 3V12a8 8 0 0 1 8-8h4a8 8 0 0 1 4 8z" />
+    </Icon>
+  );
+}
+
 export function IconShelf(props: IconProps) {
   return (
     <Icon {...props}>
