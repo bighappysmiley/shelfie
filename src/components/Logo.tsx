@@ -14,9 +14,7 @@ const presets = {
   lg: { mark: 56, gap: "gap-2.5", text: logoTextClasses.lg },
 } as const;
 
-/**
- * Diamond frame, center spine, nested chevrons — pine branches / book pages.
- */
+/** Pine tree on a closed book — readable at small sizes. */
 export function LogoMark({
   size = 32,
   className = "",
@@ -33,22 +31,44 @@ export function LogoMark({
       className={className}
       {...props}
     >
+      {/* Closed book */}
       <path
-        d="M32 7 53 32 32 57 11 32Z"
+        d="M15 49H49V57C49 58.1 48.1 59 47 59H17C15.9 59 15 58.1 15 57V49Z"
         stroke="currentColor"
-        strokeWidth="1.5"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      <path d="M32 49V59" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path
+        d="M19 53H29M35 53H45"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        opacity="0.45"
+      />
+
+      {/* Trunk */}
+      <path d="M32 49V37" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+
+      {/* Pine tiers */}
+      <path
+        d="M24 37L32 27L40 37"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
         strokeLinejoin="round"
       />
       <path
-        d="M32 48V17"
+        d="M20 31L32 19L44 31"
         stroke="currentColor"
-        strokeWidth="1.5"
+        strokeWidth="2"
         strokeLinecap="round"
+        strokeLinejoin="round"
       />
       <path
-        d="M28 26 32 19 36 26M25 32 32 24 39 32M22 38 32 29 42 38M19 44 32 34 45 44"
+        d="M16 25L32 9L48 25"
         stroke="currentColor"
-        strokeWidth="1.5"
+        strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
