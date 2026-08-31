@@ -2,6 +2,7 @@ import { Link, Navigate, Outlet, useLocation, BrowserRouter, Routes, Route } fro
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { useLibrary } from "@/lib/library";
 import { Navbar, MobileNav } from "@/components/Navbar";
+import { AppSidebar } from "@/components/AppSidebar";
 import { Container } from "@/components/layout";
 import { RequireAuth } from "@/components/RequireAuth";
 import { SidebarProvider } from "@/lib/sidebar";
@@ -99,6 +100,7 @@ function AppShell() {
         Skip to content
       </a>
       <Navbar />
+      <AppSidebar />
       <main id="main" className="py-3 sm:py-4">
         <Container>
           <Outlet />

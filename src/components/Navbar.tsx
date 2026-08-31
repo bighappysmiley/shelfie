@@ -1,15 +1,17 @@
+import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import { Container } from "./layout";
 import { useLibrary } from "@/lib/library";
 import { Logo } from "./Logo";
 import { LibrarySwitcher } from "./LibrarySwitcher";
-import { AppSidebar, SidebarMenuButton } from "./AppSidebar";
+import { SidebarMenuButton } from "./AppSidebar";
 import {
   IconHome,
   IconLibrary,
   IconPlus,
-  IconLoan,
   IconSettings,
+  IconBell,
+  IconChat,
 } from "./Icons";
 
 const desktopLinks = [
@@ -20,61 +22,95 @@ const desktopLinks = [
   { to: "/stats", label: "Reports" },
 ];
 
+function NavIconButton({
+  to,
+  label,
+  badge,
+  children,
+}: {
+  to: string;
+  label: string;
+  badge?: number;
+  children: ReactNode;
+}) {
+  return (
+    <NavLink
+      to={to}
+      aria-label={label}
+      className={({ isActive }) =>
+        `relative inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:text-foreground ${
+          isActive ? "text-foreground" : ""
+        }`
+      }
+    >
+      {children}
+      {badge != null && badge > 0 && (
+        <span className="absolute right-0.5 top-0.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-accent px-1 text-[0.625rem] font-bold text-accent-contrast">
+          {badge > 9 ? "9+" : badge}
+        </span>
+      )}
+    </NavLink>
+  );
+}
+
 export function Navbar() {
   const { pendingInvites } = useLibrary();
 
   return (
-    <>
-      <header className="sticky top-0 z-50 nav-material hairline-b safe-top">
-        <Container>
-          <div className="flex h-12 items-center gap-2 sm:gap-3">
-            <SidebarMenuButton badge={pendingInvites.length} className="hidden md:inline-flex" />
-            <NavLink to="/home" className="shrink-0 rounded-[var(--radius-control)] outline-offset-2">
-              <Logo size="sm" />
-            </NavLink>
-            <LibrarySwitcher compact />
-            <nav className="hidden min-w-0 flex-1 items-center gap-0.5 md:flex">
-              {desktopLinks.map((l) => (
-                <NavLink
-                  key={l.to}
-                  to={l.to}
-                  className={({ isActive }) =>
-                    `rounded-[var(--radius-control)] px-2 py-1 text-[0.875rem] transition-colors ${
-                      isActive
-                        ? "font-semibold text-foreground"
-                        : "text-muted hover:text-foreground"
-                    }`
-                  }
-                >
-                  {l.label}
-                </NavLink>
-              ))}
-            </nav>
-            <div className="ml-auto flex items-center gap-1">
+    <header className="sticky top-0 z-50 nav-material hairline-b safe-top">
+      <Container>
+        <div className="flex h-12 items-center gap-2 sm:gap-3">
+          <SidebarMenuButton />
+          <NavLink to="/home" className="shrink-0 rounded-[var(--radius-control)] outline-offset-2">
+            <Logo size="sm" />
+          </NavLink>
+          <LibrarySwitcher compact />
+          <nav className="hidden min-w-0 flex-1 items-center gap-0.5 md:flex">
+            {desktopLinks.map((l) => (
               <NavLink
-                to="/settings"
+                key={l.to}
+                to={l.to}
                 className={({ isActive }) =>
-                  `inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:text-foreground ${
-                    isActive ? "text-foreground" : ""
+                  `rounded-[var(--radius-control)] px-2 py-1 text-[0.875rem] transition-colors ${
+                    isActive
+                      ? "font-semibold text-foreground"
+                      : "text-muted hover:text-foreground"
                   }`
                 }
-                aria-label="Library settings"
               >
-                <IconSettings size={22} />
+                {l.label}
               </NavLink>
-              <NavLink
-                to="/add"
-                className="inline-flex min-h-[32px] items-center gap-1 rounded-[var(--radius-pill)] bg-accent px-3.5 text-[0.9375rem] font-medium text-accent-contrast hover:bg-accent-hover"
-              >
-                <IconPlus size={16} />
-                <span className="hidden sm:inline">Add</span>
-              </NavLink>
-            </div>
+            ))}
+          </nav>
+          <div className="ml-auto flex items-center gap-0.5">
+            <NavIconButton to="/notifications" label="Notifications" badge={pendingInvites.length}>
+              <IconBell size={22} />
+            </NavIconButton>
+            <NavIconButton to="/support" label="Support">
+              <IconChat size={22} />
+            </NavIconButton>
+            <NavLink
+              to="/settings"
+              className={({ isActive }) =>
+                `inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:text-foreground ${
+                  isActive ? "text-foreground" : ""
+                }`
+              }
+              aria-label="Library settings"
+            >
+              <IconSettings size={22} />
+            </NavLink>
+            <NavLink
+              to="/add"
+              className="inline-flex min-h-[32px] items-center gap-1 rounded-[var(--radius-pill)] bg-accent px-3.5 text-[0.9375rem] font-medium text-accent-contrast hover:bg-accent-hover"
+            >
+              <IconPlus size={16} />
+              <span className="hidden sm:inline">Add</span>
+            </NavLink>
           </div>
-        </Container>
-      </header>
-      <AppSidebar />
-    </>
+        </div>
+      </Container>
+    </header>
   );
 }
 
@@ -82,13 +118,11 @@ const mobileItems = [
   { to: "/home", label: "Home", icon: IconHome, end: true },
   { to: "/library", label: "Library", icon: IconLibrary },
   { to: "/add", label: "Add", icon: IconPlus, emphasize: true },
-  { to: "/loaned", label: "Loans", icon: IconLoan },
-  { to: "/settings", label: "Settings", icon: IconSettings },
+  { to: "/notifications", label: "Alerts", icon: IconBell },
+  { to: "/support", label: "Chat", icon: IconChat },
 ];
 
 export function MobileNav() {
-  const { pendingInvites } = useLibrary();
-
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 nav-material hairline-t safe-bottom md:hidden">
       <div className="flex justify-around px-1 pt-1 pb-1">
@@ -100,7 +134,7 @@ export function MobileNav() {
               to={item.to}
               end={item.end}
               className={({ isActive }) =>
-                `relative flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 py-0.5 text-[0.625rem] font-medium transition-colors ${
+                `flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 py-0.5 text-[0.625rem] font-medium transition-colors ${
                   isActive ? "font-semibold text-foreground" : "text-muted"
                 }`
               }
@@ -114,12 +148,6 @@ export function MobileNav() {
             </NavLink>
           );
         })}
-      </div>
-      {/* Floating menu button above tab bar */}
-      <div className="pointer-events-none absolute -top-12 left-3">
-        <div className="pointer-events-auto">
-          <SidebarMenuButton badge={pendingInvites.length} />
-        </div>
       </div>
     </nav>
   );
