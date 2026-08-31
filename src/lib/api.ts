@@ -120,7 +120,10 @@ export const api = {
   },
   libraries: {
     list: () =>
-      request<{ libraries: import("./library-types").Library[] }>("/libraries"),
+      request<{
+        libraries: import("./library-types").Library[];
+        preferredLibraryId?: string | null;
+      }>("/libraries"),
     create: (name: string) =>
       request<import("./library-types").Library>("/libraries", {
         method: "POST",

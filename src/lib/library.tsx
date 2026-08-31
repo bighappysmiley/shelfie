@@ -62,18 +62,31 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      const [{ libraries: list }, { invites }] = await Promise.all([
-        api.libraries.list(),
-        api.libraries.receivedInvites(),
-      ]);
+      const result = await api.libraries.list();
+      const list = result.libraries;
+      const preferredLibraryId = result.preferredLibraryId ?? null;
+      const { invites } = await api.libraries.receivedInvites();
       setLibraries(list);
       setPendingInvites(invites);
 
       const stored = getActiveLibraryId();
+      const preferred =
+        (preferredLibraryId && list.some((l) => l.id === preferredLibraryId)
+          ? preferredLibraryId
+          : null) ??
+        list.find((l) => l.name !== "My Library")?.id ??
+        list[0]?.id ??
+        null;
       const nextId =
         stored && list.some((l) => l.id === stored)
-          ? stored
-          : list[0]?.id ?? null;
+          ? // If stored points at a setup-loop "My Library" duplicate, prefer the real one.
+            list.find((l) => l.id === stored)?.name === "My Library" &&
+            preferred &&
+            preferred !== stored &&
+            list.some((l) => l.id === preferred && l.name !== "My Library")
+            ? preferred
+            : stored
+          : preferred;
 
       setActiveId(nextId);
       setActiveLibraryId(nextId);

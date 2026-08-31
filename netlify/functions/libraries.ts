@@ -3,6 +3,7 @@ import { json, error, parseBody } from "./utils";
 import { withAuth } from "./lib/auth";
 import { supabaseForToken } from "./lib/supabase";
 import { sendLibraryInviteEmail } from "./lib/email";
+import { recoverLibraryData } from "./lib/store";
 
 export const config: Config = {
   path: "/api/libraries",
@@ -19,7 +20,7 @@ function normalizePhone(raw: string): string {
 async function ensureDefaultLibrary(
   accessToken: string,
   userId: string,
-): Promise<void> {
+): Promise<string | null> {
   const supabase = supabaseForToken(accessToken);
 
   const { error: rpcErr } = await supabase.rpc("ensure_default_library");
@@ -31,42 +32,91 @@ async function ensureDefaultLibrary(
       .eq("user_id", userId)
       .limit(1);
 
-    if (memberships && memberships.length > 0) return;
+    if (!memberships || memberships.length === 0) {
+      const { data: library, error: libErr } = await supabase
+        .from("libraries")
+        .insert({ name: "My Library", owner_id: userId })
+        .select("id")
+        .single();
 
-    const { data: library, error: libErr } = await supabase
-      .from("libraries")
-      .insert({ name: "My Library", owner_id: userId })
-      .select("id")
-      .single();
+      if (libErr || !library) {
+        throw new Error(libErr?.message || "Could not create default library");
+      }
 
-    if (libErr || !library) {
-      throw new Error(libErr?.message || "Could not create default library");
-    }
+      const { error: memberErr } = await supabase.from("library_members").insert({
+        library_id: library.id,
+        user_id: userId,
+        role: "owner",
+      });
 
-    const { error: memberErr } = await supabase.from("library_members").insert({
-      library_id: library.id,
-      user_id: userId,
-      role: "owner",
-    });
-
-    if (memberErr) {
-      throw new Error(memberErr.message);
+      if (memberErr) {
+        throw new Error(memberErr.message);
+      }
     }
   }
 
+  // Prefer the oldest membership as the primary catalog (survives setup-loop duplicates).
   const { data: memberships } = await supabase
     .from("library_members")
-    .select("library_id")
+    .select("library_id, joined_at, libraries(id, name, owner_id)")
     .eq("user_id", userId)
-    .limit(1);
+    .order("joined_at", { ascending: true });
 
-  const libraryId = memberships?.[0]?.library_id as string | undefined;
-  if (!libraryId) return;
+  if (!memberships || memberships.length === 0) return null;
 
-  const legacy = await loadData(libraryId, userId);
-  if (legacy.books.length || legacy.borrowers.length || legacy.loans.length) {
-    await saveData(libraryId, legacy);
+  const owned = memberships.filter((m) => {
+    const lib = m.libraries as { owner_id?: string } | null;
+    return lib?.owner_id === userId;
+  });
+  const primary =
+    owned.find((m) => {
+      const lib = m.libraries as { name?: string } | null;
+      return lib?.name && lib.name !== "My Library";
+    }) ??
+    owned[0] ??
+    memberships[0];
+
+  const primaryId = primary.library_id as string;
+  const candidateIds = memberships.map((m) => m.library_id as string);
+
+  try {
+    await recoverLibraryData({
+      primaryLibraryId: primaryId,
+      candidateLibraryIds: candidateIds,
+      legacyUserId: userId,
+    });
+  } catch (err) {
+    console.error("Library data recovery failed:", err);
   }
+
+  // Remove empty duplicate "My Library" rows created by the setup loop.
+  try {
+    const duplicates = owned.filter((m) => {
+      const lib = m.libraries as { id?: string; name?: string } | null;
+      return (
+        m.library_id !== primaryId &&
+        lib?.name === "My Library"
+      );
+    });
+
+    for (const dup of duplicates) {
+      const dupId = dup.library_id as string;
+      const { count } = await supabase
+        .from("library_members")
+        .select("*", { count: "exact", head: true })
+        .eq("library_id", dupId);
+
+      // Only delete sole-owner empty defaults — never shared libraries.
+      if ((count ?? 0) > 1) continue;
+
+      await supabase.from("library_members").delete().eq("library_id", dupId);
+      await supabase.from("libraries").delete().eq("id", dupId).eq("owner_id", userId);
+    }
+  } catch (err) {
+    console.error("Duplicate library cleanup failed:", err);
+  }
+
+  return primaryId;
 }
 
 export default withAuth(async (request, user) => {
@@ -79,7 +129,12 @@ export default withAuth(async (request, user) => {
   const supabase = supabaseForToken(accessToken);
 
   if (request.method === "GET" && !action) {
-    await ensureDefaultLibrary(accessToken, user.id);
+    let preferredId: string | null = null;
+    try {
+      preferredId = await ensureDefaultLibrary(accessToken, user.id);
+    } catch (err) {
+      console.error("ensureDefaultLibrary failed:", err);
+    }
 
     const { data: rows, error: listErr } = await supabase
       .from("library_members")
@@ -106,11 +161,12 @@ export default withAuth(async (request, user) => {
           role: row.role,
           createdAt: lib.created_at,
           updatedAt: lib.updated_at,
+          preferred: preferredId === lib.id,
         };
       })
       .filter((lib): lib is NonNullable<typeof lib> => lib != null);
 
-    return json({ libraries });
+    return json({ libraries, preferredLibraryId: preferredId });
   }
 
   if (request.method === "POST" && !action) {
