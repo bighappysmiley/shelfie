@@ -14,7 +14,7 @@ const presets = {
   lg: { mark: 56, gap: "gap-2.5", text: logoTextClasses.lg },
 } as const;
 
-/** Pine tree on a closed book — readable at small sizes. */
+/** Open book with bookmark — catalog / bookkeeping, one clear symbol. */
 export function LogoMark({
   size = 32,
   className = "",
@@ -24,54 +24,35 @@ export function LogoMark({
     <svg
       width={size}
       height={size}
-      viewBox="0 0 64 64"
+      viewBox="0 0 48 48"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden
       className={className}
       {...props}
     >
-      {/* Closed book */}
       <path
-        d="M15 49H49V57C49 58.1 48.1 59 47 59H17C15.9 59 15 58.1 15 57V49Z"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinejoin="round"
-      />
-      <path d="M32 49V59" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      <path
-        d="M19 53H29M35 53H45"
-        stroke="currentColor"
-        strokeWidth="1.25"
-        strokeLinecap="round"
-        opacity="0.45"
-      />
-
-      {/* Trunk */}
-      <path d="M32 49V37" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-
-      {/* Pine tiers */}
-      <path
-        d="M24 37L32 27L40 37"
+        d="M24 8V18M24 18L20 22M24 18L28 22"
         stroke="currentColor"
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <path
-        d="M20 31L32 19L44 31"
+        d="M24 16C16 16 12 20 12 28V38C12 40.2 16 41 24 39"
         stroke="currentColor"
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <path
-        d="M16 25L32 9L48 25"
+        d="M24 16C32 16 36 20 36 28V38C36 40.2 32 41 24 39"
         stroke="currentColor"
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+      <path d="M24 16V39" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
