@@ -1,25 +1,20 @@
 import type { ComponentPropsWithoutRef } from "react";
 import { APP_WORDMARK_PRIMARY, APP_WORDMARK_SECONDARY } from "@/lib/brand";
 
-const presets = {
-  sm: {
-    mark: 30,
-    gap: "gap-1.5",
-    text: "font-logo text-[0.9375rem] font-medium leading-[1.06] tracking-[0.01em]",
-  },
-  md: {
-    mark: 38,
-    gap: "gap-2",
-    text: "font-logo text-[1.0625rem] font-medium leading-[1.06] tracking-[0.01em]",
-  },
-  lg: {
-    mark: 56,
-    gap: "gap-2.5",
-    text: "font-logo text-[1.75rem] font-medium leading-[1.06] tracking-[0.015em] sm:text-[2rem]",
-  },
+/** Shared wordmark styles — Open Sauce Sans, tight two-line lockup. */
+export const logoTextClasses = {
+  sm: "font-logo text-[0.9375rem] font-normal leading-[1] tracking-[0.006em]",
+  md: "font-logo text-[1.0625rem] font-normal leading-[1] tracking-[0.006em]",
+  lg: "font-logo text-[1.6875rem] font-normal leading-[1] tracking-[0.008em] sm:text-[1.9375rem]",
 } as const;
 
-/** Line-art diamond: pine bough / book spine (matches brand reference). */
+const presets = {
+  sm: { mark: 30, gap: "gap-1.5", text: logoTextClasses.sm },
+  md: { mark: 38, gap: "gap-2", text: logoTextClasses.md },
+  lg: { mark: 56, gap: "gap-2.5", text: logoTextClasses.lg },
+} as const;
+
+/** Minimal pine: tall outline, tiered branches, trunk, center spine (book). */
 export function LogoMark({
   size = 32,
   className = "",
@@ -29,29 +24,40 @@ export function LogoMark({
     <svg
       width={size}
       height={size}
-      viewBox="0 0 64 64"
+      viewBox="0 0 56 68"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden
       className={className}
       {...props}
     >
+      {/* Pine silhouette */}
       <path
-        d="M32 7 55 32 32 57 9 32Z"
+        d="M28 4 46 30 38 30 48 46 8 46 18 30 10 30Z"
         stroke="currentColor"
-        strokeWidth="1.75"
+        strokeWidth="1.65"
         strokeLinejoin="round"
       />
+      {/* Trunk */}
       <path
-        d="M32 50V17"
+        d="M28 46V58M24.5 58H31.5"
         stroke="currentColor"
-        strokeWidth="1.75"
+        strokeWidth="1.65"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Center spine */}
+      <path
+        d="M28 44V14"
+        stroke="currentColor"
+        strokeWidth="1.65"
         strokeLinecap="round"
       />
+      {/* Branch tiers */}
       <path
-        d="M27 29 32 21 37 29M23 35 32 25 41 35M19 41 32 30 45 41M15 47 32 36 49 47"
+        d="M24 20 28 13 32 20M21 26 28 18 35 26M18 32 28 22 38 32M15 38 28 27 41 38M12 44 28 33 44 44"
         stroke="currentColor"
-        strokeWidth="1.75"
+        strokeWidth="1.65"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -81,7 +87,7 @@ export function Logo({
       />
       {showText && (
         <div
-          className={`flex min-w-0 flex-col items-start text-left ${
+          className={`flex min-w-0 flex-col items-start gap-px text-left ${
             onBrand ? "text-logo-text-on-brand" : "text-foreground"
           }`}
         >

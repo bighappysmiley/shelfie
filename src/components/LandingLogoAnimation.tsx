@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { APP_WORDMARK_PRIMARY, APP_WORDMARK_SECONDARY } from "@/lib/brand";
-import { Logo, LogoMark } from "./Logo";
+import { Logo, LogoMark, logoTextClasses } from "./Logo";
 
 const LINE1 = APP_WORDMARK_PRIMARY;
 const LINE2 = APP_WORDMARK_SECONDARY;
@@ -10,8 +10,7 @@ const POP_MS = 380;
 
 type Phase = "fall" | "type1" | "type2" | "pop" | "done";
 
-const textClass =
-  "font-logo text-[1.75rem] font-medium leading-[1.06] tracking-[0.015em] text-logo-text-on-brand sm:text-[2rem]";
+const textClass = `${logoTextClasses.lg} text-logo-text-on-brand`;
 
 function BlinkCursor() {
   return (

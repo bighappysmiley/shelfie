@@ -194,6 +194,9 @@ h1, h2, h3 {
 
 .font-logo {
   font-family: var(--font-logo);
+  font-feature-settings: "kern" 1, "liga" 1;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 @keyframes logo-cursor-fall {
