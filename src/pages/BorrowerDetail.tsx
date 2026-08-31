@@ -59,8 +59,8 @@ export function BorrowerDetailPage() {
   return (
     <div>
       <div className="mb-6">
-        <Link to="/borrowers" className="text-sm text-muted hover:text-foreground">
-          ← Borrowers
+        <Link to="/borrowers" className="text-[0.9375rem] text-accent">
+          Borrowers
         </Link>
       </div>
 

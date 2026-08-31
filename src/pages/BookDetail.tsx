@@ -111,8 +111,8 @@ export function BookDetailPage() {
   return (
     <div>
       <div className="mb-6">
-        <Link to="/library" className="text-sm text-muted hover:text-foreground">
-          ← Library
+        <Link to="/library" className="text-[0.9375rem] text-accent">
+          Library
         </Link>
       </div>
 

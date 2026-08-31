@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import type { Borrower, LoanWithDetails } from "@/lib/types";
-import { PageHeader, Card, EmptyState, Badge } from "@/components/layout";
+import { PageHeader, Group, EmptyState, Badge } from "@/components/layout";
 import { Button } from "@/components/Button";
-import { TextField } from "@/components/form";
+import { SearchInput, TextField } from "@/components/form";
 
 export function BorrowersPage() {
   const [borrowers, setBorrowers] = useState<Borrower[]>([]);
@@ -58,73 +58,74 @@ export function BorrowersPage() {
       <PageHeader
         title="Borrowers"
         subtitle="Contacts who borrow from your collection"
-        action={<Button onClick={() => setShowAdd(true)}>Add borrower</Button>}
+        action={
+          <Button size="sm" onClick={() => setShowAdd(true)}>
+            Add
+          </Button>
+        }
       />
 
-      <div className="mb-5">
-        <input
-          type="search"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search borrowers…"
-          className="w-full rounded-lg border border-black/10 bg-surface px-3.5 py-2.5 text-base placeholder:text-muted/70 dark:border-white/10"
-        />
+      <div className="mb-4">
+        <SearchInput value={q} onChange={setQ} placeholder="Search borrowers" />
       </div>
 
       {showAdd && (
-        <Card className="mb-6">
-          <form onSubmit={handleAdd} className="space-y-4">
-            <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} required />
-            <TextField label="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" />
-            <TextField label="Email" value={email} onChange={(e) => setEmail(e.target.value)} type="email" />
-            <div className="flex gap-2">
-              <Button type="submit">Save</Button>
-              <Button variant="secondary" type="button" onClick={() => setShowAdd(false)}>
+        <Group className="mb-4">
+          <form onSubmit={handleAdd}>
+            <TextField label="Name" grouped required value={name} onChange={(e) => setName(e.target.value)} />
+            <TextField label="Phone" grouped value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" />
+            <TextField label="Email" grouped value={email} onChange={(e) => setEmail(e.target.value)} type="email" />
+            <div className="flex gap-2 px-4 py-4">
+              <Button type="submit" size="sm">Save</Button>
+              <Button variant="tinted" size="sm" type="button" onClick={() => setShowAdd(false)}>
                 Cancel
               </Button>
             </div>
           </form>
-        </Card>
+        </Group>
       )}
 
       {filtered.length === 0 ? (
         <EmptyState
-          title={borrowers.length === 0 ? "No borrowers" : "No results"}
+          title={borrowers.length === 0 ? "No Borrowers" : "No Results"}
           description={
             borrowers.length === 0
               ? "Add a borrower when recording a loan."
-              : "No borrowers match your search criteria."
+              : "No borrowers match your search."
           }
         />
       ) : (
-        <div className="space-y-2">
+        <Group>
           {filtered.map((b) => {
             const active = activeByBorrower[b.id] ?? 0;
             return (
               <Link
                 key={b.id}
                 to={`/borrowers/${b.id}`}
-                className="flex items-center justify-between gap-3 rounded-md border border-black/10 bg-surface p-4 shadow-sm transition-colors hover:border-black/20 dark:border-white/10"
+                className="flex min-h-[44px] items-center justify-between gap-3 px-4 py-3 hairline-b last:border-b-0 active:bg-fill-secondary"
               >
                 <div className="min-w-0">
-                  <p className="font-medium">{b.name}</p>
+                  <p className="truncate text-[1.0625rem]">{b.name}</p>
                   {(b.phone || b.email) && (
-                    <p className="mt-0.5 truncate text-sm text-muted">
+                    <p className="truncate text-[0.9375rem] text-muted">
                       {[b.phone, b.email].filter(Boolean).join(" · ")}
                     </p>
                   )}
                 </div>
-                {active > 0 ? (
-                  <Badge variant="warning">
-                    {active} on loan
-                  </Badge>
-                ) : (
-                  <span className="text-xs text-muted">No active loans</span>
-                )}
+                <div className="flex shrink-0 items-center gap-2">
+                  {active > 0 ? (
+                    <Badge variant="warning">{active} on loan</Badge>
+                  ) : (
+                    <span className="text-[0.8125rem] text-muted">No loans</span>
+                  )}
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="text-tertiary" aria-hidden>
+                    <path d="M5 3.5L8.5 7L5 10.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
               </Link>
             );
           })}
-        </div>
+        </Group>
       )}
     </div>
   );

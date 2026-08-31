@@ -5,7 +5,7 @@ import { cacheBooks, getCachedBooks, isOnline } from "@/lib/offline";
 import type { Book, BookFormat, LibraryStatus } from "@/lib/types";
 import { FORMAT_LABELS, STATUS_LABELS } from "@/lib/types";
 import { BookCard } from "@/components/BookCard";
-import { PageHeader, EmptyState } from "@/components/layout";
+import { PageHeader, EmptyState, Group, SegmentedControl } from "@/components/layout";
 import { SearchInput, SelectField, TextField } from "@/components/form";
 import { Button, ButtonLink } from "@/components/Button";
 import { IconGrid, IconList } from "@/components/Icons";
@@ -183,27 +183,26 @@ export function LibraryPage() {
 
   const hasFilters = Boolean(status || format || room || tag || q);
 
-  const statusChips: { value: StatusFilter; label: string }[] = [
+  const statusSegments: { value: StatusFilter; label: string }[] = [
     { value: "", label: "All" },
     { value: "available", label: "Available" },
-    { value: "on_loan", label: "On loan" },
+    { value: "on_loan", label: "On Loan" },
     { value: "wishlist", label: "Wishlist" },
-    { value: "missing", label: "Missing" },
   ];
 
   return (
     <div>
       <PageHeader
         title="Library"
-        subtitle={`${counts.total} book${counts.total !== 1 ? "s" : ""}`}
+        subtitle={`${counts.total} volume${counts.total !== 1 ? "s" : ""}`}
         action={
-          <div className="flex flex-wrap gap-2">
-            <div className="flex rounded-lg border border-black/8 bg-surface p-0.5 dark:border-white/10">
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-[var(--radius-control)] bg-fill p-0.5">
               <button
                 type="button"
                 aria-label="List view"
                 onClick={() => changeView("list")}
-                className={`rounded-md p-2 ${view === "list" ? "bg-accent-soft" : "text-muted"}`}
+                className={`rounded-[0.4375rem] p-2 ${view === "list" ? "bg-surface shadow-sm" : "text-muted"}`}
               >
                 <IconList size={18} />
               </button>
@@ -211,47 +210,33 @@ export function LibraryPage() {
                 type="button"
                 aria-label="Cover grid"
                 onClick={() => changeView("covers")}
-                className={`rounded-md p-2 ${view === "covers" ? "bg-accent-soft" : "text-muted"}`}
+                className={`rounded-[0.4375rem] p-2 ${view === "covers" ? "bg-surface shadow-sm" : "text-muted"}`}
               >
                 <IconGrid size={18} />
               </button>
             </div>
             <Button
-              variant={bulkMode ? "primary" : "secondary"}
+              variant={bulkMode ? "tinted" : "secondary"}
+              size="toolbar"
               onClick={() => {
                 setBulkMode(!bulkMode);
                 setSelected(new Set());
               }}
             >
-              {bulkMode ? "Done" : "Select"}
+              {bulkMode ? "Done" : "Edit"}
             </Button>
           </div>
         }
       />
 
-      <div className="mb-5 space-y-3">
-        <SearchInput
-          value={q}
-          onChange={setQ}
-          placeholder="Search title, author, ISBN, location, tags…"
-        />
+      <div className="mb-4 space-y-3">
+        <SearchInput value={q} onChange={setQ} placeholder="Search catalog" />
 
-        <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {statusChips.map((chip) => (
-            <button
-              key={chip.value || "all"}
-              type="button"
-              onClick={() => setStatus(chip.value)}
-              className={`shrink-0 rounded-lg px-3 py-1.5 text-sm transition-colors ${
-                status === chip.value
-                  ? "bg-accent font-medium text-accent-contrast"
-                  : "bg-accent-soft text-foreground hover:bg-black/[0.06] dark:hover:bg-white/[0.08]"
-              }`}
-            >
-              {chip.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          value={status === "missing" ? "" : status}
+          onChange={(v) => setStatus(v)}
+          options={statusSegments}
+        />
 
         <div className="flex flex-wrap items-center gap-2">
           <SelectField
@@ -259,7 +244,7 @@ export function LibraryPage() {
             aria-label="Sort by"
             value={sort}
             onChange={(e) => setSort(e.target.value)}
-            className="w-auto min-w-[140px]"
+            className="min-w-[140px] flex-1"
           >
             <option value="title">Title</option>
             <option value="author">Author</option>
@@ -267,28 +252,22 @@ export function LibraryPage() {
             <option value="published">Publish year</option>
             <option value="rating">Rating</option>
           </SelectField>
-          <Button variant="ghost" onClick={() => setShowFilters((v) => !v)}>
-            {showFilters ? "Hide filters" : "More filters"}
+          <Button variant="plain" size="sm" onClick={() => setShowFilters((v) => !v)}>
+            {showFilters ? "Hide" : "Filters"}
           </Button>
           {hasFilters && (
-            <Button variant="ghost" onClick={clearFilters}>
+            <Button variant="plain" size="sm" onClick={clearFilters}>
               Clear
             </Button>
           )}
-          <Link to="/locations" className="ml-auto text-sm text-muted hover:text-foreground">
-            Browse locations
+          <Link to="/locations" className="ml-auto text-[0.9375rem] text-accent">
+            Locations
           </Link>
         </div>
 
         {showFilters && (
-          <div className="flex flex-wrap gap-3 rounded-lg border border-black/8 bg-surface p-3 dark:border-white/10">
-            <SelectField
-              label="Format"
-              aria-label="Format"
-              value={format}
-              onChange={(e) => setFormat(e.target.value)}
-              className="w-auto min-w-[140px]"
-            >
+          <Group>
+            <SelectField label="Format" grouped value={format} onChange={(e) => setFormat(e.target.value)}>
               <option value="">All formats</option>
               {(Object.keys(FORMAT_LABELS) as BookFormat[]).map((k) => (
                 <option key={k} value={k}>
@@ -296,13 +275,7 @@ export function LibraryPage() {
                 </option>
               ))}
             </SelectField>
-            <SelectField
-              label="Room"
-              aria-label="Room"
-              value={room}
-              onChange={(e) => setRoom(e.target.value)}
-              className="w-auto min-w-[140px]"
-            >
+            <SelectField label="Room" grouped value={room} onChange={(e) => setRoom(e.target.value)}>
               <option value="">All rooms</option>
               {rooms.map((r) => (
                 <option key={r} value={r}>
@@ -310,13 +283,7 @@ export function LibraryPage() {
                 </option>
               ))}
             </SelectField>
-            <SelectField
-              label="Tag"
-              aria-label="Tag"
-              value={tag}
-              onChange={(e) => setTag(e.target.value)}
-              className="w-auto min-w-[140px]"
-            >
+            <SelectField label="Tag" grouped value={tag} onChange={(e) => setTag(e.target.value)}>
               <option value="">All tags</option>
               {tags.map((t) => (
                 <option key={t} value={t}>
@@ -324,102 +291,83 @@ export function LibraryPage() {
                 </option>
               ))}
             </SelectField>
-          </div>
-        )}
-
-        {tags.length > 0 && !showFilters && (
-          <div className="flex flex-wrap gap-1.5">
-            {tags.slice(0, 12).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setTag(tag === t ? "" : t)}
-                className={`rounded-md px-2 py-0.5 text-xs ${
-                  tag === t
-                    ? "bg-accent text-accent-contrast"
-                    : "bg-accent-soft text-muted hover:text-foreground"
-                }`}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
+          </Group>
         )}
       </div>
 
       {bulkMode && (
-        <div className="mb-4 space-y-3 rounded-lg border border-black/8 bg-surface p-3 dark:border-white/10">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm text-muted">
-              {selected.size} selected
-            </span>
-            <Button variant="ghost" onClick={selectAll}>
-              Select all
-            </Button>
-            {Object.entries(STATUS_LABELS).map(([k, v]) => (
-              <Button
-                key={k}
-                variant="secondary"
-                disabled={selected.size === 0}
-                onClick={() => bulkUpdateStatus(k)}
-              >
-                Set status: {v}
+        <Group className="mb-4">
+          <div className="space-y-3 p-4">
+            <p className="text-[0.9375rem] text-muted">{selected.size} selected</p>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="tinted" size="sm" onClick={selectAll}>
+                Select All
               </Button>
-            ))}
-            <Button
-              variant="danger"
-              disabled={selected.size === 0}
-              onClick={bulkDelete}
-            >
-              Delete
-            </Button>
+              {Object.entries(STATUS_LABELS).map(([k, v]) => (
+                <Button
+                  key={k}
+                  variant="secondary"
+                  size="sm"
+                  disabled={selected.size === 0}
+                  onClick={() => bulkUpdateStatus(k)}
+                >
+                  {v}
+                </Button>
+              ))}
+              <Button variant="danger" size="sm" disabled={selected.size === 0} onClick={bulkDelete}>
+                Delete
+              </Button>
+            </div>
+            <div className="flex flex-wrap items-end gap-2">
+              <TextField
+                label="Room"
+                value={bulkRoom}
+                onChange={(e) => setBulkRoom(e.target.value)}
+                placeholder="Living room"
+                className="flex-1"
+              />
+              <TextField
+                label="Shelf"
+                value={bulkShelf}
+                onChange={(e) => setBulkShelf(e.target.value)}
+                placeholder="Shelf A"
+                className="flex-1"
+              />
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={selected.size === 0 || (!bulkRoom && !bulkShelf)}
+                onClick={bulkUpdateLocation}
+              >
+                Update
+              </Button>
+            </div>
           </div>
-          <div className="flex flex-wrap items-end gap-2">
-            <TextField
-              label="Set room"
-              value={bulkRoom}
-              onChange={(e) => setBulkRoom(e.target.value)}
-              placeholder="Living room"
-            />
-            <TextField
-              label="Set shelf"
-              value={bulkShelf}
-              onChange={(e) => setBulkShelf(e.target.value)}
-              placeholder="Shelf A"
-            />
-            <Button
-              variant="secondary"
-              disabled={selected.size === 0 || (!bulkRoom && !bulkShelf)}
-              onClick={bulkUpdateLocation}
-            >
-              Update location
-            </Button>
-          </div>
-        </div>
+        </Group>
       )}
 
       {loading ? (
-        <p className="text-muted">Loading…</p>
+        <p className="px-1 text-muted">Loading…</p>
       ) : books.length === 0 ? (
         <EmptyState
-          title={hasFilters ? "No matching records" : "Catalog is empty"}
+          title={hasFilters ? "No Results" : "Empty Catalog"}
           description={
             hasFilters
-              ? "Clear filters or revise your search terms."
-              : "Add a volume to begin building your catalog."
+              ? "Try adjusting your search or filters."
+              : "Add your first book to get started."
           }
           action={
             hasFilters ? (
-              <Button variant="secondary" onClick={clearFilters}>
-                Clear filters
+              <Button variant="tinted" onClick={clearFilters}>
+                Clear Filters
               </Button>
             ) : (
-              <ButtonLink to="/add">Add book</ButtonLink>
+              <ButtonLink to="/add">Add Book</ButtonLink>
             )
           }
         />
       ) : view === "covers" ? (
-        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
           {books.map((book) => (
             <BookCard
               key={book.id}
@@ -431,7 +379,7 @@ export function LibraryPage() {
           ))}
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <Group>
           {books.map((book) => (
             <BookCard
               key={book.id}
@@ -441,7 +389,7 @@ export function LibraryPage() {
               onSelect={bulkMode ? toggleSelect : undefined}
             />
           ))}
-        </div>
+        </Group>
       )}
     </div>
   );

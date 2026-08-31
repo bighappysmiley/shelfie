@@ -3,7 +3,13 @@ import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import type { LoanWithDetails } from "@/lib/types";
 import { CoverImage } from "@/components/CoverImage";
-import { PageHeader, Card, Badge, EmptyState } from "@/components/layout";
+import {
+  PageHeader,
+  Group,
+  EmptyState,
+  Badge,
+  SegmentedControl,
+} from "@/components/layout";
 import { Button } from "@/components/Button";
 import { TextField } from "@/components/form";
 
@@ -57,67 +63,55 @@ export function LoanedOutPage() {
   return (
     <div>
       <PageHeader
-        title="Active loans"
+        title="Loans"
         subtitle={`${loans.length} active · ${overdueCount} overdue`}
       />
 
-      <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
-        {(
-          [
+      <div className="mb-4">
+        <SegmentedControl
+          value={filter}
+          onChange={setFilter}
+          options={[
             { value: "all", label: "All" },
             { value: "overdue", label: "Overdue" },
-            { value: "due_soon", label: "Due soon" },
-          ] as const
-        ).map((chip) => (
-          <button
-            key={chip.value}
-            type="button"
-            onClick={() => setFilter(chip.value)}
-            className={`shrink-0 rounded-lg px-3 py-1.5 text-sm transition-colors ${
-              filter === chip.value
-                ? "bg-accent font-medium text-white dark:text-background"
-                : "bg-accent-soft text-foreground hover:bg-black/[0.06] dark:hover:bg-white/[0.08]"
-            }`}
-          >
-            {chip.label}
-          </button>
-        ))}
+            { value: "due_soon", label: "Due Soon" },
+          ]}
+        />
       </div>
 
       {loading ? (
-        <p className="text-muted">Loading…</p>
+        <p className="px-1 text-muted">Loading…</p>
       ) : filtered.length === 0 ? (
         <EmptyState
-          title={filter === "all" ? "No active loans" : "No matching loans"}
+          title={filter === "all" ? "No Active Loans" : "No Results"}
           description={
             filter === "all"
-              ? "Loans will appear here when books are checked out to borrowers."
-              : "Adjust the filter to view other loans."
+              ? "Loans appear here when books are checked out."
+              : "Try a different filter."
           }
         />
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {filtered.map(({ loan, book, borrower }) => {
             const overdue = loan.dueDate && loan.dueDate < today;
             return (
-              <Card key={loan.id} className="!p-4">
-                <div className="flex gap-4">
+              <Group key={loan.id}>
+                <div className="flex gap-3 p-4">
                   <CoverImage
                     book={book}
-                    className="h-20 w-14 shrink-0 rounded-md object-cover bg-accent-soft"
+                    className="h-16 w-11 shrink-0 rounded-[4px] object-cover bg-fill"
                   />
                   <div className="min-w-0 flex-1">
-                    <Link to={`/book/${book.id}`} className="font-medium hover:underline">
+                    <Link to={`/book/${book.id}`} className="text-[1.0625rem] font-medium">
                       {book.title}
                     </Link>
-                    <p className="text-sm text-muted">
-                      Loaned to{" "}
-                      <Link to={`/borrowers/${borrower.id}`} className="hover:underline">
+                    <p className="text-[0.9375rem] text-muted">
+                      <Link to={`/borrowers/${borrower.id}`} className="text-accent">
                         {borrower.name}
                       </Link>
                     </p>
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-                      <span className="text-muted">Since {loan.dateLoaned}</span>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <span className="text-[0.8125rem] text-muted">Since {loan.dateLoaned}</span>
                       {loan.dueDate && (
                         <Badge variant={overdue ? "warning" : "default"}>
                           {overdue ? "Overdue" : `Due ${loan.dueDate}`}
@@ -133,30 +127,29 @@ export function LoanedOutPage() {
                           value={dueDate}
                           onChange={(e) => setDueDate(e.target.value)}
                         />
-                        <Button onClick={() => handleSaveDue(loan.id)}>Save</Button>
-                        <Button variant="ghost" onClick={() => setEditingId(null)}>
+                        <Button size="sm" onClick={() => handleSaveDue(loan.id)}>Save</Button>
+                        <Button variant="plain" size="sm" onClick={() => setEditingId(null)}>
                           Cancel
                         </Button>
                       </div>
                     ) : (
                       <div className="mt-3 flex flex-wrap gap-2">
-                        <Button variant="secondary" onClick={() => handleReturn(loan.id)}>
-                          Return
-                        </Button>
+                        <Button size="sm" onClick={() => handleReturn(loan.id)}>Return</Button>
                         <Button
-                          variant="ghost"
+                          variant="tinted"
+                          size="sm"
                           onClick={() => {
                             setEditingId(loan.id);
                             setDueDate(loan.dueDate ?? "");
                           }}
                         >
-                          Change due date
+                          Edit Due Date
                         </Button>
                       </div>
                     )}
                   </div>
                 </div>
-              </Card>
+              </Group>
             );
           })}
         </div>

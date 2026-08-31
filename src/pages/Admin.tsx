@@ -4,7 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import type { Ticket } from "@/lib/support-types";
 import { formatWhen } from "@/lib/support-types";
-import { PageHeader } from "@/components/layout";
+import { PageHeader, Group } from "@/components/layout";
 
 export function AdminPage() {
   const { isStaff, loading } = useAuth();
@@ -23,7 +23,7 @@ export function AdminPage() {
       });
   }, [isStaff]);
 
-  if (loading) return <p className="text-muted">Loading…</p>;
+  if (loading) return <p className="px-1 text-muted">Loading…</p>;
   if (!isStaff) return <Navigate to="/library" replace />;
 
   const openCount = tickets.filter((t) => t.status === "open").length;
@@ -31,35 +31,34 @@ export function AdminPage() {
   return (
     <div>
       <PageHeader
-        title="Support inbox"
+        title="Support Inbox"
         subtitle={`${openCount} open · ${tickets.length} total`}
       />
 
       {ready && tickets.length === 0 ? (
-        <p className="text-sm text-muted">No support requests received.</p>
+        <p className="px-1 text-[0.9375rem] text-muted">No support requests received.</p>
       ) : (
-        <ul className="divide-y divide-black/8 rounded-lg border border-black/8 bg-surface dark:divide-white/10 dark:border-white/10">
+        <Group>
           {tickets.map((ticket) => (
-            <li key={ticket.id}>
-              <Link
-                to={`/support/${ticket.id}`}
-                className="flex flex-wrap items-baseline justify-between gap-2 px-3 py-3 transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.03]"
+            <Link
+              key={ticket.id}
+              to={`/support/${ticket.id}`}
+              className="flex min-h-[44px] flex-wrap items-center justify-between gap-2 px-4 py-3 hairline-b last:border-b-0 active:bg-fill-secondary"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-[1.0625rem]">{ticket.subject}</p>
+                <p className="truncate text-[0.9375rem] text-muted">{ticket.contact_email}</p>
+              </div>
+              <span
+                className={`shrink-0 text-[0.9375rem] ${
+                  ticket.status === "open" ? "font-medium text-accent" : "text-muted"
+                }`}
               >
-                <div className="min-w-0">
-                  <p className="font-medium">{ticket.subject}</p>
-                  <p className="truncate text-sm text-muted">{ticket.contact_email}</p>
-                </div>
-                <span
-                  className={`shrink-0 text-sm ${
-                    ticket.status === "open" ? "font-medium text-foreground" : "text-muted"
-                  }`}
-                >
-                  {ticket.status === "open" ? "Open" : "Closed"} · {formatWhen(ticket.created_at)}
-                </span>
-              </Link>
-            </li>
+                {ticket.status === "open" ? "Open" : "Closed"} · {formatWhen(ticket.created_at)}
+              </span>
+            </Link>
           ))}
-        </ul>
+        </Group>
       )}
     </div>
   );

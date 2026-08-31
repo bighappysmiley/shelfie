@@ -6,7 +6,7 @@ import type { Ticket, TicketMessage } from "@/lib/support-types";
 import { ChatBubble } from "@/components/ChatBubble";
 import { Button } from "@/components/Button";
 import { TextArea, FormError } from "@/components/form";
-import { Card } from "@/components/layout";
+import { Group } from "@/components/layout";
 
 export function SupportTicketPage() {
   const { id } = useParams<{ id: string }>();
@@ -108,16 +108,16 @@ export function SupportTicketPage() {
 
   return (
     <div>
-      <Link to={backHref} className="text-xs font-medium uppercase tracking-wide text-muted hover:text-foreground">
-        {isStaff ? "Support inbox" : "Support"}
+      <Link to={backHref} className="text-[0.9375rem] text-accent">
+        {isStaff ? "Support Inbox" : "Support"}
       </Link>
-      <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-[1.65rem]">{ticket.subject}</h1>
-      <p className="mt-1.5 text-sm text-muted">
+      <h1 className="mt-2 text-[1.75rem] font-bold tracking-tight">{ticket.subject}</h1>
+      <p className="mt-1 text-[0.9375rem] text-muted">
         {isStaff && <span>{ticket.contact_email} · </span>}
         {ticket.status === "open" ? "Open" : "Closed"}
       </p>
 
-      <ol className="mt-6 space-y-4 border-t border-black/8 pt-6 dark:border-white/10">
+      <ol className="mt-6 space-y-3">
         {messages.map((message) => (
           <ChatBubble
             key={message.id}
@@ -136,8 +136,8 @@ export function SupportTicketPage() {
       )}
 
       {canReply ? (
-        <Card className="mt-6">
-          <form onSubmit={sendReply} className="space-y-4">
+        <Group className="mt-6">
+          <form onSubmit={sendReply} className="p-4 space-y-4">
             <TextArea
               label={isStaff ? "Reply" : "Message"}
               value={reply}
@@ -155,24 +155,24 @@ export function SupportTicketPage() {
                 {sending ? "Sending…" : "Send"}
               </Button>
               {isStaff && ticket.status === "open" && (
-                <Button type="button" variant="secondary" onClick={() => setStatus("closed")}>
+                <Button type="button" variant="tinted" onClick={() => setStatus("closed")}>
                   Close
                 </Button>
               )}
               {isStaff && ticket.status === "closed" && (
-                <Button type="button" variant="secondary" onClick={() => setStatus("open")}>
+                <Button type="button" variant="tinted" onClick={() => setStatus("open")}>
                   Reopen
                 </Button>
               )}
             </div>
           </form>
-        </Card>
+        </Group>
       ) : (
         <p className="mt-6 text-sm text-muted">
           This ticket is closed.{" "}
           <button
             type="button"
-            className="font-medium text-foreground hover:underline"
+            className="text-accent"
             onClick={() => navigate("/support")}
           >
             Submit a new request

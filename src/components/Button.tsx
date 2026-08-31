@@ -1,40 +1,58 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { Link } from "react-router-dom";
 
-type Variant = "primary" | "secondary" | "ghost" | "danger";
+type Variant = "primary" | "secondary" | "tinted" | "ghost" | "plain" | "danger";
 
 const base =
-  "inline-flex items-center justify-center gap-2 rounded-md px-3.5 py-2 text-sm font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none";
+  "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-[var(--radius-pill)] px-5 text-[1.0625rem] font-medium transition-all active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40";
 
 const variants: Record<Variant, string> = {
   primary: "bg-accent text-accent-contrast hover:bg-accent-hover",
-  secondary:
-    "border border-black/10 bg-surface text-foreground hover:bg-black/[0.04] dark:border-white/10 dark:hover:bg-white/[0.04]",
-  ghost: "text-muted hover:bg-black/[0.04] hover:text-foreground dark:hover:bg-white/[0.04]",
-  danger: "bg-warning-bg text-warning hover:opacity-90",
+  secondary: "bg-fill text-foreground hover:bg-fill-secondary",
+  tinted: "bg-accent-soft text-accent hover:opacity-90",
+  ghost: "text-accent hover:bg-accent-soft",
+  plain: "min-h-0 rounded-none px-0 py-0 text-accent active:opacity-60",
+  danger: "bg-destructive-bg text-destructive hover:opacity-90",
+};
+
+const sizes = {
+  default: "px-5",
+  sm: "min-h-[36px] px-4 text-[0.9375rem]",
+  toolbar: "min-h-[32px] rounded-[var(--radius-control)] px-3 text-[0.8125rem]",
 };
 
 export function Button({
   variant = "primary",
+  size = "default",
   className = "",
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant }) {
-  return <button className={`${base} ${variants[variant]} ${className}`} {...props} />;
+}: ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: Variant;
+  size?: keyof typeof sizes;
+}) {
+  return (
+    <button
+      className={`${base} ${variants[variant]} ${sizes[size]} ${className}`}
+      {...props}
+    />
+  );
 }
 
 export function ButtonLink({
   to,
   variant = "primary",
+  size = "default",
   className = "",
   children,
 }: {
   to: string;
   variant?: Variant;
+  size?: keyof typeof sizes;
   className?: string;
   children: ReactNode;
 }) {
   return (
-    <Link to={to} className={`${base} ${variants[variant]} ${className}`}>
+    <Link to={to} className={`${base} ${variants[variant]} ${sizes[size]} ${className}`}>
       {children}
     </Link>
   );

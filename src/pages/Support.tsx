@@ -4,7 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import type { Ticket } from "@/lib/support-types";
 import { formatWhen } from "@/lib/support-types";
-import { PageHeader, Card, SectionHeading } from "@/components/layout";
+import { PageHeader, Group, GroupHeader, Banner } from "@/components/layout";
 import { Button } from "@/components/Button";
 import { TextField, TextArea, FormError } from "@/components/form";
 
@@ -49,7 +49,7 @@ export function SupportPage() {
 
     if (ticketError || !ticket) {
       setSending(false);
-      setError(ticketError?.message ?? "Unable to submit request. Please try again.");
+      setError(ticketError?.message ?? "Unable to submit request.");
       return;
     }
 
@@ -74,17 +74,12 @@ export function SupportPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Support"
-        subtitle="Submit a request and track responses in your ticket history"
-      />
+      <PageHeader title="Support" subtitle="Submit and track support requests" />
 
       {sent && (
-        <Card className="mb-4 border-success/20 bg-success-bg">
-          <p className="text-sm text-success">
-            Request submitted. A response will appear in your ticket history below.
-          </p>
-        </Card>
+        <Banner variant="success" className="mb-4">
+          Request submitted. Check your ticket history for updates.
+        </Banner>
       )}
       {error && (
         <div className="mb-4">
@@ -92,12 +87,12 @@ export function SupportPage() {
         </div>
       )}
 
-      <Card>
-        <h2 className="text-sm font-semibold">New request</h2>
-        <form onSubmit={submit} className="mt-4 space-y-3">
+      <Group className="mb-6">
+        <form onSubmit={submit}>
           <TextField
             label="Subject"
             required
+            grouped
             maxLength={120}
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
@@ -105,38 +100,38 @@ export function SupportPage() {
           <TextArea
             label="Description"
             required
+            grouped
             maxLength={4000}
             value={body}
             onChange={(e) => setBody(e.target.value)}
           />
-          <Button type="submit" disabled={sending}>
-            {sending ? "Submitting…" : "Submit request"}
-          </Button>
+          <div className="px-4 py-4">
+            <Button type="submit" className="w-full" disabled={sending}>
+              {sending ? "Submitting…" : "Submit Request"}
+            </Button>
+          </div>
         </form>
-      </Card>
+      </Group>
 
-      <div className="mt-8">
-        <SectionHeading title="Ticket history" />
-        {tickets.length === 0 ? (
-          <p className="text-sm text-muted">No support requests on file.</p>
-        ) : (
-          <ul className="divide-y divide-black/10 border border-black/10 bg-surface dark:divide-white/10 dark:border-white/10">
-            {tickets.map((ticket) => (
-              <li key={ticket.id}>
-                <Link
-                  to={`/support/${ticket.id}`}
-                  className="flex flex-wrap items-baseline justify-between gap-2 px-4 py-3 text-sm transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.03]"
-                >
-                  <span className="font-medium">{ticket.subject}</span>
-                  <span className="text-muted">
-                    {ticket.status === "open" ? "Open" : "Closed"} · {formatWhen(ticket.created_at)}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      <GroupHeader>Ticket history</GroupHeader>
+      {tickets.length === 0 ? (
+        <p className="px-1 text-[0.9375rem] text-muted">No support requests on file.</p>
+      ) : (
+        <Group>
+          {tickets.map((ticket) => (
+            <Link
+              key={ticket.id}
+              to={`/support/${ticket.id}`}
+              className="flex min-h-[44px] items-center justify-between gap-3 px-4 py-3 hairline-b last:border-b-0 active:bg-fill-secondary"
+            >
+              <span className="truncate text-[1.0625rem]">{ticket.subject}</span>
+              <span className="shrink-0 text-[0.9375rem] text-muted">
+                {ticket.status === "open" ? "Open" : "Closed"} · {formatWhen(ticket.created_at)}
+              </span>
+            </Link>
+          ))}
+        </Group>
+      )}
     </div>
   );
 }

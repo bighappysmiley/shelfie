@@ -3,7 +3,13 @@ import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import { ButtonLink } from "@/components/Button";
 import { BookCard } from "@/components/BookCard";
-import { Card, PageHeader, SectionHeading } from "@/components/layout";
+import {
+  Group,
+  GroupHeader,
+  ListRow,
+  PageHeader,
+  Banner,
+} from "@/components/layout";
 import type { Book, LoanWithDetails } from "@/lib/types";
 
 export function HomePage() {
@@ -52,128 +58,118 @@ export function HomePage() {
     <div>
       <PageHeader
         title="Overview"
-        subtitle="Summary of your collection and active loans"
-        action={<ButtonLink to="/add">Add book</ButtonLink>}
+        action={<ButtonLink to="/add" size="sm">Add Book</ButtonLink>}
       />
 
       {(overdue.length > 0 || dueSoon.length > 0) && (
-        <div className="mb-6 space-y-2">
+        <div className="mb-5 space-y-2">
           {overdue.length > 0 && (
-            <div className="rounded-md border border-warning/30 bg-warning-bg px-4 py-3">
-              <p className="text-sm font-medium text-warning">
-                {overdue.length} overdue loan{overdue.length > 1 ? "s" : ""} require attention
+            <Banner variant="warning">
+              <p className="font-medium">
+                {overdue.length} overdue loan{overdue.length > 1 ? "s" : ""}
               </p>
-              <Link to="/loaned" className="mt-1 inline-block text-sm text-warning underline">
+              <Link to="/loaned" className="mt-1 inline-block text-[0.9375rem] underline">
                 View active loans
               </Link>
-            </div>
+            </Banner>
           )}
           {dueSoon.length > 0 && overdue.length === 0 && (
-            <div className="rounded-md border border-black/10 bg-surface px-4 py-3 dark:border-white/10">
-              <p className="text-sm font-medium">
-                {dueSoon.length} loan{dueSoon.length > 1 ? "s" : ""} due within 7 days
+            <Banner>
+              <p className="font-medium">
+                {dueSoon.length} due within 7 days
               </p>
-              <Link to="/loaned" className="mt-1 inline-block text-sm text-muted hover:text-foreground">
+              <Link to="/loaned" className="mt-1 inline-block text-[0.9375rem] text-accent">
                 View due dates
               </Link>
-            </div>
+            </Banner>
           )}
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Link
+      <Group className="mb-6">
+        <ListRow
+          title="Total volumes"
+          trailing={stats?.totalBooks ?? "—"}
           to="/library"
-          className="rounded-md border border-black/10 bg-surface p-4 shadow-sm transition-colors hover:border-black/20 dark:border-white/10"
-        >
-          <p className="text-xs font-medium uppercase tracking-wide text-muted">Total volumes</p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums">
-            {stats?.totalBooks ?? "—"}
-          </p>
-        </Link>
-        <Link
+          chevron
+        />
+        <ListRow
+          title="On loan"
+          trailing={stats?.activeLoans ?? loans.length}
           to="/library?status=on_loan"
-          className="rounded-md border border-black/10 bg-surface p-4 shadow-sm transition-colors hover:border-black/20 dark:border-white/10"
-        >
-          <p className="text-xs font-medium uppercase tracking-wide text-muted">On loan</p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums">
-            {stats?.activeLoans ?? loans.length}
-          </p>
-        </Link>
-        <Link
+          chevron
+        />
+        <ListRow
+          title="Wishlist"
+          trailing={stats?.byStatus?.wishlist ?? "—"}
           to="/library?status=wishlist"
-          className="rounded-md border border-black/10 bg-surface p-4 shadow-sm transition-colors hover:border-black/20 dark:border-white/10"
-        >
-          <p className="text-xs font-medium uppercase tracking-wide text-muted">Wishlist</p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums">
-            {stats?.byStatus?.wishlist ?? "—"}
-          </p>
-        </Link>
-        <Link
+          chevron
+        />
+        <ListRow
+          title="Overdue"
+          trailing={
+            <span className="text-warning">{stats?.overdueCount ?? overdue.length}</span>
+          }
           to="/loaned"
-          className="rounded-md border border-black/10 bg-surface p-4 shadow-sm transition-colors hover:border-black/20 dark:border-white/10"
-        >
-          <p className="text-xs font-medium uppercase tracking-wide text-muted">Overdue</p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums text-warning">
-            {stats?.overdueCount ?? overdue.length}
-          </p>
-        </Link>
-      </div>
+          chevron
+        />
+      </Group>
 
-      <section className="mt-8">
-        <SectionHeading title="Add to catalog" />
+      <section className="mb-6">
+        <GroupHeader>Add to catalog</GroupHeader>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <ButtonLink to="/add" variant="secondary" className="w-full justify-center">
-            Manual entry
+          <ButtonLink to="/add" variant="secondary" size="sm" className="w-full justify-center">
+            Manual
           </ButtonLink>
-          <ButtonLink to="/add?mode=camera" variant="secondary" className="w-full justify-center">
-            Barcode scan
+          <ButtonLink to="/add?mode=camera" variant="secondary" size="sm" className="w-full justify-center">
+            Barcode
           </ButtonLink>
-          <ButtonLink to="/add?mode=cover" variant="secondary" className="w-full justify-center">
-            Cover image
+          <ButtonLink to="/add?mode=cover" variant="secondary" size="sm" className="w-full justify-center">
+            Cover
           </ButtonLink>
-          <ButtonLink to="/add?mode=shelf" variant="secondary" className="w-full justify-center">
-            Shelf image
+          <ButtonLink to="/add?mode=shelf" variant="secondary" size="sm" className="w-full justify-center">
+            Shelf
           </ButtonLink>
         </div>
       </section>
 
       {topRooms.length > 0 && (
-        <section className="mt-8">
-          <SectionHeading
-            title="By location"
+        <section className="mb-6">
+          <GroupHeader
             action={
-              <Link to="/locations" className="text-xs text-muted hover:text-foreground">
-                View all
+              <Link to="/locations" className="text-accent">
+                All
               </Link>
             }
-          />
-          <div className="flex flex-wrap gap-2">
+          >
+            Locations
+          </GroupHeader>
+          <Group>
             {topRooms.map(([name, count]) => (
-              <Link
+              <ListRow
                 key={name}
+                title={name}
+                trailing={count}
                 to={`/library?room=${encodeURIComponent(name)}`}
-                className="rounded-md border border-black/10 bg-surface px-3 py-2 text-sm shadow-sm transition-colors hover:border-black/20 dark:border-white/10"
-              >
-                <span className="font-medium">{name}</span>
-                <span className="ml-2 text-muted">{count}</span>
-              </Link>
+                chevron
+              />
             ))}
-          </div>
+          </Group>
         </section>
       )}
 
-      <section className="mt-8">
-        <SectionHeading
-          title="Recently added"
+      <section className="mb-6">
+        <GroupHeader
           action={
-            <Link to="/library?sort=added" className="text-xs text-muted hover:text-foreground">
-              Full catalog
+            <Link to="/library?sort=added" className="text-accent">
+              See All
             </Link>
           }
-        />
+        >
+          Recently added
+        </GroupHeader>
         {recent.length === 0 ? (
-          <p className="text-sm text-muted">No volumes in the catalog. Add a book to begin.</p>
+          <p className="px-1 text-[0.9375rem] text-muted">No books in your catalog yet.</p>
         ) : (
           <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
             {recent.map((book) => (
@@ -183,59 +179,43 @@ export function HomePage() {
         )}
       </section>
 
-      <section className="mt-8">
-        <SectionHeading
-          title="Active loans"
+      <section>
+        <GroupHeader
           action={
-            <Link to="/loaned" className="text-xs text-muted hover:text-foreground">
-              View all
+            <Link to="/loaned" className="text-accent">
+              See All
             </Link>
           }
-        />
+        >
+          Active loans
+        </GroupHeader>
         {loans.length === 0 ? (
-          <p className="text-sm text-muted">No active loans.</p>
+          <p className="px-1 text-[0.9375rem] text-muted">No active loans.</p>
         ) : (
-          <Card className="!p-0 overflow-hidden">
-            <ul className="divide-y divide-black/8 dark:divide-white/10">
-              {loans.slice(0, 5).map((l) => {
-                const isOverdue = l.loan.dueDate && l.loan.dueDate < today;
-                return (
-                  <li key={l.loan.id}>
-                    <Link
-                      to={`/book/${l.book.id}`}
-                      className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.03]"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">{l.book.title}</p>
-                        <p className="truncate text-xs text-muted">{l.borrower.name}</p>
-                      </div>
-                      <span
-                        className={`shrink-0 text-xs ${isOverdue ? "font-medium text-warning" : "text-muted"}`}
-                      >
-                        {isOverdue
-                          ? "Overdue"
-                          : l.loan.dueDate
-                            ? `Due ${l.loan.dueDate}`
-                            : "No due date"}
-                      </span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </Card>
+          <Group>
+            {loans.slice(0, 5).map((l) => {
+              const isOverdue = l.loan.dueDate && l.loan.dueDate < today;
+              return (
+                <ListRow
+                  key={l.loan.id}
+                  title={l.book.title}
+                  subtitle={l.borrower.name}
+                  trailing={
+                    <span className={isOverdue ? "text-warning" : ""}>
+                      {isOverdue
+                        ? "Overdue"
+                        : l.loan.dueDate
+                          ? `Due ${l.loan.dueDate}`
+                          : "No date"}
+                    </span>
+                  }
+                  to={`/book/${l.book.id}`}
+                  chevron
+                />
+              );
+            })}
+          </Group>
         )}
-      </section>
-      <section className="mt-8 flex flex-wrap gap-4 border-t border-black/10 pt-5 text-sm dark:border-white/10">
-        <Link to="/stats" className="text-muted hover:text-foreground">
-          Reports
-        </Link>
-        <Link to="/settings" className="text-muted hover:text-foreground">
-          Settings
-        </Link>
-        <Link to="/support" className="text-muted hover:text-foreground">
-          Support
-        </Link>
       </section>
     </div>
   );

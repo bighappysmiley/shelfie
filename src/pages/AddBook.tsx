@@ -7,8 +7,7 @@ import { HardwareBarcodeScanner } from "@/components/HardwareBarcodeScanner";
 import { CameraBarcodeScanner } from "@/components/CameraBarcodeScanner";
 import { PhotoCapture } from "@/components/PhotoCapture";
 import { ShelfReview } from "@/components/ShelfReview";
-import { PageHeader, Card } from "@/components/layout";
-import { Button } from "@/components/Button";
+import { PageHeader, Group, SegmentedControl, Banner } from "@/components/layout";
 
 type Mode = "manual" | "hardware" | "camera" | "cover" | "shelf" | "shelf-review";
 
@@ -161,39 +160,35 @@ export function AddBookPage() {
   };
 
   const tabs: { key: Mode; label: string }[] = [
-    { key: "manual", label: "Manual entry" },
-    { key: "hardware", label: "USB / Bluetooth" },
-    { key: "camera", label: "Barcode camera" },
-    { key: "cover", label: "Cover image" },
-    { key: "shelf", label: "Shelf image" },
+    { key: "manual", label: "Manual" },
+    { key: "hardware", label: "Scanner" },
+    { key: "camera", label: "Camera" },
+    { key: "cover", label: "Cover" },
+    { key: "shelf", label: "Shelf" },
   ];
 
   return (
     <div>
-      <PageHeader title="Add book" subtitle="Catalog a new volume in your library" />
+      <PageHeader title="Add Book" />
 
-      <div className="mb-6 flex flex-wrap gap-2">
-        {tabs.map((t) => (
-          <Button
-            key={t.key}
-            variant={
-              mode === t.key || (mode === "shelf-review" && t.key === "shelf")
-                ? "primary"
-                : "secondary"
-            }
-            onClick={() => setMode(t.key)}
-          >
-            {t.label}
-          </Button>
-        ))}
+      <div className="mb-4 overflow-x-auto">
+        <SegmentedControl
+          value={mode === "shelf-review" ? "shelf" : mode}
+          onChange={(v) => setMode(v as Mode)}
+          options={tabs.map((t) => ({ value: t.key, label: t.label }))}
+          className="min-w-[320px]"
+        />
       </div>
 
-      <Card>
-        {loading && <p className="mb-4 text-sm text-muted">{status || "Processing…"}</p>}
+      <Group>
+        {loading && <p className="px-4 pt-3 text-[0.9375rem] text-muted">{status || "Processing…"}</p>}
         {scanError && (
-          <p className="mb-4 rounded-md bg-warning-bg px-3 py-2.5 text-sm text-warning">{scanError}</p>
+          <Banner variant="warning" className="mx-4 mt-3">
+            {scanError}
+          </Banner>
         )}
 
+        <div className="p-4">
         {mode === "manual" && (
           <BookForm
             key={formKey}
@@ -241,7 +236,8 @@ export function AddBookPage() {
             onDone={() => navigate("/library")}
           />
         )}
-      </Card>
+        </div>
+      </Group>
     </div>
   );
 }

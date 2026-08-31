@@ -20,32 +20,27 @@ import { SupportPage } from "@/pages/Support";
 import { SupportTicketPage } from "@/pages/SupportTicket";
 import { AdminPage } from "@/pages/Admin";
 import { useEffect } from "react";
+import { ButtonLink } from "@/components/Button";
 
 function PublicShell() {
   return (
-    <div className="min-h-full">
+    <div className="min-h-dvh bg-background">
       <a href="#main" className="skip-link">
         Skip to content
       </a>
-      <header className="border-b border-black/10 bg-surface safe-top dark:border-white/10">
+      <header className="nav-material hairline-b safe-top">
         <Container>
-          <div className="flex h-12 items-center justify-between">
-            <Link to="/" className="text-base font-semibold tracking-tight text-foreground">
+          <div className="flex h-11 items-center justify-between">
+            <Link to="/" className="text-[1.0625rem] font-semibold tracking-tight text-foreground">
               Shelfie
             </Link>
             <div className="flex items-center gap-2">
-              <Link
-                to="/login"
-                className="rounded-md px-2.5 py-1 text-[0.875rem] text-muted hover:text-foreground"
-              >
-                Sign in
+              <Link to="/login" className="text-[0.9375rem] text-accent">
+                Sign In
               </Link>
-              <Link
-                to="/signup"
-                className="rounded-md bg-accent px-2.5 py-1 text-[0.875rem] font-medium text-accent-contrast hover:bg-accent-hover"
-              >
-                Create account
-              </Link>
+              <ButtonLink to="/signup" size="sm">
+                Sign Up
+              </ButtonLink>
             </div>
           </div>
         </Container>
@@ -74,12 +69,12 @@ function AppShell() {
   }, [user]);
 
   return (
-    <div className="min-h-full pb-20 md:pb-0">
+    <div className="min-h-dvh bg-background pb-[calc(3.25rem+env(safe-area-inset-bottom,0px))] md:pb-0">
       <a href="#main" className="skip-link">
         Skip to content
       </a>
       <Navbar />
-      <main id="main" className="py-4 sm:py-5">
+      <main id="main" className="py-3 sm:py-4">
         <Container>
           <Outlet />
         </Container>

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import type { Book } from "@/lib/types";
-import { PageHeader, EmptyState, Card } from "@/components/layout";
+import { PageHeader, EmptyState, Group, GroupHeader } from "@/components/layout";
 import { ButtonLink } from "@/components/Button";
 import { CoverImage } from "@/components/CoverImage";
 
@@ -71,7 +71,7 @@ export function LocationsPage() {
             ? "Loading…"
             : `${assigned} of ${books.length} volumes assigned to a location`
         }
-        action={<ButtonLink to="/library">View catalog</ButtonLink>}
+        action={<ButtonLink to="/library" size="sm">Catalog</ButtonLink>}
       />
 
       {loading ? (
@@ -83,50 +83,47 @@ export function LocationsPage() {
           action={<ButtonLink to="/add">Add book</ButtonLink>}
         />
       ) : (
-        <div className="space-y-8">
+        <div className="space-y-6">
           {rooms.map((room) => (
             <section key={room.room}>
-              <div className="mb-4 flex items-end justify-between gap-3">
-                <div>
-                  <h2 className="text-xl font-semibold">{room.room}</h2>
-                  <p className="text-sm text-muted">
-                    {room.total} book{room.total !== 1 ? "s" : ""} · {room.shelves.length} shelf
-                    {room.shelves.length !== 1 ? "s" : ""}
-                  </p>
-                </div>
-                {room.room !== "Unassigned" && (
-                  <Link
-                    to={`/library?room=${encodeURIComponent(room.room)}`}
-                    className="text-sm text-muted hover:text-foreground"
-                  >
-                    Filter catalog
-                  </Link>
-                )}
-              </div>
+              <GroupHeader
+                action={
+                  room.room !== "Unassigned" ? (
+                    <Link
+                      to={`/library?room=${encodeURIComponent(room.room)}`}
+                      className="text-accent"
+                    >
+                      Filter
+                    </Link>
+                  ) : undefined
+                }
+              >
+                {room.room} · {room.total} volume{room.total !== 1 ? "s" : ""}
+              </GroupHeader>
 
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {room.shelves.map((shelf) => (
-                  <Card key={`${room.room}-${shelf.shelf}`} className="!p-4">
-                    <div className="mb-3 flex items-center justify-between">
-                      <h3 className="font-medium">{shelf.shelf}</h3>
-                      <span className="text-sm text-muted">{shelf.books.length}</span>
+                  <Group key={`${room.room}-${shelf.shelf}`}>
+                    <div className="flex items-center justify-between px-4 py-3 hairline-b">
+                      <h3 className="text-[1.0625rem] font-medium">{shelf.shelf}</h3>
+                      <span className="text-[0.9375rem] text-muted">{shelf.books.length}</span>
                     </div>
-                    <div className="flex gap-2 overflow-x-auto pb-1">
+                    <div className="flex gap-2 overflow-x-auto px-4 py-3">
                       {shelf.books.map((book) => (
                         <Link
                           key={book.id}
                           to={`/book/${book.id}`}
-                          className="w-14 shrink-0 transition-opacity hover:opacity-80"
+                          className="w-12 shrink-0 active:opacity-70"
                           title={book.title}
                         >
                           <CoverImage
                             book={book}
-                            className="aspect-[2/3] w-full rounded-md object-cover bg-accent-soft"
+                            className="aspect-[2/3] w-full rounded-[4px] object-cover bg-fill"
                           />
                         </Link>
                       ))}
                     </div>
-                  </Card>
+                  </Group>
                 ))}
               </div>
             </section>

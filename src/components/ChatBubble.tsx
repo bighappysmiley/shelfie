@@ -17,7 +17,7 @@ export function ChatBubble({
 
   if (message.kind === "system") {
     return (
-      <li className="text-center text-xs text-muted">
+      <li className="py-2 text-center text-[0.75rem] text-muted">
         {message.body}
       </li>
     );
@@ -29,12 +29,19 @@ export function ChatBubble({
     (!viewerIsStaff && message.kind === "user" && message.author_id === viewerId);
 
   return (
-    <li className="border-b border-black/8 pb-4 last:border-0 dark:border-white/10">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="text-sm font-medium">{isMine ? "You" : name}</p>
-        <p className="text-xs text-muted">{time}</p>
-      </div>
-      <p className="mt-1.5 whitespace-pre-wrap text-[0.95rem] leading-relaxed">{message.body}</p>
+    <li className={`flex flex-col ${isMine ? "items-end" : "items-start"}`}>
+      <p className="mb-1 px-1 text-[0.75rem] text-muted">
+        {isMine ? "You" : name} · {time}
+      </p>
+      <p
+        className={`max-w-[85%] whitespace-pre-wrap rounded-[1.125rem] px-3.5 py-2 text-[1.0625rem] leading-snug ${
+          isMine
+            ? "rounded-br-[0.375rem] bg-chat-mine text-accent-contrast"
+            : "rounded-bl-[0.375rem] bg-chat-theirs text-foreground"
+        }`}
+      >
+        {message.body}
+      </p>
     </li>
   );
 }

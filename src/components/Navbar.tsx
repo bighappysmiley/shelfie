@@ -7,7 +7,6 @@ import {
   IconPlus,
   IconLoan,
   IconPeople,
-  IconShelf,
   IconSettings,
 } from "./Icons";
 
@@ -24,12 +23,12 @@ export function Navbar() {
   const { isStaff } = useAuth();
 
   return (
-    <header className="sticky top-0 z-50 border-b border-black/10 bg-surface safe-top dark:border-white/10">
+    <header className="sticky top-0 z-50 nav-material hairline-b safe-top">
       <Container>
-        <div className="flex h-12 items-center gap-3">
+        <div className="flex h-11 items-center gap-2">
           <NavLink
             to="/home"
-            className="shrink-0 text-sm font-semibold tracking-tight text-foreground"
+            className="shrink-0 text-[1.0625rem] font-semibold tracking-tight text-foreground"
           >
             Shelfie
           </NavLink>
@@ -39,10 +38,10 @@ export function Navbar() {
                 key={l.to}
                 to={l.to}
                 className={({ isActive }) =>
-                  `rounded px-2.5 py-1 text-sm transition-colors ${
+                  `rounded-[var(--radius-control)] px-2.5 py-1 text-[0.9375rem] transition-colors ${
                     isActive
-                      ? "bg-accent-soft font-medium text-foreground"
-                      : "text-muted hover:bg-black/[0.03] hover:text-foreground dark:hover:bg-white/[0.04]"
+                      ? "font-medium text-accent"
+                      : "text-muted hover:text-foreground"
                   }`
                 }
               >
@@ -53,36 +52,35 @@ export function Navbar() {
               <NavLink
                 to="/admin"
                 className={({ isActive }) =>
-                  `rounded px-2.5 py-1 text-sm transition-colors ${
+                  `rounded-[var(--radius-control)] px-2.5 py-1 text-[0.9375rem] transition-colors ${
                     isActive
-                      ? "bg-accent-soft font-medium text-foreground"
-                      : "text-muted hover:bg-black/[0.03] hover:text-foreground dark:hover:bg-white/[0.04]"
+                      ? "font-medium text-accent"
+                      : "text-muted hover:text-foreground"
                   }`
                 }
               >
-                Support inbox
+                Inbox
               </NavLink>
             )}
           </nav>
-          <div className="ml-auto flex items-center gap-1.5">
+          <div className="ml-auto flex items-center gap-1">
             <NavLink
               to="/settings"
               className={({ isActive }) =>
-                `inline-flex rounded p-2 text-muted transition-colors hover:bg-black/[0.03] hover:text-foreground dark:hover:bg-white/[0.04] ${
-                  isActive ? "text-foreground" : ""
+                `inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:text-foreground ${
+                  isActive ? "text-accent" : ""
                 }`
               }
               aria-label="Settings"
             >
-              <IconSettings size={18} />
+              <IconSettings size={22} />
             </NavLink>
             <NavLink
               to="/add"
-              className="inline-flex items-center gap-1.5 rounded-md bg-accent px-2.5 py-1.5 text-sm font-medium text-accent-contrast hover:bg-accent-hover"
+              className="inline-flex min-h-[32px] items-center gap-1 rounded-[var(--radius-pill)] bg-accent px-3.5 text-[0.9375rem] font-medium text-accent-contrast hover:bg-accent-hover"
             >
               <IconPlus size={16} />
-              <span className="hidden sm:inline">Add book</span>
-              <span className="sm:hidden">Add</span>
+              <span className="hidden sm:inline">Add</span>
             </NavLink>
           </div>
         </div>
@@ -96,14 +94,13 @@ const mobileItems = [
   { to: "/library", label: "Library", icon: IconLibrary },
   { to: "/add", label: "Add", icon: IconPlus, emphasize: true },
   { to: "/loaned", label: "Loans", icon: IconLoan },
-  { to: "/locations", label: "Locations", icon: IconShelf },
   { to: "/borrowers", label: "Borrowers", icon: IconPeople },
 ];
 
 export function MobileNav() {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-black/10 bg-surface safe-bottom md:hidden dark:border-white/10">
-      <div className="flex justify-around px-0.5 py-1">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 nav-material hairline-t safe-bottom md:hidden">
+      <div className="flex justify-around px-1 pt-1 pb-1">
         {mobileItems.map((item) => {
           const Icon = item.icon;
           return (
@@ -112,24 +109,14 @@ export function MobileNav() {
               to={item.to}
               end={item.end}
               className={({ isActive }) =>
-                `flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded px-1 py-1.5 text-[0.625rem] font-medium uppercase tracking-wide transition-colors ${
-                  isActive ? "text-foreground" : "text-muted"
+                `flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 py-0.5 text-[0.625rem] font-medium transition-colors ${
+                  isActive ? "text-accent" : "text-muted"
                 }`
               }
             >
               {({ isActive }) => (
                 <>
-                  <span
-                    className={`flex h-7 w-7 items-center justify-center rounded-md ${
-                      item.emphasize
-                        ? "bg-accent text-accent-contrast"
-                        : isActive
-                          ? "bg-accent-soft text-foreground"
-                          : ""
-                    }`}
-                  >
-                    <Icon size={item.emphasize ? 18 : 20} />
-                  </span>
+                  <Icon size={item.emphasize ? 26 : 24} strokeWidth={isActive ? 2 : 1.75} />
                   <span className="truncate">{item.label}</span>
                 </>
               )}

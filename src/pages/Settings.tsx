@@ -1,7 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { PageHeader, Card } from "@/components/layout";
-import { Button } from "@/components/Button";
+import {
+  PageHeader,
+  Group,
+  GroupHeader,
+  GroupFooter,
+  ListRow,
+  ToggleRow,
+  PlainButton,
+} from "@/components/layout";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
@@ -11,6 +18,9 @@ export function SettingsPage() {
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState("");
   const [signingOut, setSigningOut] = useState(false);
+  const [isDark, setIsDark] = useState(() =>
+    document.documentElement.classList.contains("dark"),
+  );
 
   const handleExport = async () => {
     const csv = await api.data.export();
@@ -53,7 +63,7 @@ export function SettingsPage() {
       }
 
       const res = await api.data.import(books);
-      setResult(`Imported ${res.imported} books`);
+      setResult(`Imported ${res.imported} volumes`);
     } catch (err) {
       setResult(err instanceof Error ? err.message : "Import failed");
     } finally {
@@ -61,12 +71,10 @@ export function SettingsPage() {
     }
   };
 
-  const toggleDark = () => {
-    document.documentElement.classList.toggle("dark");
-    localStorage.setItem(
-      "shelfie-theme",
-      document.documentElement.classList.contains("dark") ? "dark" : "light",
-    );
+  const toggleDark = (on: boolean) => {
+    document.documentElement.classList.toggle("dark", on);
+    localStorage.setItem("shelfie-theme", on ? "dark" : "light");
+    setIsDark(on);
   };
 
   const handleSignOut = async () => {
@@ -79,82 +87,60 @@ export function SettingsPage() {
     }
   };
 
-  const isDark = document.documentElement.classList.contains("dark");
-
   return (
     <div>
-      <PageHeader title="Settings" subtitle="Account, appearance, and data management" />
+      <PageHeader title="Settings" />
 
-      <div className="space-y-4">
-        <Card>
-          <h2 className="text-sm font-semibold">Support</h2>
-          <p className="mt-1 text-sm text-muted">
-            Submit questions, report issues, or request features through the support portal.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={() => navigate("/support")}>
-              Contact support
-            </Button>
-            {isStaff && (
-              <Button variant="secondary" onClick={() => navigate("/admin")}>
-                Support inbox
-              </Button>
-            )}
-          </div>
-        </Card>
+      <div className="space-y-6">
+        <section>
+          <GroupHeader>Support</GroupHeader>
+          <Group>
+            <ListRow title="Contact Support" to="/support" chevron />
+            {isStaff && <ListRow title="Support Inbox" to="/admin" chevron />}
+          </Group>
+        </section>
 
-        <Card>
-          <h2 className="text-sm font-semibold">Account</h2>
-          <p className="mt-1 text-sm text-muted">{user?.email}</p>
-          <p className="mt-2 text-sm text-muted">
-            Library data is private to this account.
-          </p>
-          <Button
-            variant="secondary"
-            className="mt-4"
-            onClick={handleSignOut}
-            disabled={signingOut}
-          >
-            {signingOut ? "Signing out…" : "Sign out"}
-          </Button>
-        </Card>
+        <section>
+          <GroupHeader>Account</GroupHeader>
+          <Group>
+            <ListRow title="Email" trailing={user?.email} />
+          </Group>
+          <GroupFooter>Your library data is private to this account.</GroupFooter>
+        </section>
 
-        <Card>
-          <h2 className="text-sm font-semibold">Appearance</h2>
-          <p className="mt-1 text-sm text-muted">Toggle between light and dark interface</p>
-          <Button variant="secondary" className="mt-4" onClick={toggleDark}>
-            {isDark ? "Switch to light mode" : "Switch to dark mode"}
-          </Button>
-        </Card>
+        <section>
+          <GroupHeader>Appearance</GroupHeader>
+          <Group>
+            <ToggleRow label="Dark Mode" checked={isDark} onChange={toggleDark} />
+          </Group>
+        </section>
 
-        <Card>
-          <h2 className="text-sm font-semibold">Export data</h2>
-          <p className="mt-1 text-sm text-muted">
-            Download library and loan records as CSV
-          </p>
-          <Button variant="secondary" className="mt-4" onClick={handleExport}>
-            Export CSV
-          </Button>
-        </Card>
+        <section>
+          <GroupHeader>Data</GroupHeader>
+          <Group>
+            <ListRow title="Export CSV" onClick={handleExport} chevron />
+            <label className="block cursor-pointer">
+              <ListRow
+                title="Import File"
+                trailing={importing ? "Importing…" : "CSV or JSON"}
+                chevron
+              />
+              <input
+                type="file"
+                accept=".csv,.json"
+                className="hidden"
+                onChange={handleImport}
+              />
+            </label>
+          </Group>
+          {result && <GroupFooter>{result}</GroupFooter>}
+        </section>
 
-        <Card>
-          <h2 className="text-sm font-semibold">Import data</h2>
-          <p className="mt-1 text-sm text-muted">
-            Import from Goodreads CSV or JSON format
-          </p>
-          <label className="mt-4 inline-block cursor-pointer">
-            <span className="inline-flex items-center justify-center gap-2 rounded-lg border border-black/10 bg-surface px-4 py-2.5 text-[0.95rem] font-medium transition-colors hover:bg-black/[0.04] dark:border-white/10">
-              {importing ? "Importing…" : "Choose file"}
-            </span>
-            <input
-              type="file"
-              accept=".csv,.json"
-              className="hidden"
-              onChange={handleImport}
-            />
-          </label>
-          {result && <p className="mt-3 text-sm text-muted">{result}</p>}
-        </Card>
+        <Group>
+          <PlainButton onClick={handleSignOut} disabled={signingOut} destructive>
+            {signingOut ? "Signing Out…" : "Sign Out"}
+          </PlainButton>
+        </Group>
       </div>
     </div>
   );

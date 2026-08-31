@@ -3,7 +3,7 @@ import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { Button, ButtonLink } from "@/components/Button";
 import { TextField, FormError } from "@/components/form";
-import { Card, Container } from "@/components/layout";
+import { Container, Group } from "@/components/layout";
 
 export function LandingPage() {
   const { user, loading } = useAuth();
@@ -12,19 +12,19 @@ export function LandingPage() {
 
   return (
     <Container size="narrow">
-      <div className="py-12 sm:py-16">
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted">Shelfie</p>
-        <h1 className="mt-4 max-w-lg text-2xl font-semibold tracking-tight sm:text-3xl">
-          Personal library catalog and loan management
+      <div className="py-16 sm:py-24">
+        <h1 className="text-[2.125rem] font-bold tracking-tight sm:text-[2.75rem]">
+          Shelfie
         </h1>
-        <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted">
-          Organize your collection, track physical locations, manage loans, and import or export
-          catalog data. Each account maintains a private library.
+        <p className="mt-4 max-w-md text-[1.25rem] leading-snug text-muted">
+          Catalog your books, track loans, and manage locations in one private library.
         </p>
-        <div className="mt-8 flex flex-wrap gap-2">
-          <ButtonLink to="/signup">Create account</ButtonLink>
-          <ButtonLink to="/login" variant="secondary">
-            Sign in
+        <div className="mt-10 flex flex-col gap-3 sm:flex-row">
+          <ButtonLink to="/signup" className="w-full sm:w-auto">
+            Create Account
+          </ButtonLink>
+          <ButtonLink to="/login" variant="tinted" className="w-full sm:w-auto">
+            Sign In
           </ButtonLink>
         </div>
       </div>
@@ -43,13 +43,13 @@ function AuthShell({
 }) {
   return (
     <Container size="form">
-      <div className="py-10 sm:py-12">
-        <Link to="/" className="text-sm font-semibold tracking-tight">
+      <div className="py-10 sm:py-14">
+        <Link to="/" className="text-[1.0625rem] font-semibold text-accent">
           Shelfie
         </Link>
-        <h1 className="mt-6 text-xl font-semibold tracking-tight sm:text-2xl">{title}</h1>
-        <p className="mt-1 text-sm text-muted">{subtitle}</p>
-        <Card className="mt-6">{children}</Card>
+        <h1 className="mt-8 text-[2.125rem] font-bold tracking-tight">{title}</h1>
+        <p className="mt-2 text-[1.0625rem] text-muted">{subtitle}</p>
+        <div className="mt-8">{children}</div>
       </div>
     </Container>
   );
@@ -80,32 +80,38 @@ export function LoginPage() {
   };
 
   return (
-    <AuthShell title="Sign in" subtitle="Access your library catalog">
-      <form onSubmit={onSubmit} className="space-y-4">
-        {error && <FormError message={error} />}
-        <TextField
-          label="Email"
-          type="email"
-          autoComplete="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        <TextField
-          label="Password"
-          type="password"
-          autoComplete="current-password"
-          required
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        <Button type="submit" className="w-full" disabled={busy}>
-          {busy ? "Signing in…" : "Sign in"}
-        </Button>
-      </form>
-      <p className="mt-4 text-center text-sm text-muted">
+    <AuthShell title="Sign In" subtitle="Access your library catalog">
+      <Group>
+        <form onSubmit={onSubmit}>
+          <TextField
+            label="Email"
+            type="email"
+            autoComplete="email"
+            required
+            grouped
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <TextField
+            label="Password"
+            type="password"
+            autoComplete="current-password"
+            required
+            grouped
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <div className="px-4 py-4">
+            {error && <FormError message={error} />}
+            <Button type="submit" className="w-full" disabled={busy}>
+              {busy ? "Signing In…" : "Sign In"}
+            </Button>
+          </div>
+        </form>
+      </Group>
+      <p className="mt-6 text-center text-[0.9375rem] text-muted">
         Do not have an account?{" "}
-        <Link to="/signup" className="font-medium text-foreground hover:underline">
+        <Link to="/signup" className="text-accent">
           Create one
         </Link>
       </p>
@@ -148,38 +154,42 @@ export function SignupPage() {
   };
 
   return (
-    <AuthShell title="Create account" subtitle="Set up a private library catalog">
-      <form onSubmit={onSubmit} className="space-y-4">
-        {error && <FormError message={error} />}
-        {info && (
-          <p className="rounded-md bg-success-bg px-3 py-2.5 text-sm font-medium text-success">
-            {info}
-          </p>
-        )}
-        <TextField
-          label="Email"
-          type="email"
-          autoComplete="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        <TextField
-          label="Password"
-          type="password"
-          autoComplete="new-password"
-          required
-          hint="Minimum 6 characters"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        <Button type="submit" className="w-full" disabled={busy}>
-          {busy ? "Creating account…" : "Create account"}
-        </Button>
-      </form>
-      <p className="mt-4 text-center text-sm text-muted">
+    <AuthShell title="Create Account" subtitle="Set up a private library catalog">
+      <Group>
+        <form onSubmit={onSubmit}>
+          {info && (
+            <p className="px-4 pt-3 text-[0.9375rem] text-success">{info}</p>
+          )}
+          <TextField
+            label="Email"
+            type="email"
+            autoComplete="email"
+            required
+            grouped
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <TextField
+            label="Password"
+            type="password"
+            autoComplete="new-password"
+            required
+            grouped
+            hint="Minimum 6 characters"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <div className="px-4 py-4">
+            {error && <FormError message={error} />}
+            <Button type="submit" className="w-full" disabled={busy}>
+              {busy ? "Creating Account…" : "Create Account"}
+            </Button>
+          </div>
+        </form>
+      </Group>
+      <p className="mt-6 text-center text-[0.9375rem] text-muted">
         Already registered?{" "}
-        <Link to="/login" className="font-medium text-foreground hover:underline">
+        <Link to="/login" className="text-accent">
           Sign in
         </Link>
       </p>
