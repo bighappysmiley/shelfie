@@ -80,6 +80,24 @@ export function SettingsPage() {
         </Card>
 
         <Card>
+          <h2 className="font-semibold">Cover & shelf AI (optional)</h2>
+          <p className="mt-1 text-sm text-muted">
+            Cover photo and shelf scan use Google Gemini’s free tier. Get a key at{" "}
+            <a
+              href="https://aistudio.google.com/apikey"
+              target="_blank"
+              rel="noreferrer"
+              className="underline hover:text-foreground"
+            >
+              aistudio.google.com/apikey
+            </a>
+            , then add <code className="font-mono text-xs">GEMINI_API_KEY</code> in
+            Netlify → Site configuration → Environment variables. Camera barcode and
+            USB/Bluetooth scanning don’t need a key.
+          </p>
+        </Card>
+
+        <Card>
           <h2 className="font-semibold">Export data</h2>
           <p className="mt-1 text-sm text-muted">
             Download your entire library and loan history as CSV

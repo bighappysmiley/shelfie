@@ -7,7 +7,7 @@ import { FormError } from "./form";
  * Hardware barcode scanner input (USB / Bluetooth).
  * These scanners act as a keyboard: they type the ISBN then press Enter.
  */
-export function BarcodeScanner({
+export function HardwareBarcodeScanner({
   onScan,
   onClose,
 }: {
@@ -35,11 +35,9 @@ export function BarcodeScanner({
     onScan(isbn);
   };
 
-  // Keep focus on the scan field so the wedge scanner always types here
   useEffect(() => {
     inputRef.current?.focus();
     const keepFocus = () => {
-      // Don't steal focus from buttons
       const active = document.activeElement;
       if (active === inputRef.current) return;
       if (active?.closest("button, a, [role='button']")) return;
@@ -49,10 +47,8 @@ export function BarcodeScanner({
     return () => window.clearInterval(id);
   }, []);
 
-  // Catch fast wedge input even if focus briefly drifts
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      // Ignore when typing in other form fields (not our scan box)
       const target = e.target as HTMLElement | null;
       if (
         target &&
@@ -65,14 +61,10 @@ export function BarcodeScanner({
       }
 
       const now = Date.now();
-      // Scanners type very fast; human typing resets the wedge buffer
-      if (now - lastKeyAt.current > 80) {
-        bufferRef.current = "";
-      }
+      if (now - lastKeyAt.current > 80) bufferRef.current = "";
       lastKeyAt.current = now;
 
       if (e.key === "Enter") {
-        // Input field handles Enter itself when focused
         if (target === inputRef.current) return;
         const buf = bufferRef.current;
         if (buf) {
@@ -83,7 +75,6 @@ export function BarcodeScanner({
       }
 
       if (target === inputRef.current) return;
-
       if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
         bufferRef.current += e.key;
       }
@@ -98,8 +89,8 @@ export function BarcodeScanner({
       <div className="rounded-xl border border-black/8 bg-accent-soft px-4 py-5 text-center dark:border-white/10">
         <p className="text-lg font-semibold">Ready to scan</p>
         <p className="mt-2 text-sm text-muted">
-          Connect a USB or Bluetooth barcode scanner, then scan the ISBN on the book.
-          Most scanners work like a keyboard — no camera needed.
+          Connect a USB or Bluetooth barcode scanner, then scan the ISBN.
+          Scanners work like a keyboard — no camera needed.
         </p>
       </div>
 
@@ -151,12 +142,6 @@ export function BarcodeScanner({
           Cancel
         </Button>
       </div>
-
-      <ul className="space-y-1.5 text-sm text-muted">
-        <li>Pair a Bluetooth scanner in your phone/Mac settings, or plug in USB.</li>
-        <li>Put the cursor in the box above (it stays focused), then scan.</li>
-        <li>Works with ISBN-10 and ISBN-13 barcodes.</li>
-      </ul>
     </div>
   );
 }

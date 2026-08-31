@@ -2,11 +2,9 @@
 
 Personal library catalog and lending tracker. A clean, installable PWA for iPhone and Mac.
 
-**100% free to run** — no paid API keys, no Netlify Database plan required.
-
 ## Features
 
-- **Add books** via Bluetooth/USB barcode scanner or manual entry
+- **Add books** via USB/Bluetooth scanner, camera barcode, cover photo AI, shelf-spine AI, or manual entry
 - **ISBN lookup** from Open Library and Google Books (free)
 - **Lending system** with borrower profiles and loan history
 - **Full cataloging** — status, location, series, tags, ratings, condition, purchase info
@@ -20,20 +18,28 @@ Personal library catalog and lending tracker. A clean, installable PWA for iPhon
 
 - Vite + React + TypeScript
 - Tailwind CSS v4 (BoardView design system)
-- **Netlify Blobs** for storage (free tier — no Database feature needed)
+- **Netlify Blobs** for storage (free tier)
 - Netlify Functions for API
-- Bluetooth / USB barcode scanners (keyboard-wedge)
+- Camera barcode (html5-qrcode) — free, no AI key
+- Cover / shelf vision via **Google Gemini free tier**
+- USB / Bluetooth barcode scanners (keyboard-wedge)
 - PWA with service worker
 
 ## Environment variables
 
-**None required.**
+| Name | Required? | Notes |
+|------|-----------|--------|
+| `GEMINI_API_KEY` | Only for cover photo & shelf scan | Free key from [Google AI Studio](https://aistudio.google.com/apikey) |
+
+Manual add, USB/Bluetooth scan, camera barcode, and ISBN lookup work **without** any env vars.
+
+Optional: `GEMINI_MODEL` (default `gemini-2.0-flash`).
 
 ## Deploy (GitHub → Netlify)
 
 1. Connect the repo in Netlify (branch: `main`)
-2. Build settings are in `netlify.toml` — no changes needed
-3. Redeploy after this update so the old Database provisioning step is gone
+2. Build settings are in `netlify.toml`
+3. For cover/shelf AI: Site configuration → Environment variables → add `GEMINI_API_KEY`
 
 ## Local development
 

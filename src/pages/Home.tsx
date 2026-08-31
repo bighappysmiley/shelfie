@@ -68,8 +68,11 @@ export function HomePage() {
           <h2 className="font-semibold">Quick actions</h2>
           <div className="mt-4 flex flex-col gap-2">
             <ButtonLink to="/add" className="w-full">Add a book</ButtonLink>
-            <ButtonLink to="/add?mode=scan" variant="secondary" className="w-full">
-              Scan with barcode scanner
+            <ButtonLink to="/add?mode=camera" variant="secondary" className="w-full">
+              Camera barcode
+            </ButtonLink>
+            <ButtonLink to="/add?mode=hardware" variant="secondary" className="w-full">
+              USB / Bluetooth scanner
             </ButtonLink>
             <ButtonLink to="/loaned" variant="ghost" className="w-full">
               Who has my books?

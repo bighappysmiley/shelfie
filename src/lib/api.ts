@@ -62,6 +62,18 @@ export const api = {
         `/isbn-lookup?title=${encodeURIComponent(title)}&authors=${encodeURIComponent(authors ?? "")}`,
       ),
   },
+  vision: {
+    cover: (image: string, mediaType?: string) =>
+      request<{ title: string; author: string; confidence: number; found: boolean }>("/vision", {
+        method: "POST",
+        body: JSON.stringify({ image, mediaType, mode: "cover" }),
+      }),
+    shelf: (image: string, mediaType?: string) =>
+      request<{ books: { title: string; author: string; confidence: number }[]; count: number }>(
+        "/vision",
+        { method: "POST", body: JSON.stringify({ image, mediaType, mode: "shelf" }) },
+      ),
+  },
   data: {
     export: () => request<string>("/data?action=export"),
     stats: () => request<Record<string, unknown>>("/data?action=stats"),
