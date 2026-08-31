@@ -96,6 +96,7 @@
   --color-logo-mark-on-brand: var(--logo-mark-on-brand);
   --color-logo-bg: var(--logo-bg);
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif;
+  --font-logo: "Inter", var(--font-sans);
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
@@ -183,4 +184,8 @@ h1, h2, h3 {
 
 .text-link:hover {
   color: var(--link-hover);
+}
+
+.font-logo {
+  font-family: var(--font-logo);
 }

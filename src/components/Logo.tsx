@@ -5,17 +5,17 @@ const presets = {
   sm: {
     mark: 30,
     gap: "gap-3",
-    text: "text-[0.9375rem] font-medium leading-[1.08] tracking-[-0.01em]",
+    text: "font-logo text-[0.9375rem] font-medium leading-[1.06] tracking-[0.01em]",
   },
   md: {
     mark: 38,
     gap: "gap-3.5",
-    text: "text-[1.0625rem] font-medium leading-[1.08] tracking-[-0.01em]",
+    text: "font-logo text-[1.0625rem] font-medium leading-[1.06] tracking-[0.01em]",
   },
   lg: {
     mark: 56,
     gap: "gap-5",
-    text: "text-[1.75rem] font-medium leading-[1.08] tracking-[-0.02em] sm:text-[2rem]",
+    text: "font-logo text-[1.75rem] font-medium leading-[1.06] tracking-[0.015em] sm:text-[2rem]",
   },
 } as const;
 
@@ -74,15 +74,19 @@ export function Logo({
   const onBrand = variant === "brand";
 
   return (
-    <div className={`inline-flex items-center ${preset.gap} ${className}`}>
+    <div className={`inline-flex items-center justify-start ${preset.gap} ${className}`}>
       <LogoMark
         size={preset.mark}
         className={`shrink-0 ${onBrand ? "text-logo-mark-on-brand" : "text-logo-mark"}`}
       />
       {showText && (
-        <div className={`flex flex-col gap-0 ${onBrand ? "text-logo-text-on-brand" : "text-foreground"}`}>
-          <span className={preset.text}>{APP_WORDMARK_PRIMARY}</span>
-          <span className={preset.text}>{APP_WORDMARK_SECONDARY}</span>
+        <div
+          className={`flex min-w-0 flex-col items-start text-left ${
+            onBrand ? "text-logo-text-on-brand" : "text-foreground"
+          }`}
+        >
+          <span className={`block w-full text-left ${preset.text}`}>{APP_WORDMARK_PRIMARY}</span>
+          <span className={`block w-full text-left ${preset.text}`}>{APP_WORDMARK_SECONDARY}</span>
         </div>
       )}
     </div>

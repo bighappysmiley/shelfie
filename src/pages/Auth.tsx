@@ -14,14 +14,14 @@ export function LandingPage() {
 
   return (
     <Container size="narrow">
-      <div className="flex flex-col items-center py-14 text-center sm:py-20">
-        <div className="w-full max-w-sm rounded-[1.25rem] bg-logo-bg px-10 py-12 sm:px-12 sm:py-14">
-          <Logo size="lg" variant="brand" className="mx-auto" />
+      <div className="flex flex-col py-14 sm:py-20">
+        <div className="w-full max-w-md rounded-[1.25rem] bg-logo-bg px-10 py-12 sm:px-12 sm:py-14">
+          <Logo size="lg" variant="brand" />
         </div>
-        <p className="mt-8 max-w-sm text-[1.0625rem] leading-relaxed text-muted sm:text-[1.125rem]">
+        <p className="mt-8 max-w-md text-left text-[1.0625rem] leading-relaxed text-muted sm:text-[1.125rem]">
           {APP_TAGLINE}
         </p>
-        <div className="mt-9 flex w-full max-w-xs flex-col gap-2.5 sm:max-w-none sm:flex-row sm:justify-center">
+        <div className="mt-9 flex w-full max-w-xs flex-col gap-2.5 sm:max-w-none sm:flex-row">
           <ButtonLink to="/signup" className="w-full sm:w-auto">
             Create Account
           </ButtonLink>
