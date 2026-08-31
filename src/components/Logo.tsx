@@ -9,9 +9,9 @@ export const logoTextClasses = {
 } as const;
 
 const presets = {
-  sm: { mark: 30, gap: "gap-1.5", text: logoTextClasses.sm },
-  md: { mark: 38, gap: "gap-2", text: logoTextClasses.md },
-  lg: { mark: 56, gap: "gap-2.5", text: logoTextClasses.lg },
+  sm: { mark: 30, gap: "gap-1", text: logoTextClasses.sm },
+  md: { mark: 38, gap: "gap-1", text: logoTextClasses.md },
+  lg: { mark: 56, gap: "gap-1.5", text: logoTextClasses.lg },
 } as const;
 
 /** Minimal pine — one canopy, one trunk. No chevrons or diamond frame. */

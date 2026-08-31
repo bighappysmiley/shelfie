@@ -6,9 +6,9 @@ const LINE1 = APP_WORDMARK_PRIMARY;
 const LINE2 = APP_WORDMARK_SECONDARY;
 const TYPE_MS = 72;
 const CURSOR_FALL_MS = 520;
-const POP_MS = 380;
+const ICON_REVEAL_MS = 320;
 
-type Phase = "fall" | "type1" | "type2" | "pop" | "done";
+type Phase = "fall" | "type1" | "type2" | "icon" | "done";
 
 const textClass = `${logoTextClasses.lg} text-logo-text-on-brand`;
 
@@ -39,7 +39,6 @@ export function LandingLogoAnimation() {
   const [line1, setLine1] = useState("");
   const [line2, setLine2] = useState("");
   const [showIcon, setShowIcon] = useState(false);
-  const [pop, setPop] = useState(false);
 
   useEffect(() => {
     if (reducedMotion) return;
@@ -69,16 +68,13 @@ export function LandingLogoAnimation() {
         );
         return () => window.clearTimeout(t);
       }
-      const t = window.setTimeout(() => setPhase("pop"), TYPE_MS);
+      const t = window.setTimeout(() => setPhase("icon"), TYPE_MS);
       return () => window.clearTimeout(t);
     }
 
-    if (phase === "pop") {
-      setPop(true);
-      const t = window.setTimeout(() => {
-        setShowIcon(true);
-        setPhase("done");
-      }, POP_MS);
+    if (phase === "icon") {
+      setShowIcon(true);
+      const t = window.setTimeout(() => setPhase("done"), ICON_REVEAL_MS);
       return () => window.clearTimeout(t);
     }
   }, [phase, line1, line2, reducedMotion]);
@@ -88,21 +84,14 @@ export function LandingLogoAnimation() {
   }
 
   return (
-    <div className="inline-flex items-center gap-2.5 sm:gap-3">
-      <div
-        className="flex h-14 w-14 shrink-0 items-center justify-center sm:h-[3.5rem] sm:w-[3.5rem]"
-        aria-hidden
-      >
+    <div className="inline-flex items-center gap-1 sm:gap-1.5">
+      <div className="flex h-14 w-14 shrink-0 items-center justify-center sm:h-[3.5rem] sm:w-[3.5rem]">
         {showIcon && (
           <LogoMark size={56} className="text-logo-mark-on-brand logo-icon-reveal" />
         )}
       </div>
 
-      <div
-        className={`relative flex min-h-[4.25rem] min-w-0 flex-col items-start justify-center text-left sm:min-h-[4.5rem] ${
-          pop ? "logo-text-pop" : ""
-        }`}
-      >
+      <div className="relative flex min-h-[4.25rem] min-w-0 flex-col items-start justify-center text-left sm:min-h-[4.5rem]">
         {phase === "fall" && (
           <span
             className="logo-cursor-fall pointer-events-none absolute left-0 top-[0.35em] h-[1.05em] w-0.5 bg-logo-text-on-brand"
