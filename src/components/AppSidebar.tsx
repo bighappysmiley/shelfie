@@ -1,15 +1,53 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
+import { useLibrary } from "@/lib/library";
 import { useSidebar } from "@/lib/sidebar";
 import { isDarkMode, setDarkMode } from "@/lib/theme";
 import { UserAvatar, userDisplayName } from "@/components/UserAvatar";
 import { ToggleRow } from "@/components/layout";
-import { IconX } from "@/components/Icons";
+import { IconBell, IconChat, IconUser, IconX } from "@/components/Icons";
+
+function SidebarButton({
+  to,
+  label,
+  icon: Icon,
+  badge,
+  onNavigate,
+  tabIndex,
+}: {
+  to: string;
+  label: string;
+  icon: typeof IconBell;
+  badge?: number;
+  onNavigate: () => void;
+  tabIndex: number;
+}) {
+  return (
+    <Link
+      to={to}
+      onClick={onNavigate}
+      tabIndex={tabIndex}
+      className="flex min-h-[48px] items-center gap-3 px-4 py-3 text-[1.0625rem] text-foreground transition-colors hover:bg-fill-secondary active:bg-fill hairline-b last:border-b-0"
+    >
+      <Icon size={20} className="shrink-0 text-muted" strokeWidth={1.75} />
+      <span className="min-w-0 flex-1">{label}</span>
+      {badge != null && badge > 0 && (
+        <span className="flex h-5 min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-accent px-1.5 text-[0.6875rem] font-semibold text-accent-contrast">
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="shrink-0 text-tertiary" aria-hidden>
+        <path d="M5 3.5L8.5 7L5 10.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    </Link>
+  );
+}
 
 export function AppSidebar() {
   const { open, closeSidebar } = useSidebar();
-  const { user } = useAuth();
+  const { user, isStaff } = useAuth();
+  const { pendingInvites } = useLibrary();
   const navigate = useNavigate();
   const [isDark, setIsDark] = useState(isDarkMode);
 
@@ -28,6 +66,9 @@ export function AppSidebar() {
 
   const displayName = userDisplayName(user?.email, user?.phone);
   const subtitle = user?.email ?? user?.phone ?? "";
+  const tabIndex = open ? 0 : -1;
+
+  const closeAndGo = () => closeSidebar();
 
   const goAccount = () => {
     closeSidebar();
@@ -53,7 +94,7 @@ export function AppSidebar() {
         type="button"
         className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
         aria-label="Close menu"
-        tabIndex={open ? 0 : -1}
+        tabIndex={tabIndex}
         onClick={closeSidebar}
       />
 
@@ -63,13 +104,13 @@ export function AppSidebar() {
         }`}
       >
         <div className="flex items-center justify-between px-3 pt-3 pb-1">
-          <p className="text-[0.8125rem] font-medium text-muted">Account</p>
+          <p className="text-[0.8125rem] font-medium text-muted">Menu</p>
           <button
             type="button"
             onClick={closeSidebar}
             className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted hover:bg-fill-secondary hover:text-foreground"
             aria-label="Close menu"
-            tabIndex={open ? 0 : -1}
+            tabIndex={tabIndex}
           >
             <IconX size={20} />
           </button>
@@ -79,7 +120,7 @@ export function AppSidebar() {
           type="button"
           onClick={goAccount}
           className="mx-3 mt-1 flex items-center gap-3 rounded-[var(--radius-group)] bg-fill-secondary px-3 py-3 text-left transition-colors hover:bg-fill active:opacity-90"
-          tabIndex={open ? 0 : -1}
+          tabIndex={tabIndex}
         >
           <UserAvatar label={subtitle || displayName} size={44} />
           <div className="min-w-0 flex-1">
@@ -90,6 +131,40 @@ export function AppSidebar() {
             <path d="M5 3.5L8.5 7L5 10.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
         </button>
+
+        <nav className="mx-3 mt-4 overflow-hidden rounded-[var(--radius-group)] bg-surface ring-1 ring-black/[0.04] dark:ring-white/[0.06]">
+          <SidebarButton
+            to="/notifications"
+            label="Notifications"
+            icon={IconBell}
+            badge={pendingInvites.length}
+            onNavigate={closeAndGo}
+            tabIndex={tabIndex}
+          />
+          <SidebarButton
+            to="/support"
+            label="Support"
+            icon={IconChat}
+            onNavigate={closeAndGo}
+            tabIndex={tabIndex}
+          />
+          {isStaff && (
+            <SidebarButton
+              to="/admin"
+              label="Support Inbox"
+              icon={IconChat}
+              onNavigate={closeAndGo}
+              tabIndex={tabIndex}
+            />
+          )}
+          <SidebarButton
+            to="/account"
+            label="Account & Security"
+            icon={IconUser}
+            onNavigate={closeAndGo}
+            tabIndex={tabIndex}
+          />
+        </nav>
 
         <div className="flex-1" />
 
@@ -102,8 +177,10 @@ export function AppSidebar() {
 }
 
 export function SidebarMenuButton({
+  badge,
   className = "",
 }: {
+  badge?: number;
   className?: string;
 }) {
   const { toggleSidebar, open } = useSidebar();
@@ -113,12 +190,17 @@ export function SidebarMenuButton({
       type="button"
       onClick={toggleSidebar}
       aria-expanded={open}
-      className={`inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-fill-secondary hover:text-foreground ${className}`}
-      aria-label="Open account menu"
+      className={`relative inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:bg-fill-secondary hover:text-foreground ${className}`}
+      aria-label="Open menu"
     >
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
         <path d="M4 7h16M4 12h16M4 17h16" strokeLinecap="round" />
       </svg>
+      {badge != null && badge > 0 && (
+        <span className="absolute right-0.5 top-0.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-accent px-1 text-[0.625rem] font-bold text-accent-contrast">
+          {badge > 9 ? "9+" : badge}
+        </span>
+      )}
     </button>
   );
 }

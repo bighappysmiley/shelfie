@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import { Container } from "./layout";
 import { useLibrary } from "@/lib/library";
@@ -9,9 +8,8 @@ import {
   IconHome,
   IconLibrary,
   IconPlus,
+  IconLoan,
   IconSettings,
-  IconBell,
-  IconChat,
 } from "./Icons";
 
 const desktopLinks = [
@@ -22,37 +20,6 @@ const desktopLinks = [
   { to: "/stats", label: "Reports" },
 ];
 
-function NavIconButton({
-  to,
-  label,
-  badge,
-  children,
-}: {
-  to: string;
-  label: string;
-  badge?: number;
-  children: ReactNode;
-}) {
-  return (
-    <NavLink
-      to={to}
-      aria-label={label}
-      className={({ isActive }) =>
-        `relative inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:text-foreground ${
-          isActive ? "text-foreground" : ""
-        }`
-      }
-    >
-      {children}
-      {badge != null && badge > 0 && (
-        <span className="absolute right-0.5 top-0.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-accent px-1 text-[0.625rem] font-bold text-accent-contrast">
-          {badge > 9 ? "9+" : badge}
-        </span>
-      )}
-    </NavLink>
-  );
-}
-
 export function Navbar() {
   const { pendingInvites } = useLibrary();
 
@@ -60,7 +27,7 @@ export function Navbar() {
     <header className="sticky top-0 z-50 nav-material hairline-b safe-top">
       <Container>
         <div className="flex h-12 items-center gap-2 sm:gap-3">
-          <SidebarMenuButton />
+          <SidebarMenuButton badge={pendingInvites.length} />
           <NavLink to="/home" className="shrink-0 rounded-[var(--radius-control)] outline-offset-2">
             <Logo size="sm" />
           </NavLink>
@@ -82,13 +49,7 @@ export function Navbar() {
               </NavLink>
             ))}
           </nav>
-          <div className="ml-auto flex items-center gap-0.5">
-            <NavIconButton to="/notifications" label="Notifications" badge={pendingInvites.length}>
-              <IconBell size={22} />
-            </NavIconButton>
-            <NavIconButton to="/support" label="Support">
-              <IconChat size={22} />
-            </NavIconButton>
+          <div className="ml-auto flex items-center gap-1">
             <NavLink
               to="/settings"
               className={({ isActive }) =>
@@ -118,8 +79,8 @@ const mobileItems = [
   { to: "/home", label: "Home", icon: IconHome, end: true },
   { to: "/library", label: "Library", icon: IconLibrary },
   { to: "/add", label: "Add", icon: IconPlus, emphasize: true },
-  { to: "/notifications", label: "Alerts", icon: IconBell },
-  { to: "/support", label: "Chat", icon: IconChat },
+  { to: "/loaned", label: "Loans", icon: IconLoan },
+  { to: "/settings", label: "Settings", icon: IconSettings },
 ];
 
 export function MobileNav() {
