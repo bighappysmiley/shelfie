@@ -14,7 +14,9 @@ const presets = {
   lg: { mark: 56, gap: "gap-2.5", text: logoTextClasses.lg },
 } as const;
 
-/** Minimal pine: tall outline, tiered branches, trunk, center spine (book). */
+/**
+ * Diamond frame, center spine, nested chevrons — pine branches / book pages.
+ */
 export function LogoMark({
   size = 32,
   className = "",
@@ -24,40 +26,29 @@ export function LogoMark({
     <svg
       width={size}
       height={size}
-      viewBox="0 0 56 68"
+      viewBox="0 0 64 64"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden
       className={className}
       {...props}
     >
-      {/* Pine silhouette */}
       <path
-        d="M28 4 46 30 38 30 48 46 8 46 18 30 10 30Z"
+        d="M32 7 53 32 32 57 11 32Z"
         stroke="currentColor"
-        strokeWidth="1.65"
+        strokeWidth="1.5"
         strokeLinejoin="round"
       />
-      {/* Trunk */}
       <path
-        d="M28 46V58M24.5 58H31.5"
+        d="M32 48V17"
         stroke="currentColor"
-        strokeWidth="1.65"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {/* Center spine */}
-      <path
-        d="M28 44V14"
-        stroke="currentColor"
-        strokeWidth="1.65"
+        strokeWidth="1.5"
         strokeLinecap="round"
       />
-      {/* Branch tiers */}
       <path
-        d="M24 20 28 13 32 20M21 26 28 18 35 26M18 32 28 22 38 32M15 38 28 27 41 38M12 44 28 33 44 44"
+        d="M28 26 32 19 36 26M25 32 32 24 39 32M22 38 32 29 42 38M19 44 32 34 45 44"
         stroke="currentColor"
-        strokeWidth="1.65"
+        strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
