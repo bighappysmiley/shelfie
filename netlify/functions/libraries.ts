@@ -22,37 +22,50 @@ async function ensureDefaultLibrary(
 ): Promise<void> {
   const supabase = supabaseForToken(accessToken);
 
+  const { error: rpcErr } = await supabase.rpc("ensure_default_library");
+  if (rpcErr) {
+    // Fallback to direct inserts if RPC unavailable
+    const { data: memberships } = await supabase
+      .from("library_members")
+      .select("library_id")
+      .eq("user_id", userId)
+      .limit(1);
+
+    if (memberships && memberships.length > 0) return;
+
+    const { data: library, error: libErr } = await supabase
+      .from("libraries")
+      .insert({ name: "My Library", owner_id: userId })
+      .select("id")
+      .single();
+
+    if (libErr || !library) {
+      throw new Error(libErr?.message || "Could not create default library");
+    }
+
+    const { error: memberErr } = await supabase.from("library_members").insert({
+      library_id: library.id,
+      user_id: userId,
+      role: "owner",
+    });
+
+    if (memberErr) {
+      throw new Error(memberErr.message);
+    }
+  }
+
   const { data: memberships } = await supabase
     .from("library_members")
     .select("library_id")
     .eq("user_id", userId)
     .limit(1);
 
-  if (memberships && memberships.length > 0) return;
+  const libraryId = memberships?.[0]?.library_id as string | undefined;
+  if (!libraryId) return;
 
-  const { data: library, error: libErr } = await supabase
-    .from("libraries")
-    .insert({ name: "My Library", owner_id: userId })
-    .select("id")
-    .single();
-
-  if (libErr || !library) {
-    throw new Error(libErr?.message || "Could not create default library");
-  }
-
-  const { error: memberErr } = await supabase.from("library_members").insert({
-    library_id: library.id,
-    user_id: userId,
-    role: "owner",
-  });
-
-  if (memberErr) {
-    throw new Error(memberErr.message);
-  }
-
-  const legacy = await loadData(library.id, userId);
+  const legacy = await loadData(libraryId, userId);
   if (legacy.books.length || legacy.borrowers.length || legacy.loans.length) {
-    await saveData(library.id, legacy);
+    await saveData(libraryId, legacy);
   }
 }
 
@@ -76,23 +89,26 @@ export default withAuth(async (request, user) => {
 
     if (listErr) return error(listErr.message, 500);
 
-    const libraries = (rows ?? []).map((row) => {
-      const lib = row.libraries as {
-        id: string;
-        name: string;
-        owner_id: string;
-        created_at: string;
-        updated_at: string;
-      };
-      return {
-        id: lib.id,
-        name: lib.name,
-        ownerId: lib.owner_id,
-        role: row.role,
-        createdAt: lib.created_at,
-        updatedAt: lib.updated_at,
-      };
-    });
+    const libraries = (rows ?? [])
+      .map((row) => {
+        const lib = row.libraries as {
+          id: string;
+          name: string;
+          owner_id: string;
+          created_at: string;
+          updated_at: string;
+        } | null;
+        if (!lib) return null;
+        return {
+          id: lib.id,
+          name: lib.name,
+          ownerId: lib.owner_id,
+          role: row.role,
+          createdAt: lib.created_at,
+          updatedAt: lib.updated_at,
+        };
+      })
+      .filter((lib): lib is NonNullable<typeof lib> => lib != null);
 
     return json({ libraries });
   }

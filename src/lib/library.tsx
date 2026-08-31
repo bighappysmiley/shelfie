@@ -57,6 +57,11 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
       setActiveId(nextId);
       setActiveLibraryId(nextId);
+    } catch {
+      setLibraries([]);
+      setPendingInvites([]);
+      setActiveId(null);
+      setActiveLibraryId(null);
     } finally {
       setLoading(false);
     }

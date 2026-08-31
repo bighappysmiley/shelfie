@@ -1,5 +1,4 @@
-import { Link } from "react-router-dom";
-import { BrowserRouter, Routes, Route, Outlet } from "react-router-dom";
+import { Link, Navigate, Outlet, useLocation, BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { useLibrary } from "@/lib/library";
 import { Navbar, MobileNav } from "@/components/Navbar";
@@ -24,6 +23,7 @@ import { NotificationsPage } from "@/pages/Notifications";
 import { SupportPage } from "@/pages/Support";
 import { SupportTicketPage } from "@/pages/SupportTicket";
 import { AdminPage } from "@/pages/Admin";
+import { SetupPage, isSetupComplete } from "@/pages/Setup";
 import { useEffect } from "react";
 import { Logo } from "@/components/Logo";
 import { ButtonLink } from "@/components/Button";
@@ -61,6 +61,7 @@ function PublicShell() {
 function AppShell() {
   const { user } = useAuth();
   const { loading: libraryLoading, activeLibrary } = useLibrary();
+  const location = useLocation();
 
   useEffect(() => {
     initTheme();
@@ -85,11 +86,11 @@ function AppShell() {
   }
 
   if (!activeLibrary) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center bg-background px-4 text-center">
-        <p className="text-muted">No library available. Check Settings to create one.</p>
-      </div>
-    );
+    return <Navigate to="/setup" replace state={{ from: location.pathname }} />;
+  }
+
+  if (user && !isSetupComplete(user.id)) {
+    return <Navigate to="/setup" replace />;
   }
 
   return (
@@ -119,6 +120,7 @@ function AppRoutes() {
       </Route>
 
       <Route element={<RequireAuth />}>
+        <Route path="/setup" element={<SetupPage />} />
         <Route element={<AppShell />}>
           <Route path="/home" element={<HomePage />} />
           <Route path="/library" element={<LibraryPage />} />

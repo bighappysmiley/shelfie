@@ -11,7 +11,7 @@ import { Container, Group, SegmentedControl } from "@/components/layout";
 export function LandingPage() {
   const { user, loading, pending2fa } = useAuth();
   if (loading) return null;
-  if (user && !pending2fa) return <Navigate to="/library" replace />;
+  if (user && !pending2fa) return <Navigate to="/setup" replace />;
   if (user && pending2fa) return <Navigate to="/verify-2fa" replace />;
 
   return (
@@ -64,7 +64,7 @@ type AuthMode = "email" | "phone";
 function useAuthRedirect() {
   const { user, loading, pending2fa } = useAuth();
   if (!loading && user && pending2fa) return <Navigate to="/verify-2fa" replace />;
-  if (!loading && user) return <Navigate to="/library" replace />;
+  if (!loading && user) return <Navigate to="/setup" replace />;
   return null;
 }
 
@@ -92,7 +92,7 @@ export function LoginPage() {
       if (result.needsSecondFactor) {
         navigate("/verify-2fa", { replace: true });
       } else {
-        navigate("/library", { replace: true });
+        navigate("/setup", { replace: true });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign in failed. Check your credentials.");
@@ -121,7 +121,7 @@ export function LoginPage() {
     setBusy(true);
     try {
       await verifyPhoneOtp(phone.trim(), otp.trim());
-      navigate("/library", { replace: true });
+      navigate("/setup", { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invalid verification code.");
     } finally {
@@ -257,7 +257,7 @@ export function SignupPage() {
       if (result.needsConfirmation) {
         setInfo("A confirmation link has been sent to your email. Sign in after confirming.");
       } else {
-        navigate("/library", { replace: true });
+        navigate("/setup", { replace: true });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Account creation failed. Please try again.");
@@ -286,7 +286,7 @@ export function SignupPage() {
     setBusy(true);
     try {
       await verifyPhoneOtp(phone.trim(), otp.trim());
-      navigate("/library", { replace: true });
+      navigate("/setup", { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invalid verification code.");
     } finally {
@@ -397,7 +397,7 @@ export function Verify2FAPage() {
   const [busy, setBusy] = useState(false);
 
   if (!loading && !user) return <Navigate to="/login" replace />;
-  if (!loading && user && !pending2fa) return <Navigate to="/library" replace />;
+  if (!loading && user && !pending2fa) return <Navigate to="/setup" replace />;
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -405,7 +405,7 @@ export function Verify2FAPage() {
     setBusy(true);
     try {
       await verifySecondFactor(code.trim());
-      navigate("/library", { replace: true });
+      navigate("/setup", { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invalid verification code.");
     } finally {
