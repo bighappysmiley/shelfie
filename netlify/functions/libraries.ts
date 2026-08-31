@@ -194,9 +194,24 @@ export default withAuth(async (request, user) => {
 
     if (membersErr) return error(membersErr.message, 500);
 
+    const userIds = (members ?? []).map((m) => m.user_id as string);
+    const profileMap = new Map<string, string | null>();
+
+    if (userIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from("user_profiles")
+        .select("user_id, display_name")
+        .in("user_id", userIds);
+
+      for (const p of profiles ?? []) {
+        profileMap.set(p.user_id as string, (p.display_name as string | null) ?? null);
+      }
+    }
+
     return json({
       members: (members ?? []).map((m) => ({
         userId: m.user_id,
+        displayName: profileMap.get(m.user_id as string) ?? null,
         role: m.role,
         joinedAt: m.joined_at,
       })),

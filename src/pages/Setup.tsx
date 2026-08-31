@@ -29,58 +29,63 @@ export function markSetupComplete(userId: string) {
 
 export function SetupPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, userProfile, updateProfile } = useAuth();
   const { libraries, activeLibrary, loading, createLibrary, renameLibrary, pendingInvites } =
     useLibrary();
-  const [name, setName] = useState("My Library");
+  const [yourName, setYourName] = useState("");
+  const [libraryName, setLibraryName] = useState("My Library");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (userProfile?.displayName) {
+      setYourName(userProfile.displayName);
+    }
+  }, [userProfile?.displayName]);
+
+  useEffect(() => {
     if (activeLibrary?.name && activeLibrary.name !== "My Library") {
-      setName(activeLibrary.name);
+      setLibraryName(activeLibrary.name);
     }
   }, [activeLibrary?.name]);
 
-  if (!loading && user && libraries.length > 0 && isSetupComplete(user.id)) {
+  if (
+    !loading &&
+    user &&
+    libraries.length > 0 &&
+    isSetupComplete(user.id) &&
+    userProfile?.displayName?.trim()
+  ) {
     return <Navigate to="/home" replace />;
   }
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
-    setBusy(true);
-    try {
-      const trimmed = name.trim() || "My Library";
 
-      if (libraries.length === 0) {
-        await createLibrary(trimmed);
-      } else if (activeLibrary) {
-        await renameLibrary(activeLibrary.id, trimmed);
-      } else {
-        await createLibrary(trimmed);
-      }
-
-      markSetupComplete(user!.id);
-      navigate("/home", { replace: true });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create library. Please try again.");
-    } finally {
-      setBusy(false);
+    const name = yourName.trim();
+    if (!name) {
+      setError("Please enter your name so teammates can recognize you.");
+      return;
     }
-  };
 
-  const skipDefault = async () => {
-    setError("");
     setBusy(true);
     try {
+      await updateProfile({ displayName: name });
+
+      const libTrimmed = libraryName.trim() || "My Library";
       if (libraries.length === 0) {
-        await createLibrary("My Library");
+        await createLibrary(libTrimmed);
+      } else if (activeLibrary) {
+        await renameLibrary(activeLibrary.id, libTrimmed);
+      } else {
+        await createLibrary(libTrimmed);
       }
+
       markSetupComplete(user!.id);
       navigate("/home", { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create library. Please try again.");
+      setError(err instanceof Error ? err.message : "Setup failed. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -106,7 +111,7 @@ export function SetupPage() {
             <Logo size="md" variant="brand" />
           </Link>
 
-          <h1 className="mt-10 text-[2.125rem] font-bold tracking-tight">Set up your library</h1>
+          <h1 className="mt-10 text-[2.125rem] font-bold tracking-tight">Welcome</h1>
           <p className="mt-2 max-w-sm text-[1.0625rem] leading-relaxed text-muted">
             {APP_TAGLINE}
           </p>
@@ -114,8 +119,7 @@ export function SetupPage() {
           {pendingInvites.length > 0 && (
             <p className="mt-4 text-[0.9375rem] text-muted">
               You have {pendingInvites.length} library invitation
-              {pendingInvites.length === 1 ? "" : "s"} — you can accept them from the menu after
-              setup.
+              {pendingInvites.length === 1 ? "" : "s"} — accept them from the menu after setup.
             </p>
           )}
 
@@ -123,32 +127,34 @@ export function SetupPage() {
             <Group>
               <form onSubmit={onSubmit}>
                 <TextField
-                  label="Library Name"
+                  label="Your Name"
                   grouped
                   required
                   autoFocus
+                  placeholder="e.g. Alex Morgan"
+                  hint="Shown to teammates when you share a library"
+                  value={yourName}
+                  onChange={(e) => setYourName(e.target.value)}
+                />
+                <TextField
+                  label="Library Name"
+                  grouped
+                  required
                   placeholder="e.g. Home Books, Office Shelf"
                   hint="You can rename this later or create more libraries in Settings"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  value={libraryName}
+                  onChange={(e) => setLibraryName(e.target.value)}
                 />
                 <div className="px-4 py-4">
                   {error && <FormError message={error} />}
                   <Button type="submit" className="w-full" disabled={busy}>
-                    {busy ? "Creating…" : "Continue"}
+                    {busy ? "Setting Up…" : "Continue"}
                   </Button>
                 </div>
               </form>
             </Group>
             <GroupFooter>
-              <button
-                type="button"
-                onClick={skipDefault}
-                disabled={busy}
-                className="text-link disabled:opacity-50"
-              >
-                Skip for now
-              </button>
+              Your name helps library owners and members know who has access.
             </GroupFooter>
           </div>
         </div>

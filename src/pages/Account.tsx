@@ -19,6 +19,7 @@ export function AccountPage() {
   const { user, signOut, userProfile, updateProfile } = useAuth();
   const navigate = useNavigate();
 
+  const [displayName, setDisplayName] = useState("");
   const [profilePhone, setProfilePhone] = useState("");
   const [require2fa, setRequire2fa] = useState(false);
   const [preferredAuth, setPreferredAuth] = useState<PreferredAuth>("email");
@@ -28,17 +29,19 @@ export function AccountPage() {
 
   useEffect(() => {
     if (userProfile) {
+      setDisplayName(userProfile.displayName ?? "");
       setProfilePhone(userProfile.phone ?? "");
       setRequire2fa(userProfile.require2fa);
       setPreferredAuth(userProfile.preferredAuth);
     }
   }, [userProfile]);
 
-  const saveSecurityProfile = async () => {
+  const saveProfile = async () => {
     setSavingProfile(true);
     setProfileMsg("");
     try {
       await updateProfile({
+        displayName: displayName.trim() || null,
         phone: profilePhone.trim() || null,
         require2fa,
         preferredAuth,
@@ -69,6 +72,15 @@ export function AccountPage() {
         <section>
           <GroupHeader>Profile</GroupHeader>
           <Group>
+            <TextField
+              label="Your Name"
+              grouped
+              required
+              hint="Shown to teammates in shared libraries"
+              placeholder="e.g. Alex Morgan"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+            />
             <ListRow title="Email" trailing={user?.email ?? "—"} />
             <ListRow title="Phone" trailing={userProfile?.phone ?? user?.phone ?? "Not set"} />
           </Group>
@@ -113,7 +125,7 @@ export function AccountPage() {
                   {profileMsg}
                 </p>
               )}
-              <Button className="w-full" onClick={saveSecurityProfile} disabled={savingProfile}>
+              <Button className="w-full" onClick={saveProfile} disabled={savingProfile}>
                 {savingProfile ? "Saving…" : "Save"}
               </Button>
             </div>

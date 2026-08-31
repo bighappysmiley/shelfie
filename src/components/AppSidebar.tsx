@@ -46,7 +46,7 @@ function SidebarButton({
 
 export function AppSidebar() {
   const { open, closeSidebar } = useSidebar();
-  const { user, isStaff } = useAuth();
+  const { user, isStaff, userProfile } = useAuth();
   const { pendingInvites } = useLibrary();
   const navigate = useNavigate();
   const [isDark, setIsDark] = useState(isDarkMode);
@@ -64,7 +64,8 @@ export function AppSidebar() {
     };
   }, [open, closeSidebar]);
 
-  const displayName = userDisplayName(user?.email, user?.phone);
+  const displayName = userDisplayName(userProfile?.displayName, user?.email, user?.phone);
+  const avatarLabel = userProfile?.displayName || user?.email || user?.phone || displayName;
   const subtitle = user?.email ?? user?.phone ?? "";
   const tabIndex = open ? 0 : -1;
 
@@ -122,7 +123,7 @@ export function AppSidebar() {
           className="mx-3 mt-1 flex items-center gap-3 rounded-[var(--radius-group)] bg-fill-secondary px-3 py-3 text-left transition-colors hover:bg-fill active:opacity-90"
           tabIndex={tabIndex}
         >
-          <UserAvatar label={subtitle || displayName} size={44} />
+          <UserAvatar label={avatarLabel} size={44} />
           <div className="min-w-0 flex-1">
             <p className="truncate text-[1.0625rem] font-semibold">{displayName}</p>
             <p className="truncate text-[0.8125rem] text-muted">{subtitle}</p>

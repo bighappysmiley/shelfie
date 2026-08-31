@@ -40,6 +40,7 @@ type AuthContextValue = {
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   updateProfile: (patch: {
+    displayName?: string | null;
     phone?: string | null;
     require2fa?: boolean;
     preferredAuth?: PreferredAuth;
@@ -60,7 +61,7 @@ async function loadStaffProfile(email: string): Promise<StaffMember | null> {
 async function fetchUserProfile(userId: string): Promise<UserProfile | null> {
   const { data } = await supabase
     .from("user_profiles")
-    .select("user_id, phone, require_2fa, preferred_auth")
+    .select("user_id, display_name, phone, require_2fa, preferred_auth")
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -68,6 +69,7 @@ async function fetchUserProfile(userId: string): Promise<UserProfile | null> {
 
   return {
     userId: data.user_id,
+    displayName: data.display_name,
     phone: data.phone,
     require2fa: data.require_2fa,
     preferredAuth: data.preferred_auth as PreferredAuth,
@@ -136,6 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateProfile = useCallback(
     async (patch: {
+      displayName?: string | null;
       phone?: string | null;
       require2fa?: boolean;
       preferredAuth?: PreferredAuth;
@@ -147,6 +150,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user_id: data.user.id,
         updated_at: new Date().toISOString(),
       };
+      if (patch.displayName !== undefined) {
+        row.display_name = patch.displayName?.trim() || null;
+      }
       if (patch.phone !== undefined) row.phone = patch.phone ? normalizePhone(patch.phone) : null;
       if (patch.require2fa !== undefined) row.require_2fa = patch.require2fa;
       if (patch.preferredAuth !== undefined) row.preferred_auth = patch.preferredAuth;

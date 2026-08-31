@@ -11,6 +11,7 @@ export interface Library {
 
 export interface LibraryMember {
   userId: string;
+  displayName: string | null;
   role: LibraryRole;
   joinedAt: string;
 }
@@ -29,6 +30,7 @@ export type PreferredAuth = "email" | "phone" | "both";
 
 export interface UserProfile {
   userId: string;
+  displayName: string | null;
   phone: string | null;
   require2fa: boolean;
   preferredAuth: PreferredAuth;

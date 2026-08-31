@@ -60,7 +60,7 @@ function PublicShell() {
 }
 
 function AppShell() {
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const { loading: libraryLoading, activeLibrary } = useLibrary();
   const location = useLocation();
 
@@ -90,7 +90,7 @@ function AppShell() {
     return <Navigate to="/setup" replace state={{ from: location.pathname }} />;
   }
 
-  if (user && !isSetupComplete(user.id)) {
+  if (user && (!isSetupComplete(user.id) || !userProfile?.displayName?.trim())) {
     return <Navigate to="/setup" replace />;
   }
 

@@ -48,7 +48,12 @@ export function UserAvatar({
   );
 }
 
-export function userDisplayName(email?: string | null, phone?: string | null): string {
+export function userDisplayName(
+  displayName?: string | null,
+  email?: string | null,
+  phone?: string | null,
+): string {
+  if (displayName?.trim()) return displayName.trim();
   if (email) {
     const local = email.split("@")[0] ?? email;
     return local.replace(/[._-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());

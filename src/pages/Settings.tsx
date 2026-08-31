@@ -187,8 +187,9 @@ export function SettingsPage() {
   };
 
   const memberLabel = (m: LibraryMember) => {
+    if (m.displayName) return m.userId === user?.id ? `${m.displayName} (You)` : m.displayName;
     if (m.userId === user?.id) return "You";
-    return `${m.userId.slice(0, 8)}…`;
+    return "Member";
   };
 
   return (
