@@ -17,11 +17,8 @@ export function LandingPage() {
         <h1 className="text-[2.125rem] font-bold tracking-tight sm:text-[2.75rem]">
           {APP_NAME}
         </h1>
-        <p className="mt-3 text-[0.8125rem] font-medium uppercase tracking-wide text-muted">
-          Forest library
-        </p>
         <p className="mt-4 max-w-md text-[1.25rem] leading-snug text-muted">
-          {APP_TAGLINE}. Catalog books, track loans, and organize your collection.
+          {APP_TAGLINE}
         </p>
         <div className="mt-10 flex flex-col gap-3 sm:flex-row">
           <ButtonLink to="/signup" className="w-full sm:w-auto">

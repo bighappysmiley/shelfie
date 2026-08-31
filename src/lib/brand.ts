@@ -1,2 +1,3 @@
-export const APP_NAME = "Bracken";
-export const APP_TAGLINE = "Your personal library among the trees";
+export const APP_NAME = "Pine Books";
+export const APP_TAGLINE =
+  "Catalog your books, track loans, and organize by room or shelf";

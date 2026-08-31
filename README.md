@@ -1,6 +1,6 @@
-# Bracken
+# Pine Books
 
-Your personal library among the trees — catalog books, know where they live, and track who borrowed them.
+Catalog your books, track loans, and organize by room or shelf.
 
 ## What you can do
 

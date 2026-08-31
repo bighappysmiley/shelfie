@@ -13,9 +13,9 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["icons/*.png"],
       manifest: {
-        name: "Bracken",
-        short_name: "Bracken",
-        description: "Your personal library among the trees",
+        name: "Pine Books",
+        short_name: "Pine Books",
+        description: "Catalog your books, track loans, and organize by room or shelf",
         theme_color: "#e9efe8",
         background_color: "#e9efe8",
         display: "standalone",
