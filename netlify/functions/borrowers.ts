@@ -1,19 +1,17 @@
 import type { Config } from "@netlify/functions";
 import { loadData, saveData, newId, nowIso, type Borrower } from "./lib/store";
-import { json, error, handleOptions, parseBody } from "./utils";
+import { json, error, parseBody } from "./utils";
+import { withAuth } from "./lib/auth";
 
 export const config: Config = {
   path: "/api/borrowers",
 };
 
-export default async (request: Request) => {
-  if (request.method === "OPTIONS") return handleOptions();
-
+export default withAuth(async (request, user) => {
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
 
-  try {
-    const data = await loadData();
+  const data = await loadData(user.id);
 
     if (request.method === "GET") {
       if (id) {
@@ -58,7 +56,7 @@ export default async (request: Request) => {
       };
 
       data.borrowers.push(borrower);
-      await saveData(data);
+      await saveData(user.id, data);
       return json(borrower, 201);
     }
 
@@ -81,7 +79,7 @@ export default async (request: Request) => {
       if (body.avatarUrl !== undefined) borrower.avatarUrl = body.avatarUrl || null;
 
       data.borrowers[idx] = borrower;
-      await saveData(data);
+      await saveData(user.id, data);
       return json(borrower);
     }
 
@@ -94,13 +92,9 @@ export default async (request: Request) => {
       data.borrowers = data.borrowers.filter((b) => b.id !== id);
       // Keep past loans for history? Or remove orphaned. Remove orphaned cleanly:
       data.loans = data.loans.filter((l) => l.borrowerId !== id);
-      await saveData(data);
+      await saveData(user.id, data);
       return json({ ok: true });
     }
 
-    return error("Method not allowed", 405);
-  } catch (e) {
-    console.error(e);
-    return error(e instanceof Error ? e.message : "Server error", 500);
-  }
-};
+  return error("Method not allowed", 405);
+});

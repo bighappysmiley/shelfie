@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { bookCoverUrl, coverPlaceholder } from "@/lib/cover";
+import { fetchAuthed } from "@/lib/api";
 
 /**
  * Book cover image that:
  * - uses referrerPolicy so Google Books covers aren't blanked
+ * - authenticates uploaded /api/covers assets
  * - falls back to a generated placeholder if the URL 404s / is blank
  */
 export function CoverImage({
@@ -21,8 +23,35 @@ export function CoverImage({
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    setSrc(primary);
+    let revoked: string | null = null;
+    let cancelled = false;
+
     setFailed(false);
+
+    const load = async () => {
+      if (primary.startsWith("/api/covers")) {
+        try {
+          const res = await fetchAuthed(primary);
+          if (!res.ok) throw new Error("cover fetch failed");
+          const blob = await res.blob();
+          if (cancelled) return;
+          revoked = URL.createObjectURL(blob);
+          setSrc(revoked);
+          return;
+        } catch {
+          if (!cancelled) setFailed(true);
+          return;
+        }
+      }
+      setSrc(primary);
+    };
+
+    load();
+
+    return () => {
+      cancelled = true;
+      if (revoked) URL.revokeObjectURL(revoked);
+    };
   }, [primary]);
 
   return (

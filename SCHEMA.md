@@ -1,43 +1,49 @@
-# Data storage
+# Shelfie data model
 
-Shelfie stores data in **Netlify Blobs** (included on free Netlify plans). No database plan or connection string is required.
+Per-user library documents in Netlify Blobs.
 
-## Store
+- Store: `shelfie`
+- Key: `library:{userId}`
+- Shape: `{ books: Book[], borrowers: Borrower[], loans: Loan[] }`
 
-- Store name: `shelfie`
-- Key: `library`
-- Value: one JSON document
+Uploaded covers:
 
-```json
-{
-  "books": [ /* Book */ ],
-  "borrowers": [ /* Borrower */ ],
-  "loans": [ /* Loan */ ]
-}
-```
+- Store: `shelfie-covers`
+- Key: `{userId}/{coverId}`
 
 ## Book
 
 | Field | Type | Notes |
-|-------|------|-------|
+|-------|------|--------|
 | id | string (uuid) | |
-| title | string | Required |
+| title | string | required |
 | authors | string | |
 | isbn | string \| null | |
 | coverUrl | string \| null | |
-| format | string | hardcover, paperback, ebook, audiobook |
-| locationRoom / locationShelf | string \| null | |
-| readingStatus | string | owned, reading, read, want_to_read, wishlist |
+| format | hardcover \| paperback \| ebook \| audiobook | |
+| locationRoom | string \| null | |
+| locationShelf | string \| null | |
+| readingStatus | available \| wishlist \| missing | catalog status |
 | personalRating | number \| null | 1–5 |
 | seriesName / seriesNumber | string \| null | |
 | purchaseDate / purchasePrice | string \| null | |
 | condition | string \| null | |
 | notes | string \| null | |
-| pageCount / publisher / publishYear / description | mixed | |
-| copyNumber | number | Default 1 |
+| pageCount | number \| null | |
+| publisher / publishYear | string / number \| null | |
+| description | string \| null | |
+| copyNumber | number | default 1 |
 | tags | string[] | |
 | createdAt / updatedAt | ISO string | |
 
-## Borrower / Loan
+Active loans are computed from `loans` where `dateReturned` is null (shown as “On loan”).
 
-Same shape as before: borrowers have name/phone/email; loans link `bookId` + `borrowerId` with dates. `dateReturned: null` means currently out.
+## Borrower
+
+id, name, phone, email, avatarUrl, createdAt
+
+## Loan
+
+id, bookId, borrowerId, dateLoaned, dueDate, dateReturned, notes, createdAt
+
+Auth: Supabase JWT (`Authorization: Bearer …`) required on all `/api/*` routes except `cover-proxy` (public ISBN cover CDN proxy).

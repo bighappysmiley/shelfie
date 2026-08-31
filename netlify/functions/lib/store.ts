@@ -65,14 +65,17 @@ interface ShelfieData {
 }
 
 const EMPTY: ShelfieData = { books: [], borrowers: [], loans: [] };
-const DATA_KEY = "library";
 
 function store() {
   return getStore({ name: "shelfie", consistency: "strong" });
 }
 
-export async function loadData(): Promise<ShelfieData> {
-  const data = await store().get(DATA_KEY, { type: "json" });
+function dataKey(userId: string): string {
+  return `library:${userId}`;
+}
+
+export async function loadData(userId: string): Promise<ShelfieData> {
+  const data = await store().get(dataKey(userId), { type: "json" });
   if (!data) return structuredClone(EMPTY);
   return {
     books: Array.isArray(data.books) ? data.books : [],
@@ -81,8 +84,8 @@ export async function loadData(): Promise<ShelfieData> {
   };
 }
 
-export async function saveData(data: ShelfieData): Promise<void> {
-  await store().setJSON(DATA_KEY, data);
+export async function saveData(userId: string, data: ShelfieData): Promise<void> {
+  await store().setJSON(dataKey(userId), data);
 }
 
 export function newId(): string {

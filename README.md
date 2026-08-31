@@ -1,57 +1,36 @@
 # Shelfie
 
-Personal library catalog and lending tracker. A clean, installable PWA for iPhone and Mac.
+Your personal library — catalog books, know where they live, and track who borrowed them.
 
-## Features
+## What you can do
 
-- **Library-first layout** — status chips, cover/list views, tag & location filters, bulk edit
-- **Locations browser** — books grouped by room and shelf
-- **Add books** via USB/Bluetooth scanner, camera barcode, cover photo AI, shelf-spine AI, or manual entry
-- **ISBN lookup** from Open Library and Google Books (free)
-- **Lending** with borrowers, due dates, overdue/due-soon filters, extend due date
-- **Full cataloging** — status, location, series, tags, ratings, condition, purchase info
-- **Search & filters** by status, format, room, tag, and text
-- **Offline browsing** with IndexedDB cache
-- **CSV export/import** for data portability
-- **Stats dashboard** and series tracking
-- **Dark mode**
+- **Sign up** for a private account (your library isn’t shared)
+- Add books by hand, barcode camera, USB/Bluetooth scanner, cover photo, or shelf photo
+- Organize by room and shelf, tags, status, and series
+- Loan books to friends and track due dates
+- Export or import your catalog
 
-## Tech stack
+## For operators (deploy)
 
-- Vite + React + TypeScript
-- Tailwind CSS v4 (BoardView design system)
-- **Netlify Blobs** for storage (free tier)
-- Netlify Functions for API
-- Camera barcode (html5-qrcode) — free, no AI key
-- Cover / shelf vision via **Google Gemini free tier**
-- USB / Bluetooth barcode scanners (keyboard-wedge)
-- PWA with service worker
+Built as a Vite + React PWA on Netlify Functions + Netlify Blobs, with Supabase Auth.
 
-## Environment variables
+### Netlify environment variables
 
-| Name | Required? | Notes |
-|------|-----------|--------|
-| `GEMINI_API_KEY` | Only for cover photo & shelf scan | Free key from [Google AI Studio](https://aistudio.google.com/apikey) |
+| Variable | Notes |
+|----------|--------|
+| `SUPABASE_URL` | `https://xdsnoqckoolwatgwtyfy.supabase.co` |
+| `SUPABASE_ANON_KEY` | Supabase anon / publishable key |
+| `VITE_SUPABASE_URL` | Same URL (needed at build time) |
+| `VITE_SUPABASE_ANON_KEY` | Same anon key (needed at build time) |
+| `GEMINI_API_KEY` | Optional — enables cover & shelf photo features |
 
-Manual add, USB/Bluetooth scan, camera barcode, and ISBN lookup work **without** any env vars.
+In Supabase Auth settings, set **Site URL** to your Netlify site URL and add it under redirect URLs.
 
-Optional: `GEMINI_MODEL` (default `gemini-2.0-flash`).
-
-## Deploy (GitHub → Netlify)
-
-1. Connect the repo in Netlify (branch: `main`)
-2. Build settings are in `netlify.toml`
-3. For cover/shelf AI: Site configuration → Environment variables → add `GEMINI_API_KEY`
-
-## Local development
+### Local development
 
 ```bash
 npm install
-npm run dev
-```
-
-For API + Blobs locally:
-
-```bash
 npx netlify dev
 ```
+
+Copy `.env.example` to `.env` if you need to override keys.

@@ -1,11 +1,16 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { PageHeader, Card } from "@/components/layout";
 import { Button } from "@/components/Button";
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 
 export function SettingsPage() {
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState("");
+  const [signingOut, setSigningOut] = useState(false);
 
   const handleExport = async () => {
     const csv = await api.data.export();
@@ -64,13 +69,39 @@ export function SettingsPage() {
     );
   };
 
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    try {
+      await signOut();
+      navigate("/", { replace: true });
+    } finally {
+      setSigningOut(false);
+    }
+  };
+
   const isDark = document.documentElement.classList.contains("dark");
 
   return (
     <div>
-      <PageHeader title="Settings" subtitle="Data and preferences" />
+      <PageHeader title="Settings" subtitle="Account and preferences" />
 
       <div className="space-y-6">
+        <Card>
+          <h2 className="font-semibold">Account</h2>
+          <p className="mt-1 text-sm text-muted">{user?.email}</p>
+          <p className="mt-2 text-sm text-muted">
+            Your library is private to this account.
+          </p>
+          <Button
+            variant="secondary"
+            className="mt-4"
+            onClick={handleSignOut}
+            disabled={signingOut}
+          >
+            {signingOut ? "Signing out…" : "Sign out"}
+          </Button>
+        </Card>
+
         <Card>
           <h2 className="font-semibold">Appearance</h2>
           <p className="mt-1 text-sm text-muted">Switch between light and dark mode</p>
@@ -80,27 +111,9 @@ export function SettingsPage() {
         </Card>
 
         <Card>
-          <h2 className="font-semibold">Cover & shelf AI (optional)</h2>
-          <p className="mt-1 text-sm text-muted">
-            Cover photo and shelf scan use Google Gemini’s free tier. Get a key at{" "}
-            <a
-              href="https://aistudio.google.com/apikey"
-              target="_blank"
-              rel="noreferrer"
-              className="underline hover:text-foreground"
-            >
-              aistudio.google.com/apikey
-            </a>
-            , then add <code className="font-mono text-xs">GEMINI_API_KEY</code> in
-            Netlify → Site configuration → Environment variables. Camera barcode and
-            USB/Bluetooth scanning don’t need a key.
-          </p>
-        </Card>
-
-        <Card>
           <h2 className="font-semibold">Export data</h2>
           <p className="mt-1 text-sm text-muted">
-            Download your entire library and loan history as CSV
+            Download your library and loan history as CSV
           </p>
           <Button variant="secondary" className="mt-4" onClick={handleExport}>
             Export CSV
@@ -110,7 +123,7 @@ export function SettingsPage() {
         <Card>
           <h2 className="font-semibold">Import data</h2>
           <p className="mt-1 text-sm text-muted">
-            Import from Goodreads CSV export or a JSON file
+            Import from a Goodreads CSV export or a JSON file
           </p>
           <label className="mt-4 inline-block cursor-pointer">
             <span className="inline-flex items-center justify-center gap-2 rounded-lg border border-black/10 bg-surface px-4 py-2.5 text-[0.95rem] font-medium transition-colors hover:bg-black/[0.04] dark:border-white/10">

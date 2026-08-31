@@ -1,5 +1,6 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import type { Book } from "./types";
+import { supabase } from "./supabase";
 
 interface ShelfieDB extends DBSchema {
   books: { key: string; value: Book; indexes: { "by-title": string } };
@@ -9,19 +10,36 @@ interface ShelfieDB extends DBSchema {
   };
 }
 
-let dbPromise: Promise<IDBPDatabase<ShelfieDB>> | null = null;
+const dbCache = new Map<string, Promise<IDBPDatabase<ShelfieDB>>>();
 
-function getDB() {
-  if (!dbPromise) {
-    dbPromise = openDB<ShelfieDB>("shelfie", 1, {
+async function currentUserKey(): Promise<string> {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.user?.id ?? "anon";
+}
+
+async function getDB() {
+  const key = await currentUserKey();
+  let promise = dbCache.get(key);
+  if (!promise) {
+    promise = openDB<ShelfieDB>(`shelfie-${key}`, 1, {
       upgrade(db) {
         const store = db.createObjectStore("books", { keyPath: "id" });
         store.createIndex("by-title", "title");
         db.createObjectStore("pending", { keyPath: "id", autoIncrement: true });
       },
     });
+    dbCache.set(key, promise);
   }
-  return dbPromise;
+  return promise;
+}
+
+async function authHeaders(): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (data.session?.access_token) {
+    headers.Authorization = `Bearer ${data.session.access_token}`;
+  }
+  return headers;
 }
 
 export async function cacheBooks(books: Book[]) {
@@ -52,12 +70,13 @@ export async function syncPending(): Promise<number> {
   const db = await getDB();
   const pending = await db.getAll("pending");
   let synced = 0;
+  const headers = await authHeaders();
 
   for (const item of pending) {
     try {
       await fetch(`/api${item.path}`, {
         method: item.method,
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: item.body ? JSON.stringify(item.body) : undefined,
       });
       if (item.id) await db.delete("pending", item.id);

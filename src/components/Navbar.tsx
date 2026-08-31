@@ -24,7 +24,7 @@ export function Navbar() {
       <Container>
         <div className="flex h-14 items-center gap-4">
           <NavLink
-            to="/"
+            to="/home"
             className="shrink-0 text-[1.05rem] font-semibold tracking-tight"
           >
             Shelfie
@@ -74,7 +74,7 @@ export function Navbar() {
 }
 
 const mobileItems = [
-  { to: "/", label: "Home", icon: IconHome, end: true },
+  { to: "/home", label: "Home", icon: IconHome, end: true },
   { to: "/library", label: "Library", icon: IconLibrary },
   { to: "/add", label: "Add", icon: IconPlus, emphasize: true },
   { to: "/loaned", label: "Loaned", icon: IconLoan },

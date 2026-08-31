@@ -1,16 +1,30 @@
+import { supabase } from "./supabase";
+
 const API_BASE = "/api";
 
+async function getAccessToken(): Promise<string | null> {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.access_token ?? null;
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = await getAccessToken();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options?.headers as Record<string, string> | undefined),
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
+
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
+    headers,
   });
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
+    if (res.status === 401) {
+      throw new Error(err.error || "Please sign in to continue");
+    }
     throw new Error(err.error || err.message || "Request failed");
   }
 
@@ -19,6 +33,14 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   }
 
   return res.json();
+}
+
+/** Authenticated fetch for binary resources (uploaded covers). */
+export async function fetchAuthed(path: string): Promise<Response> {
+  const token = await getAccessToken();
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return fetch(path.startsWith("/") ? path : `${API_BASE}${path}`, { headers });
 }
 
 export const api = {

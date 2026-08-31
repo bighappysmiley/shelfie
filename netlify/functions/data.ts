@@ -7,7 +7,8 @@ import {
   normalizeLibraryStatus,
   type Book,
 } from "./lib/store";
-import { json, error, handleOptions, parseBody } from "./utils";
+import { json, error, parseBody, corsHeaders } from "./utils";
+import { withAuth } from "./lib/auth";
 
 export const config: Config = {
   path: "/api/data",
@@ -22,14 +23,11 @@ function escapeCsv(val: string | number | null | undefined): string {
   return s;
 }
 
-export default async (request: Request) => {
-  if (request.method === "OPTIONS") return handleOptions();
-
+export default withAuth(async (request, user) => {
   const url = new URL(request.url);
   const action = url.searchParams.get("action");
 
-  try {
-    const data = await loadData();
+  const data = await loadData(user.id);
 
     if (request.method === "GET" && action === "export") {
       const bookHeaders = [
@@ -71,10 +69,10 @@ export default async (request: Request) => {
       ].join("\n");
 
       return new Response(csv, {
-        headers: {
+        headers: corsHeaders({
           "Content-Type": "text/csv",
           "Content-Disposition": 'attachment; filename="shelfie-export.csv"',
-        },
+        }),
       });
     }
 
@@ -189,13 +187,9 @@ export default async (request: Request) => {
         imported++;
       }
 
-      await saveData(data);
+      await saveData(user.id, data);
       return json({ imported });
     }
 
-    return error("Unknown action", 400);
-  } catch (e) {
-    console.error(e);
-    return error(e instanceof Error ? e.message : "Server error", 500);
-  }
-};
+  return error("Unknown action", 400);
+});

@@ -75,7 +75,7 @@ export function AddBookPage() {
 
   const handleCoverPhoto = async (dataUrl: string, mediaType: string) => {
     setLoading(true);
-    setStatus("Identifying cover with free Gemini AI…");
+    setStatus("Identifying cover…");
     try {
       const result = await api.vision.cover(dataUrl, mediaType);
       if (!result.found) {
@@ -105,7 +105,7 @@ export function AddBookPage() {
 
   const handleShelfPhoto = async (dataUrl: string, mediaType: string) => {
     setLoading(true);
-    setStatus("Reading spines with free Gemini AI…");
+    setStatus("Reading book spines…");
     try {
       const result = await api.vision.shelf(dataUrl, mediaType);
       if (!result.books?.length) {
@@ -212,7 +212,7 @@ export function AddBookPage() {
 
         {mode === "cover" && (
           <PhotoCapture
-            label="Take a photo of the book cover. Free Gemini AI identifies the title, then we look up details."
+            label="Take a photo of the book cover. We'll identify the title and look up details."
             actionLabel="Identify cover"
             onCapture={handleCoverPhoto}
             onClose={() => setMode("manual")}
@@ -221,7 +221,7 @@ export function AddBookPage() {
 
         {mode === "shelf" && (
           <PhotoCapture
-            label="Take a photo of your bookshelf. Free Gemini AI reads visible spines — review before adding."
+            label="Take a photo of your bookshelf. We'll read visible spines — review before adding."
             actionLabel="Read spines"
             onCapture={handleShelfPhoto}
             onClose={() => setMode("manual")}

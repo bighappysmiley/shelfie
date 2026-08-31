@@ -1,5 +1,6 @@
 import type { Config } from "@netlify/functions";
-import { json, error, handleOptions } from "./utils";
+import { json, error } from "./utils";
+import { withAuth } from "./lib/auth";
 import { isbnVariants, normalizeIsbn, isIsbn10, isIsbn13 } from "./lib/isbn";
 
 export const config: Config = {
@@ -121,8 +122,7 @@ async function lookupGoogleBooks(isbn: string): Promise<BookMetadata | null> {
   }
 }
 
-export default async (request: Request) => {
-  if (request.method === "OPTIONS") return handleOptions();
+export default withAuth(async (request) => {
   if (request.method !== "GET") return error("Method not allowed", 405);
 
   const url = new URL(request.url);
@@ -193,4 +193,4 @@ export default async (request: Request) => {
   }
 
   return error("Lookup failed");
-};
+});

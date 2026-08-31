@@ -1,5 +1,6 @@
 import type { Config } from "@netlify/functions";
-import { json, error, handleOptions, parseBody } from "./utils";
+import { json, error, parseBody } from "./utils";
+import { withAuth } from "./lib/auth";
 
 export const config: Config = {
   path: "/api/vision",
@@ -11,16 +12,10 @@ interface VisionBook {
   confidence: number;
 }
 
-/**
- * Free-tier Gemini vision (Google AI Studio).
- * Get a key at https://aistudio.google.com/apikey — set GEMINI_API_KEY in Netlify.
- */
 async function callGemini(imageBase64: string, mimeType: string, prompt: string): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    throw new Error(
-      "GEMINI_API_KEY is not set. Get a free key at https://aistudio.google.com/apikey and add it in Netlify → Environment variables.",
-    );
+    throw new Error("Cover and shelf scan aren't available right now. Try barcode or manual entry.");
   }
 
   const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
@@ -51,8 +46,8 @@ async function callGemini(imageBase64: string, mimeType: string, prompt: string)
   });
 
   if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Gemini API error: ${err}`);
+    console.error("Vision provider error", await res.text());
+    throw new Error("Couldn't read that photo. Try again or add the book manually.");
   }
 
   const data = await res.json();
@@ -83,54 +78,50 @@ function parseJsonArray(text: string): VisionBook[] {
   }
 }
 
-export default async (request: Request) => {
-  if (request.method === "OPTIONS") return handleOptions();
+export default withAuth(async (request) => {
   if (request.method !== "POST") return error("Method not allowed", 405);
 
-  try {
-    const body = await parseBody<{
-      image: string;
-      mediaType?: string;
-      mode: "cover" | "shelf";
-    }>(request);
+  const body = await parseBody<{
+    image: string;
+    mediaType?: string;
+    mode: "cover" | "shelf";
+  }>(request);
 
-    if (!body.image || !body.mode) return error("image and mode are required");
+  if (!body.image || !body.mode) return error("image and mode are required");
 
-    const mediaType = body.mediaType ?? "image/jpeg";
-    const base64 = body.image.replace(/^data:image\/\w+;base64,/, "");
+  const mediaType = body.mediaType ?? "image/jpeg";
+  const base64 = body.image.replace(/^data:image\/\w+;base64,/, "");
 
-    if (body.mode === "cover") {
-      const prompt = `Identify the book from this cover photo. Return ONLY a JSON object:
+  if (body.mode === "cover") {
+    const prompt = `Identify the book from this cover photo. Return ONLY a JSON object:
 {"title":"book title","author":"author name(s)","confidence":0.0-1.0}
 No markdown, no other text.`;
 
-      const text = await callGemini(base64, mediaType, prompt);
-      const obj = parseJsonObject(text);
-      if (!obj?.title) return json({ found: false });
+    const text = await callGemini(base64, mediaType, prompt);
+    const obj = parseJsonObject(text);
+    if (!obj?.title) return json({ found: false });
 
-      return json({
-        found: true,
-        title: String(obj.title),
-        author: String(obj.author ?? ""),
-        confidence: Number(obj.confidence ?? 0.7),
-      });
-    }
+    return json({
+      found: true,
+      title: String(obj.title),
+      author: String(obj.author ?? ""),
+      confidence: Number(obj.confidence ?? 0.7),
+    });
+  }
 
-    const prompt = `Analyze this bookshelf photo. Extract every visible book spine.
+  const prompt = `Analyze this bookshelf photo. Extract every visible book spine.
 Return ONLY a JSON array. Each item:
 {"title":"...","author":"...","confidence":0.0-1.0}
 Include all readable spines, left to right. No markdown, no other text.`;
 
-    const text = await callGemini(base64, mediaType, prompt);
-    const books = parseJsonArray(text).map((b) => ({
+  const text = await callGemini(base64, mediaType, prompt);
+  const books = parseJsonArray(text)
+    .map((b) => ({
       title: String(b.title ?? "").trim(),
       author: String(b.author ?? "").trim(),
       confidence: Number(b.confidence ?? 0.5),
-    })).filter((b) => b.title);
+    }))
+    .filter((b) => b.title);
 
-    return json({ books, count: books.length });
-  } catch (e) {
-    console.error(e);
-    return error(e instanceof Error ? e.message : "Vision error", 500);
-  }
-};
+  return json({ books, count: books.length });
+});

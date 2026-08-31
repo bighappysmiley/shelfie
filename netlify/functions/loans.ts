@@ -1,20 +1,18 @@
 import type { Config } from "@netlify/functions";
 import { loadData, saveData, newId, nowIso, todayDate, type Loan } from "./lib/store";
-import { json, error, handleOptions, parseBody } from "./utils";
+import { json, error, parseBody } from "./utils";
+import { withAuth } from "./lib/auth";
 
 export const config: Config = {
   path: "/api/loans",
 };
 
-export default async (request: Request) => {
-  if (request.method === "OPTIONS") return handleOptions();
-
+export default withAuth(async (request, user) => {
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
   const activeOnly = url.searchParams.get("active") === "true";
 
-  try {
-    const data = await loadData();
+  const data = await loadData(user.id);
 
     if (request.method === "GET") {
       let loans = data.loans;
@@ -67,7 +65,7 @@ export default async (request: Request) => {
       };
 
       data.loans.push(loan);
-      await saveData(data);
+      await saveData(user.id, data);
       return json(loan, 201);
     }
 
@@ -88,7 +86,7 @@ export default async (request: Request) => {
           ...data.loans[idx],
           dateReturned: body.dateReturned ?? todayDate(),
         };
-        await saveData(data);
+        await saveData(user.id, data);
         return json(data.loans[idx]);
       }
 
@@ -98,16 +96,12 @@ export default async (request: Request) => {
           ...(body.dueDate !== undefined ? { dueDate: body.dueDate || null } : {}),
           ...(body.notes !== undefined ? { notes: body.notes } : {}),
         };
-        await saveData(data);
+        await saveData(user.id, data);
         return json(data.loans[idx]);
       }
 
       return error("Unknown action");
     }
 
-    return error("Method not allowed", 405);
-  } catch (e) {
-    console.error(e);
-    return error(e instanceof Error ? e.message : "Server error", 500);
-  }
-};
+  return error("Method not allowed", 405);
+});

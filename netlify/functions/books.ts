@@ -8,7 +8,8 @@ import {
   type Book,
 } from "./lib/store";
 import { isbnVariants, normalizeIsbn } from "./lib/isbn";
-import { json, error, handleOptions, parseBody } from "./utils";
+import { json, error, parseBody } from "./utils";
+import { withAuth } from "./lib/auth";
 
 export const config: Config = {
   path: "/api/books",
@@ -33,14 +34,11 @@ function withActiveLoan(
   };
 }
 
-export default async (request: Request) => {
-  if (request.method === "OPTIONS") return handleOptions();
-
+export default withAuth(async (request, user) => {
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
 
-  try {
-    const data = await loadData();
+  const data = await loadData(user.id);
 
     if (request.method === "GET") {
       if (id) {
@@ -193,7 +191,7 @@ export default async (request: Request) => {
       };
 
       data.books.push(book);
-      await saveData(data);
+      await saveData(user.id, data);
       return json(book, 201);
     }
 
@@ -228,7 +226,7 @@ export default async (request: Request) => {
       book.updatedAt = nowIso();
 
       data.books[idx] = book;
-      await saveData(data);
+      await saveData(user.id, data);
       return json(book);
     }
 
@@ -236,13 +234,9 @@ export default async (request: Request) => {
       if (!id) return error("Book id required");
       data.books = data.books.filter((b) => b.id !== id);
       data.loans = data.loans.filter((l) => l.bookId !== id);
-      await saveData(data);
+      await saveData(user.id, data);
       return json({ ok: true });
     }
 
-    return error("Method not allowed", 405);
-  } catch (e) {
-    console.error(e);
-    return error(e instanceof Error ? e.message : "Server error", 500);
-  }
-};
+  return error("Method not allowed", 405);
+});
