@@ -14,7 +14,7 @@ const presets = {
   lg: { mark: 56, gap: "gap-2.5", text: logoTextClasses.lg },
 } as const;
 
-/** Simple pine: three tiers + trunk. */
+/** Minimal pine — one canopy, one trunk. No chevrons or diamond frame. */
 export function LogoMark({
   size = 32,
   className = "",
@@ -32,31 +32,12 @@ export function LogoMark({
       {...props}
     >
       <path
-        d="M24 42V32"
-        stroke="currentColor"
-        strokeWidth="2.5"
-        strokeLinecap="round"
+        fill="currentColor"
+        d="M24 8 40 36a2 2 0 0 1-1.8 2H9.8A2 2 0 0 1 8 36L24 8Z"
       />
       <path
-        d="M14 32L24 20L34 32"
-        stroke="currentColor"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M17 24L24 16L31 24"
-        stroke="currentColor"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M20 18L24 12L28 18"
-        stroke="currentColor"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        fill="currentColor"
+        d="M21.25 36h5.5v6.75a1.5 1.5 0 0 1-1.5 1.5h-2.5a1.5 1.5 0 0 1-1.5-1.5V36Z"
       />
     </svg>
   );
