@@ -13,7 +13,7 @@ async function fetchImage(url: string): Promise<{ bytes: ArrayBuffer; type: stri
     const res = await fetch(url, {
       headers: {
         // Some CDNs (esp. Google Books) blank-out hotlinked images
-        "User-Agent": "Pine Books/1.0 (book catalog; cover fetch)",
+        "User-Agent": "Pine Bookkeeping/1.0 (book catalog; cover fetch)",
         Accept: "image/*,*/*",
       },
       redirect: "follow",

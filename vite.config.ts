@@ -13,9 +13,9 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["icons/*.png"],
       manifest: {
-        name: "Pine Books",
-        short_name: "Pine Books",
-        description: "Catalog your books, track loans, and organize by room or shelf",
+        name: "Pine Bookkeeping",
+        short_name: "Pine Bookkeeping",
+        description: "Catalog your book collection, track loans, and organize by room or shelf",
         theme_color: "#e9efe8",
         background_color: "#e9efe8",
         display: "standalone",

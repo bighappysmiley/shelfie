@@ -28,7 +28,7 @@ export function SettingsPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `pine-books-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `pine-bookkeeping-export-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -73,7 +73,7 @@ export function SettingsPage() {
 
   const toggleDark = (on: boolean) => {
     document.documentElement.classList.toggle("dark", on);
-    localStorage.setItem("pine-books-theme", on ? "dark" : "light");
+    localStorage.setItem("pine-bookkeeping-theme", on ? "dark" : "light");
     setIsDark(on);
   };
 

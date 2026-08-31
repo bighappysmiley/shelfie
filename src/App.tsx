@@ -58,6 +58,7 @@ function AppShell() {
 
   useEffect(() => {
     const theme =
+      localStorage.getItem("pine-bookkeeping-theme") ??
       localStorage.getItem("pine-books-theme") ??
       localStorage.getItem("bracken-theme") ??
       localStorage.getItem("understory-theme") ??

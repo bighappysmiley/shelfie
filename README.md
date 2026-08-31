@@ -1,6 +1,8 @@
-# Pine Books
+# Pine Bookkeeping
 
-Catalog your books, track loans, and organize by room or shelf.
+Catalog your book collection, track loans, and organize by room or shelf.
+
+Part of the Pine family: use **Pine Books** for reading habits and **Pine Bookkeeping** for cataloging what you own.
 
 ## What you can do
 
