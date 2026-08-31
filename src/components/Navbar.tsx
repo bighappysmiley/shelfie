@@ -24,7 +24,7 @@ export function Navbar() {
   const { pendingInvites } = useLibrary();
 
   return (
-    <header className="sticky top-0 z-50 nav-material hairline-b safe-top">
+    <header className="sticky top-0 z-50 nav-material hairline-b safe-top lg:hidden">
       <Container>
         <div className="flex h-12 items-center gap-2 sm:gap-3">
           <SidebarMenuButton badge={pendingInvites.length} />

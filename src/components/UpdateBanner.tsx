@@ -6,12 +6,25 @@ export function UpdateBanner() {
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
   } = useRegisterSW({
+    immediate: true,
     onRegisteredSW(_swUrl, registration) {
       if (!registration) return;
-      // Check for updates periodically while the app is open.
-      window.setInterval(() => {
+
+      // If a waiting worker already exists (common on desktop with stale cache), prompt now.
+      if (registration.waiting) {
+        setNeedRefresh(true);
+      }
+
+      const check = () => {
         void registration.update();
-      }, 60_000);
+      };
+
+      check();
+      window.setInterval(check, 30_000);
+      window.addEventListener("focus", check);
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") check();
+      });
     },
   });
 
@@ -22,7 +35,7 @@ export function UpdateBanner() {
       className="safe-top sticky top-0 z-[60] border-b border-hairline bg-accent px-4 py-3 text-accent-contrast"
       role="status"
     >
-      <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
+      <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 lg:max-w-6xl">
         <p className="text-[0.9375rem] font-medium leading-snug">
           There&apos;s an update to {APP_WORDMARK_PRIMARY}. Refresh to get the latest version.
         </p>

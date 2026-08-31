@@ -8,15 +8,16 @@ export function Container({
 }: {
   children: ReactNode;
   className?: string;
-  size?: "wide" | "narrow" | "form";
+  size?: "wide" | "narrow" | "form" | "desktop";
 }) {
   const widths = {
     wide: "max-w-3xl",
+    desktop: "max-w-5xl lg:max-w-6xl",
     narrow: "max-w-xl",
     form: "max-w-md",
   };
   return (
-    <div className={`mx-auto w-full ${widths[size]} px-4 sm:px-5 ${className}`}>
+    <div className={`mx-auto w-full ${widths[size]} px-4 sm:px-5 lg:px-8 ${className}`}>
       {children}
     </div>
   );

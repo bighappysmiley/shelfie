@@ -30,24 +30,54 @@ export function LandingPage() {
   if (user && pending2fa) return <Navigate to="/verify-2fa" replace />;
 
   return (
-    <Container size="narrow">
-      <div className="flex flex-col py-14 sm:py-20">
-        <div className="w-full max-w-md rounded-[1.25rem] bg-logo-bg px-10 py-12 sm:px-12 sm:py-14">
-          <LandingLogoAnimation />
+    <div className="relative overflow-hidden">
+      <div
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(61,82,72,0.14),transparent_55%),radial-gradient(ellipse_at_bottom_right,rgba(122,92,68,0.1),transparent_50%)]"
+        aria-hidden
+      />
+      <Container size="desktop">
+        <div className="relative grid items-center gap-10 py-14 sm:py-20 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:gap-16 lg:py-24">
+          <div>
+            <div className="w-full max-w-md rounded-[1.25rem] bg-logo-bg px-10 py-12 sm:px-12 sm:py-14 lg:max-w-none">
+              <LandingLogoAnimation />
+            </div>
+            <p className="mt-8 max-w-lg text-left text-[1.0625rem] leading-relaxed text-muted sm:text-[1.125rem] lg:text-[1.1875rem]">
+              {APP_TAGLINE}
+            </p>
+            <div className="mt-9 flex w-full max-w-xs flex-col gap-2.5 sm:max-w-none sm:flex-row">
+              <ButtonLink to="/signup" className="w-full sm:w-auto">
+                Create Account
+              </ButtonLink>
+              <ButtonLink to="/login" variant="tinted" className="w-full sm:w-auto">
+                Sign In
+              </ButtonLink>
+            </div>
+          </div>
+
+          <div className="hidden lg:block">
+            <div className="rounded-[1.5rem] bg-surface/80 p-8 ring-1 ring-black/[0.04] backdrop-blur-sm dark:ring-white/[0.06]">
+              <p className="text-[0.8125rem] font-medium uppercase tracking-[0.08em] text-muted">
+                Built for home libraries
+              </p>
+              <ul className="mt-5 space-y-4 text-[1.0625rem] leading-snug text-foreground">
+                <li className="flex gap-3">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+                  Catalog every volume by room and shelf
+                </li>
+                <li className="flex gap-3">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+                  Track loans and due dates without spreadsheets
+                </li>
+                <li className="flex gap-3">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+                  Invite family to share one library together
+                </li>
+              </ul>
+            </div>
+          </div>
         </div>
-        <p className="mt-8 max-w-md text-left text-[1.0625rem] leading-relaxed text-muted sm:text-[1.125rem]">
-          {APP_TAGLINE}
-        </p>
-        <div className="mt-9 flex w-full max-w-xs flex-col gap-2.5 sm:max-w-none sm:flex-row">
-          <ButtonLink to="/signup" className="w-full sm:w-auto">
-            Create Account
-          </ButtonLink>
-          <ButtonLink to="/login" variant="tinted" className="w-full sm:w-auto">
-            Sign In
-          </ButtonLink>
-        </div>
-      </div>
-    </Container>
+      </Container>
+    </div>
   );
 }
 

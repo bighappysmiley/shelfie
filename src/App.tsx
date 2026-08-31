@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from "@/lib/auth";
 import { useLibrary } from "@/lib/library";
 import { Navbar, MobileNav } from "@/components/Navbar";
 import { AppSidebar } from "@/components/AppSidebar";
+import { DesktopSidebar } from "@/components/DesktopSidebar";
 import { Container } from "@/components/layout";
 import { RequireAuth } from "@/components/RequireAuth";
 import { SidebarProvider } from "@/lib/sidebar";
@@ -38,12 +39,12 @@ function PublicShell() {
         Skip to content
       </a>
       <header className="nav-material hairline-b safe-top">
-        <Container>
-          <div className="flex h-12 items-center justify-between">
+        <Container size="desktop">
+          <div className="flex h-14 items-center justify-between">
             <Link to="/" className="rounded-[var(--radius-control)] outline-offset-2">
               <Logo size="sm" />
             </Link>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <Link to="/login" className="text-[0.9375rem] text-link">
                 Sign In
               </Link>
@@ -99,14 +100,19 @@ function AppShell() {
       <a href="#main" className="skip-link">
         Skip to content
       </a>
-      <Navbar />
-      <AppSidebar />
-      <main id="main" className="py-3 sm:py-4">
-        <Container>
-          <Outlet />
-        </Container>
-      </main>
-      <MobileNav />
+      <DesktopSidebar />
+      <div className="lg:pl-[15.5rem]">
+        <div className="lg:hidden">
+          <Navbar />
+        </div>
+        <AppSidebar />
+        <main id="main" className="py-4 sm:py-5 lg:py-7">
+          <Container size="desktop">
+            <Outlet />
+          </Container>
+        </main>
+        <MobileNav />
+      </div>
     </div>
   );
 }

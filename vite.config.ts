@@ -14,12 +14,11 @@ export default defineConfig({
       includeAssets: ["favicon.svg", "apple-touch-icon.png", "icons/*.png"],
       manifest: {
         name: "Pine Bookkeeping",
-        short_name: "Pine Bookkeeping",
+        short_name: "Pine",
         description: "Catalog your book collection, track loans, and organize by room or shelf",
         theme_color: "#f0f2e8",
         background_color: "#f0f2e8",
         display: "standalone",
-        orientation: "portrait",
         start_url: "/",
         icons: [
           {
@@ -43,13 +42,15 @@ export default defineConfig({
         ],
       },
       workbox: {
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/covers\.openlibrary\.org\/.*/i,
             handler: "CacheFirst",
             options: {
-              cacheName: "book-covers",
+              cacheName: "pine-book-covers-v2",
               expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 },
             },
           },
@@ -57,7 +58,7 @@ export default defineConfig({
             urlPattern: /\/api\/.*/i,
             handler: "NetworkFirst",
             options: {
-              cacheName: "api-cache",
+              cacheName: "pine-api-cache-v2",
               networkTimeoutSeconds: 10,
             },
           },
