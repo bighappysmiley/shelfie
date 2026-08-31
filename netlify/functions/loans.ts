@@ -73,15 +73,30 @@ export default async (request: Request) => {
 
     if (request.method === "PATCH") {
       if (!id) return error("Loan id required");
-      const body = await parseBody<{ action?: string; dateReturned?: string }>(request);
+      const body = await parseBody<{
+        action?: string;
+        dateReturned?: string;
+        dueDate?: string | null;
+        notes?: string | null;
+      }>(request);
+
+      const idx = data.loans.findIndex((l) => l.id === id);
+      if (idx < 0) return error("Loan not found", 404);
 
       if (body.action === "return") {
-        const idx = data.loans.findIndex((l) => l.id === id);
-        if (idx < 0) return error("Loan not found", 404);
-
         data.loans[idx] = {
           ...data.loans[idx],
           dateReturned: body.dateReturned ?? todayDate(),
+        };
+        await saveData(data);
+        return json(data.loans[idx]);
+      }
+
+      if (body.action === "update" || body.dueDate !== undefined || body.notes !== undefined) {
+        data.loans[idx] = {
+          ...data.loans[idx],
+          ...(body.dueDate !== undefined ? { dueDate: body.dueDate || null } : {}),
+          ...(body.notes !== undefined ? { notes: body.notes } : {}),
         };
         await saveData(data);
         return json(data.loans[idx]);

@@ -53,6 +53,11 @@ export const api = {
         method: "PATCH",
         body: JSON.stringify({ action: "return" }),
       }),
+    update: (id: string, data: { dueDate?: string | null; notes?: string | null }) =>
+      request<import("./types").Loan>(`/loans?id=${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ action: "update", ...data }),
+      }),
   },
   isbn: {
     lookup: (isbn: string) =>

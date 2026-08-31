@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import type { Book, Borrower } from "@/lib/types";
 import { STATUS_LABELS, FORMAT_LABELS, emptyBookForm, normalizeLibraryStatus } from "@/lib/types";
@@ -19,6 +19,7 @@ export function BookDetailPage() {
   const [borrowerId, setBorrowerId] = useState("");
   const [newBorrower, setNewBorrower] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -60,6 +61,13 @@ export function BookDetailPage() {
     setBook(refreshed);
   };
 
+  const copyIsbn = async () => {
+    if (!book.isbn) return;
+    await navigator.clipboard.writeText(book.isbn);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
   if (editing) {
     return (
       <div>
@@ -98,11 +106,19 @@ export function BookDetailPage() {
     );
   }
 
+  const location = [book.locationRoom, book.locationShelf].filter(Boolean).join(" / ");
+
   return (
     <div>
+      <div className="mb-6">
+        <Link to="/library" className="text-sm text-muted hover:text-foreground">
+          ← Library
+        </Link>
+      </div>
+
       <PageHeader
         title={book.title}
-        subtitle={book.authors}
+        subtitle={book.authors || "Unknown author"}
         action={
           <div className="flex gap-2">
             <Button variant="secondary" onClick={() => setEditing(true)}>Edit</Button>
@@ -117,7 +133,7 @@ export function BookDetailPage() {
           className="w-full max-w-[200px] rounded-lg bg-accent-soft"
         />
 
-        <div className="space-y-4">
+        <div className="space-y-5">
           <div className="flex flex-wrap gap-2">
             {book.activeLoan ? (
               <Badge variant="warning">On loan</Badge>
@@ -126,31 +142,69 @@ export function BookDetailPage() {
             )}
             <Badge>{FORMAT_LABELS[book.format]}</Badge>
             {book.personalRating && <Badge>★ {book.personalRating}</Badge>}
+            {book.condition && <Badge>{book.condition}</Badge>}
           </div>
 
-          <dl className="grid gap-3 text-sm sm:grid-cols-2">
+          <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-[8rem_1fr]">
             {book.isbn && (
               <>
                 <dt className="text-muted">ISBN</dt>
-                <dd>{book.isbn}</dd>
+                <dd className="flex flex-wrap items-center gap-2 font-mono text-[0.9rem]">
+                  {book.isbn}
+                  <button
+                    type="button"
+                    onClick={copyIsbn}
+                    className="text-xs text-muted hover:text-foreground"
+                  >
+                    {copied ? "Copied" : "Copy"}
+                  </button>
+                </dd>
               </>
             )}
             {book.seriesName && (
               <>
                 <dt className="text-muted">Series</dt>
-                <dd>{book.seriesName} {book.seriesNumber && `#${book.seriesNumber}`}</dd>
+                <dd>
+                  <Link
+                    to={`/library?q=${encodeURIComponent(book.seriesName)}`}
+                    className="hover:underline"
+                  >
+                    {book.seriesName}
+                    {book.seriesNumber ? ` #${book.seriesNumber}` : ""}
+                  </Link>
+                </dd>
               </>
             )}
-            {(book.locationRoom || book.locationShelf) && (
+            {location && (
               <>
                 <dt className="text-muted">Location</dt>
-                <dd>{[book.locationRoom, book.locationShelf].filter(Boolean).join(" / ")}</dd>
+                <dd>
+                  <Link
+                    to={
+                      book.locationRoom
+                        ? `/library?room=${encodeURIComponent(book.locationRoom)}`
+                        : "/locations"
+                    }
+                    className="hover:underline"
+                  >
+                    {location}
+                  </Link>
+                </dd>
               </>
             )}
             {book.publisher && (
               <>
                 <dt className="text-muted">Publisher</dt>
-                <dd>{book.publisher} {book.publishYear && `(${book.publishYear})`}</dd>
+                <dd>
+                  {book.publisher}
+                  {book.publishYear ? ` (${book.publishYear})` : ""}
+                </dd>
+              </>
+            )}
+            {book.pageCount != null && (
+              <>
+                <dt className="text-muted">Pages</dt>
+                <dd>{book.pageCount}</dd>
               </>
             )}
             {book.purchasePrice && (
@@ -159,26 +213,63 @@ export function BookDetailPage() {
                 <dd>${book.purchasePrice}</dd>
               </>
             )}
+            {book.copyNumber > 1 && (
+              <>
+                <dt className="text-muted">Copy</dt>
+                <dd>#{book.copyNumber}</dd>
+              </>
+            )}
           </dl>
 
+          {book.tags && book.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {book.tags.map((t) => (
+                <Link
+                  key={t}
+                  to={`/library?tag=${encodeURIComponent(t)}`}
+                  className="rounded-md bg-accent-soft px-2 py-0.5 text-xs hover:bg-black/[0.06] dark:hover:bg-white/[0.08]"
+                >
+                  {t}
+                </Link>
+              ))}
+            </div>
+          )}
+
+          {book.description && (
+            <div>
+              <p className="text-sm text-muted">Description</p>
+              <p className="mt-1 text-sm leading-relaxed">{book.description}</p>
+            </div>
+          )}
+
           {book.notes && (
-            <Card>
+            <Card className="!p-4">
               <p className="text-sm text-muted">Notes</p>
               <p className="mt-1">{book.notes}</p>
             </Card>
           )}
 
           {book.activeLoan ? (
-            <Card>
-              <p className="font-medium">Loaned to {book.activeLoan.borrower.name}</p>
+            <Card className="!p-4">
+              <p className="font-medium">
+                Loaned to{" "}
+                <Link
+                  to={`/borrowers/${book.activeLoan.borrower.id}`}
+                  className="hover:underline"
+                >
+                  {book.activeLoan.borrower.name}
+                </Link>
+              </p>
               <p className="mt-1 text-sm text-muted">
                 Since {book.activeLoan.loan.dateLoaned}
                 {book.activeLoan.loan.dueDate && ` · Due ${book.activeLoan.loan.dueDate}`}
               </p>
-              <Button className="mt-4" onClick={handleReturn}>Mark Returned</Button>
+              <Button className="mt-4" onClick={handleReturn}>
+                Mark Returned
+              </Button>
             </Card>
           ) : loaning ? (
-            <Card>
+            <Card className="!p-4">
               <h3 className="font-medium">Loan this book</h3>
               <div className="mt-4 space-y-4">
                 <SelectField
@@ -188,7 +279,9 @@ export function BookDetailPage() {
                 >
                   <option value="">Select…</option>
                   {borrowers.map((b) => (
-                    <option key={b.id} value={b.id}>{b.name}</option>
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
                   ))}
                 </SelectField>
                 <TextField
@@ -204,15 +297,17 @@ export function BookDetailPage() {
                 />
                 <div className="flex gap-2">
                   <Button onClick={handleLoan}>Loan out</Button>
-                  <Button variant="secondary" onClick={() => setLoaning(false)}>Cancel</Button>
+                  <Button variant="secondary" onClick={() => setLoaning(false)}>
+                    Cancel
+                  </Button>
                 </div>
               </div>
             </Card>
-          ) : (
+          ) : book.readingStatus !== "wishlist" ? (
             <Button variant="secondary" onClick={() => setLoaning(true)}>
               Loan out
             </Button>
-          )}
+          ) : null}
         </div>
       </div>
     </div>

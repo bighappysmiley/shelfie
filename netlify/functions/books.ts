@@ -51,6 +51,9 @@ export default async (request: Request) => {
 
       const q = (url.searchParams.get("q") ?? "").toLowerCase();
       const status = url.searchParams.get("status");
+      const format = url.searchParams.get("format");
+      const room = url.searchParams.get("room");
+      const tag = (url.searchParams.get("tag") ?? "").toLowerCase();
       const sort = url.searchParams.get("sort") ?? "title";
       const order = url.searchParams.get("order") === "desc" ? -1 : 1;
 
@@ -58,7 +61,15 @@ export default async (request: Request) => {
 
       if (q) {
         books = books.filter((b) =>
-          [b.title, b.authors, b.isbn, b.seriesName, b.locationRoom, b.locationShelf]
+          [
+            b.title,
+            b.authors,
+            b.isbn,
+            b.seriesName,
+            b.locationRoom,
+            b.locationShelf,
+            ...(b.tags ?? []),
+          ]
             .filter(Boolean)
             .some((v) => String(v).toLowerCase().includes(q)),
         );
@@ -72,6 +83,17 @@ export default async (request: Request) => {
       } else if (status) {
         books = books.filter(
           (b) => normalizeLibraryStatus(b.readingStatus) === status,
+        );
+      }
+      if (format) {
+        books = books.filter((b) => b.format === format);
+      }
+      if (room) {
+        books = books.filter((b) => (b.locationRoom ?? "") === room);
+      }
+      if (tag) {
+        books = books.filter((b) =>
+          (b.tags ?? []).some((t) => t.toLowerCase() === tag),
         );
       }
 

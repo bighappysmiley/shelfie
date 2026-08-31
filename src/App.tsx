@@ -5,6 +5,7 @@ import { Container } from "@/components/layout";
 import { syncPending } from "@/lib/offline";
 import { HomePage } from "@/pages/Home";
 import { LibraryPage } from "@/pages/Library";
+import { LocationsPage } from "@/pages/Locations";
 import { AddBookPage } from "@/pages/AddBook";
 import { BookDetailPage } from "@/pages/BookDetail";
 import { LoanedOutPage } from "@/pages/LoanedOut";
@@ -26,7 +27,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <div className="min-h-full pb-20 sm:pb-0">
+    <div className="min-h-full pb-24 md:pb-0">
       <a href="#main" className="skip-link">Skip to content</a>
       <Navbar />
       <main id="main" className="py-6">
@@ -44,6 +45,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/library" element={<LibraryPage />} />
+          <Route path="/locations" element={<LocationsPage />} />
           <Route path="/add" element={<AddBookPage />} />
           <Route path="/book/:id" element={<BookDetailPage />} />
           <Route path="/loaned" element={<LoanedOutPage />} />

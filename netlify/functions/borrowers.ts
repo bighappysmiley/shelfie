@@ -87,7 +87,12 @@ export default async (request: Request) => {
 
     if (request.method === "DELETE") {
       if (!id) return error("Borrower id required");
+      const active = data.loans.some((l) => l.borrowerId === id && !l.dateReturned);
+      if (active) {
+        return error("Return all books before deleting this borrower", 409);
+      }
       data.borrowers = data.borrowers.filter((b) => b.id !== id);
+      // Keep past loans for history? Or remove orphaned. Remove orphaned cleanly:
       data.loans = data.loans.filter((l) => l.borrowerId !== id);
       await saveData(data);
       return json({ ok: true });

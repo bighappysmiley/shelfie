@@ -4,11 +4,13 @@ Personal library catalog and lending tracker. A clean, installable PWA for iPhon
 
 ## Features
 
+- **Library-first layout** — status chips, cover/list views, tag & location filters, bulk edit
+- **Locations browser** — books grouped by room and shelf
 - **Add books** via USB/Bluetooth scanner, camera barcode, cover photo AI, shelf-spine AI, or manual entry
 - **ISBN lookup** from Open Library and Google Books (free)
-- **Lending system** with borrower profiles and loan history
+- **Lending** with borrowers, due dates, overdue/due-soon filters, extend due date
 - **Full cataloging** — status, location, series, tags, ratings, condition, purchase info
-- **Search & filters** across your entire library
+- **Search & filters** by status, format, room, tag, and text
 - **Offline browsing** with IndexedDB cache
 - **CSV export/import** for data portability
 - **Stats dashboard** and series tracking
