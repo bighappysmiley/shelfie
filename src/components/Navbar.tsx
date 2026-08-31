@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { Container } from "./layout";
+import { useAuth } from "@/lib/auth";
 import {
   IconHome,
   IconLibrary,
@@ -16,16 +17,19 @@ const desktopLinks = [
   { to: "/loaned", label: "Loaned" },
   { to: "/borrowers", label: "Borrowers" },
   { to: "/stats", label: "Stats" },
+  { to: "/support", label: "Support" },
 ];
 
 export function Navbar() {
+  const { isStaff } = useAuth();
+
   return (
     <header className="sticky top-0 z-50 border-b border-black/8 bg-surface/95 backdrop-blur-sm safe-top dark:border-white/10">
       <Container>
         <div className="flex h-14 items-center gap-4">
           <NavLink
             to="/home"
-            className="shrink-0 text-[1.05rem] font-semibold tracking-tight"
+            className="shrink-0 text-[1.05rem] font-semibold tracking-tight text-brand"
           >
             Shelfie
           </NavLink>
@@ -37,7 +41,7 @@ export function Navbar() {
                 className={({ isActive }) =>
                   `rounded-lg px-3 py-1.5 text-[0.9rem] transition-colors ${
                     isActive
-                      ? "bg-accent-soft font-medium text-foreground"
+                      ? "bg-brand-soft font-medium text-brand"
                       : "text-muted hover:bg-black/[0.03] hover:text-foreground dark:hover:bg-white/[0.04]"
                   }`
                 }
@@ -45,6 +49,20 @@ export function Navbar() {
                 {l.label}
               </NavLink>
             ))}
+            {isStaff && (
+              <NavLink
+                to="/admin"
+                className={({ isActive }) =>
+                  `rounded-lg px-3 py-1.5 text-[0.9rem] transition-colors ${
+                    isActive
+                      ? "bg-warm-soft font-medium text-warm"
+                      : "text-muted hover:bg-black/[0.03] hover:text-foreground dark:hover:bg-white/[0.04]"
+                  }`
+                }
+              >
+                Inbox
+              </NavLink>
+            )}
           </nav>
           <div className="ml-auto flex items-center gap-2">
             <NavLink
@@ -60,7 +78,7 @@ export function Navbar() {
             </NavLink>
             <NavLink
               to="/add"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[0.9rem] font-medium text-white hover:bg-accent-hover dark:text-background"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-[0.9rem] font-medium text-white hover:bg-brand-hover"
             >
               <IconPlus size={16} />
               <span className="hidden sm:inline">Add book</span>
@@ -110,9 +128,9 @@ export function MobileNav() {
                   <span
                     className={`flex h-8 w-8 items-center justify-center rounded-lg ${
                       item.emphasize
-                        ? "bg-accent text-white dark:text-background"
+                        ? "bg-brand text-white"
                         : isActive
-                          ? "bg-accent-soft"
+                          ? "bg-brand-soft text-brand"
                           : ""
                     }`}
                   >

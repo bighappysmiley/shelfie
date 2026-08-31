@@ -244,8 +244,8 @@ export function LibraryPage() {
               onClick={() => setStatus(chip.value)}
               className={`shrink-0 rounded-lg px-3 py-1.5 text-sm transition-colors ${
                 status === chip.value
-                  ? "bg-accent font-medium text-white dark:text-background"
-                  : "bg-accent-soft text-foreground hover:bg-black/[0.06] dark:hover:bg-white/[0.08]"
+                  ? "bg-brand font-medium text-white"
+                  : "bg-brand-soft text-foreground hover:bg-black/[0.06] dark:hover:bg-white/[0.08]"
               }`}
             >
               {chip.label}
@@ -336,8 +336,8 @@ export function LibraryPage() {
                 onClick={() => setTag(tag === t ? "" : t)}
                 className={`rounded-md px-2 py-0.5 text-xs ${
                   tag === t
-                    ? "bg-accent text-white dark:text-background"
-                    : "bg-accent-soft text-muted hover:text-foreground"
+                    ? "bg-brand text-white"
+                    : "bg-brand-soft text-muted hover:text-foreground"
                 }`}
               >
                 {t}

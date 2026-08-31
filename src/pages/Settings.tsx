@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 export function SettingsPage() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, isStaff } = useAuth();
   const navigate = useNavigate();
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState("");
@@ -86,6 +86,23 @@ export function SettingsPage() {
       <PageHeader title="Settings" subtitle="Account and preferences" />
 
       <div className="space-y-6">
+        <Card>
+          <h2 className="font-semibold">Help</h2>
+          <p className="mt-1 text-sm text-muted">
+            Questions, bugs, or feature ideas — we reply in-app.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button variant="secondary" onClick={() => navigate("/support")}>
+              Open support
+            </Button>
+            {isStaff && (
+              <Button variant="secondary" onClick={() => navigate("/admin")}>
+                Inbox
+              </Button>
+            )}
+          </div>
+        </Card>
+
         <Card>
           <h2 className="font-semibold">Account</h2>
           <p className="mt-1 text-sm text-muted">{user?.email}</p>

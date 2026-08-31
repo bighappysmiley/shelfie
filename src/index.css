@@ -4,47 +4,68 @@
   --background: #f5f5f7;
   --foreground: #1d1d1f;
   --muted: #6e6e73;
-  --accent: #1d1d1f;
-  --accent-hover: #000000;
-  --accent-soft: #f0f0f2;
+  --brand: #0071e3;
+  --brand-hover: #0077ed;
+  --brand-soft: #e8f2ff;
+  --accent: #0071e3;
+  --accent-hover: #005bb5;
+  --accent-soft: #e8f2ff;
   --accent-contrast: #ffffff;
+  --warm: #b45309;
+  --warm-soft: #fff7ed;
   --hairline: rgba(0, 0, 0, 0.08);
   --surface: #ffffff;
   --warning: #c93400;
   --warning-bg: #fff4f0;
   --success: #1a7f37;
   --success-bg: #f0faf3;
+  --chat-mine: #0071e3;
+  --chat-theirs: #e9e9eb;
 }
 
 .dark {
   --background: #1d1d1f;
   --foreground: #f5f5f7;
   --muted: #a1a1a6;
-  --accent: #f5f5f7;
-  --accent-hover: #ffffff;
-  --accent-soft: #2c2c2e;
-  --accent-contrast: #1d1d1f;
+  --brand: #0a84ff;
+  --brand-hover: #409cff;
+  --brand-soft: #1a2e42;
+  --accent: #0a84ff;
+  --accent-hover: #409cff;
+  --accent-soft: #1a2e42;
+  --accent-contrast: #ffffff;
+  --warm: #fbbf24;
+  --warm-soft: #3a2a18;
   --hairline: rgba(255, 255, 255, 0.1);
   --surface: #2c2c2e;
   --warning: #ff6b4a;
   --warning-bg: #3a2018;
   --success: #4ade80;
   --success-bg: #1a2e22;
+  --chat-mine: #0a84ff;
+  --chat-theirs: #3a3a3c;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-soft: var(--brand-soft);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-accent-soft: var(--accent-soft);
   --color-accent-contrast: var(--accent-contrast);
+  --color-warm: var(--warm);
+  --color-warm-soft: var(--warm-soft);
   --color-surface: var(--surface);
   --color-warning: var(--warning);
   --color-warning-bg: var(--warning-bg);
   --color-success: var(--success);
   --color-success-bg: var(--success-bg);
+  --color-chat-mine: var(--chat-mine);
+  --color-chat-theirs: var(--chat-theirs);
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
@@ -71,7 +92,7 @@ h1, h2, h3 {
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--brand);
   outline-offset: 2px;
   border-radius: 6px;
 }

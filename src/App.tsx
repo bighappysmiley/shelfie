@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { BrowserRouter, Routes, Route, Outlet } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { Navbar, MobileNav } from "@/components/Navbar";
+import { SupportFab } from "@/components/SupportFab";
 import { Container } from "@/components/layout";
 import { RequireAuth } from "@/components/RequireAuth";
 import { syncPending } from "@/lib/offline";
@@ -16,6 +17,9 @@ import { BorrowersPage } from "@/pages/Borrowers";
 import { BorrowerDetailPage } from "@/pages/BorrowerDetail";
 import { StatsPage } from "@/pages/Stats";
 import { SettingsPage } from "@/pages/Settings";
+import { SupportPage } from "@/pages/Support";
+import { SupportTicketPage } from "@/pages/SupportTicket";
+import { AdminPage } from "@/pages/Admin";
 import { useEffect } from "react";
 
 function PublicShell() {
@@ -27,7 +31,7 @@ function PublicShell() {
       <header className="border-b border-black/8 bg-surface/95 safe-top dark:border-white/10">
         <Container>
           <div className="flex h-14 items-center justify-between">
-            <Link to="/" className="text-[1.05rem] font-semibold tracking-tight">
+            <Link to="/" className="text-[1.05rem] font-semibold tracking-tight text-brand">
               Shelfie
             </Link>
             <div className="flex items-center gap-2">
@@ -39,7 +43,7 @@ function PublicShell() {
               </Link>
               <Link
                 to="/signup"
-                className="rounded-lg bg-accent px-3 py-1.5 text-[0.9rem] font-medium text-white hover:bg-accent-hover dark:text-background"
+                className="rounded-lg bg-brand px-3 py-1.5 text-[0.9rem] font-medium text-white hover:bg-brand-hover"
               >
                 Create account
               </Link>
@@ -81,6 +85,7 @@ function AppShell() {
           <Outlet />
         </Container>
       </main>
+      <SupportFab />
       <MobileNav />
     </div>
   );
@@ -106,6 +111,9 @@ function AppRoutes() {
           <Route path="/borrowers" element={<BorrowersPage />} />
           <Route path="/borrowers/:id" element={<BorrowerDetailPage />} />
           <Route path="/stats" element={<StatsPage />} />
+          <Route path="/support" element={<SupportPage />} />
+          <Route path="/support/:id" element={<SupportTicketPage />} />
+          <Route path="/admin" element={<AdminPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
       </Route>

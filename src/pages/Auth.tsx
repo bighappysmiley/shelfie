@@ -31,7 +31,7 @@ export function LandingPage() {
         <div className="mt-8 flex flex-wrap gap-3">
           <Link
             to="/signup"
-            className="inline-flex items-center justify-center rounded-lg bg-accent px-5 py-2.5 text-[0.95rem] font-medium text-white hover:bg-accent-hover dark:text-background"
+            className="inline-flex items-center justify-center rounded-lg bg-brand px-5 py-2.5 text-[0.95rem] font-medium text-white hover:bg-brand-hover"
           >
             Create account
           </Link>
