@@ -27,7 +27,7 @@ function PublicShell() {
       <a href="#main" className="skip-link">
         Skip to content
       </a>
-      <header className="border-b border-black/8 bg-surface/95 safe-top dark:border-white/10">
+      <header className="border-b border-black/10 bg-surface safe-top dark:border-white/10">
         <Container>
           <div className="flex h-12 items-center justify-between">
             <Link to="/" className="text-base font-semibold tracking-tight text-foreground">

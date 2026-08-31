@@ -57,7 +57,7 @@ export function BorrowersPage() {
     <div>
       <PageHeader
         title="Borrowers"
-        subtitle="People who borrow your books"
+        subtitle="Contacts who borrow from your collection"
         action={<Button onClick={() => setShowAdd(true)}>Add borrower</Button>}
       />
 
@@ -89,11 +89,11 @@ export function BorrowersPage() {
 
       {filtered.length === 0 ? (
         <EmptyState
-          title={borrowers.length === 0 ? "No borrowers yet" : "No matches"}
+          title={borrowers.length === 0 ? "No borrowers" : "No results"}
           description={
             borrowers.length === 0
-              ? "Add someone when you loan out a book."
-              : "Try a different search."
+              ? "Add a borrower when recording a loan."
+              : "No borrowers match your search criteria."
           }
         />
       ) : (
@@ -104,7 +104,7 @@ export function BorrowersPage() {
               <Link
                 key={b.id}
                 to={`/borrowers/${b.id}`}
-                className="flex items-center justify-between gap-3 rounded-xl border border-black/8 bg-surface p-4 transition-colors hover:border-black/20 dark:border-white/10"
+                className="flex items-center justify-between gap-3 rounded-md border border-black/10 bg-surface p-4 shadow-sm transition-colors hover:border-black/20 dark:border-white/10"
               >
                 <div className="min-w-0">
                   <p className="font-medium">{b.name}</p>

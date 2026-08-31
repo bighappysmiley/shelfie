@@ -33,14 +33,14 @@ export function PhotoCapture({
       <p className="text-sm text-muted">{label}</p>
 
       {preview ? (
-        <img src={preview} alt="Preview" className="w-full rounded-xl" />
+        <img src={preview} alt="Preview" className="w-full rounded-md" />
       ) : (
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="flex h-48 w-full items-center justify-center rounded-xl border border-dashed border-black/20 bg-accent-soft text-muted dark:border-white/20"
+          className="flex h-48 w-full items-center justify-center rounded-md border border-dashed border-black/20 bg-accent-soft text-sm text-muted dark:border-white/20"
         >
-          Tap to take or choose a photo
+          Select or capture image
         </button>
       )}
 

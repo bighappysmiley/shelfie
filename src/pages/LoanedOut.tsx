@@ -57,7 +57,7 @@ export function LoanedOutPage() {
   return (
     <div>
       <PageHeader
-        title="Loaned Out"
+        title="Active loans"
         subtitle={`${loans.length} active · ${overdueCount} overdue`}
       />
 
@@ -88,11 +88,11 @@ export function LoanedOutPage() {
         <p className="text-muted">Loading…</p>
       ) : filtered.length === 0 ? (
         <EmptyState
-          title={filter === "all" ? "All books accounted for" : "Nothing in this filter"}
+          title={filter === "all" ? "No active loans" : "No matching loans"}
           description={
             filter === "all"
-              ? "Nothing is on loan right now."
-              : "Try another filter or check back later."
+              ? "Loans will appear here when books are checked out to borrowers."
+              : "Adjust the filter to view other loans."
           }
         />
       ) : (

@@ -276,7 +276,7 @@ export function LibraryPage() {
             </Button>
           )}
           <Link to="/locations" className="ml-auto text-sm text-muted hover:text-foreground">
-            Browse locations →
+            Browse locations
           </Link>
         </div>
 
@@ -363,7 +363,7 @@ export function LibraryPage() {
                 disabled={selected.size === 0}
                 onClick={() => bulkUpdateStatus(k)}
               >
-                Mark {v}
+                Set status: {v}
               </Button>
             ))}
             <Button
@@ -402,11 +402,11 @@ export function LibraryPage() {
         <p className="text-muted">Loading…</p>
       ) : books.length === 0 ? (
         <EmptyState
-          title={hasFilters ? "No matching books" : "No books yet"}
+          title={hasFilters ? "No matching records" : "Catalog is empty"}
           description={
             hasFilters
-              ? "Try clearing filters or searching something else."
-              : "Add your first book to start building your library."
+              ? "Clear filters or revise your search terms."
+              : "Add a volume to begin building your catalog."
           }
           action={
             hasFilters ? (
@@ -414,7 +414,7 @@ export function LibraryPage() {
                 Clear filters
               </Button>
             ) : (
-              <ButtonLink to="/add">Add a book</ButtonLink>
+              <ButtonLink to="/add">Add book</ButtonLink>
             )
           }
         />

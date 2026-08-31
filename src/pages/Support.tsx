@@ -4,7 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import type { Ticket } from "@/lib/support-types";
 import { formatWhen } from "@/lib/support-types";
-import { PageHeader, Card } from "@/components/layout";
+import { PageHeader, Card, SectionHeading } from "@/components/layout";
 import { Button } from "@/components/Button";
 import { TextField, TextArea, FormError } from "@/components/form";
 
@@ -49,7 +49,7 @@ export function SupportPage() {
 
     if (ticketError || !ticket) {
       setSending(false);
-      setError(ticketError?.message ?? "Couldn't send that.");
+      setError(ticketError?.message ?? "Unable to submit request. Please try again.");
       return;
     }
 
@@ -76,12 +76,14 @@ export function SupportPage() {
     <div>
       <PageHeader
         title="Support"
-        subtitle="Send a message and we'll reply here on this page."
+        subtitle="Submit a request and track responses in your ticket history"
       />
 
       {sent && (
         <Card className="mb-4 border-success/20 bg-success-bg">
-          <p className="text-sm text-success">Submitted. We'll reply in your ticket list below.</p>
+          <p className="text-sm text-success">
+            Request submitted. A response will appear in your ticket history below.
+          </p>
         </Card>
       )}
       {error && (
@@ -91,7 +93,8 @@ export function SupportPage() {
       )}
 
       <Card>
-        <form onSubmit={submit} className="space-y-3">
+        <h2 className="text-sm font-semibold">New request</h2>
+        <form onSubmit={submit} className="mt-4 space-y-3">
           <TextField
             label="Subject"
             required
@@ -100,29 +103,29 @@ export function SupportPage() {
             onChange={(e) => setSubject(e.target.value)}
           />
           <TextArea
-            label="Message"
+            label="Description"
             required
             maxLength={4000}
             value={body}
             onChange={(e) => setBody(e.target.value)}
           />
           <Button type="submit" disabled={sending}>
-            {sending ? "Sending…" : "Submit"}
+            {sending ? "Submitting…" : "Submit request"}
           </Button>
         </form>
       </Card>
 
       <div className="mt-8">
-        <h2 className="text-base font-semibold">Your tickets</h2>
+        <SectionHeading title="Ticket history" />
         {tickets.length === 0 ? (
-          <p className="mt-2 text-sm text-muted">None yet.</p>
+          <p className="text-sm text-muted">No support requests on file.</p>
         ) : (
-          <ul className="mt-3 divide-y divide-black/10 border border-black/10 bg-surface dark:divide-white/10 dark:border-white/10">
+          <ul className="divide-y divide-black/10 border border-black/10 bg-surface dark:divide-white/10 dark:border-white/10">
             {tickets.map((ticket) => (
               <li key={ticket.id}>
                 <Link
                   to={`/support/${ticket.id}`}
-                  className="flex flex-wrap items-baseline justify-between gap-2 px-3 py-3 text-sm transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.03]"
+                  className="flex flex-wrap items-baseline justify-between gap-2 px-4 py-3 text-sm transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.03]"
                 >
                   <span className="font-medium">{ticket.subject}</span>
                   <span className="text-muted">

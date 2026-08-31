@@ -25,7 +25,7 @@ export function HardwareBarcodeScanner({
     const isbn = normalizeIsbn(raw);
     if (!isbn) return;
     if (!isValidIsbn(isbn) && isbn.length !== 10 && isbn.length !== 13) {
-      setError("That didn’t look like an ISBN-10 or ISBN-13. Try again.");
+      setError("Invalid ISBN format. Enter a valid ISBN-10 or ISBN-13.");
       return;
     }
     setError("");
@@ -86,11 +86,11 @@ export function HardwareBarcodeScanner({
 
   return (
     <div className="space-y-5">
-      <div className="rounded-xl border border-black/8 bg-accent-soft px-4 py-5 text-center dark:border-white/10">
-        <p className="text-lg font-semibold">Ready to scan</p>
+      <div className="rounded-md border border-black/10 bg-accent-soft px-4 py-5 text-center dark:border-white/10">
+        <p className="text-base font-semibold">Scanner ready</p>
         <p className="mt-2 text-sm text-muted">
-          Connect a USB or Bluetooth barcode scanner, then scan the ISBN.
-          Scanners work like a keyboard — no camera needed.
+          Connect a USB or Bluetooth barcode scanner and scan the ISBN barcode.
+          Hardware scanners operate as keyboard input; no camera is required.
         </p>
       </div>
 
@@ -112,7 +112,7 @@ export function HardwareBarcodeScanner({
             }
           }}
           className="w-full rounded-lg border border-black/10 bg-surface px-3.5 py-3 text-center font-mono text-lg tracking-wide text-foreground placeholder:text-muted/70 dark:border-white/10"
-          placeholder="Waiting for scanner…"
+          placeholder="Awaiting scan…"
           inputMode="text"
           autoComplete="off"
           autoCapitalize="characters"
@@ -120,7 +120,7 @@ export function HardwareBarcodeScanner({
           aria-label="ISBN from barcode scanner"
         />
         <span className="mt-1.5 block text-center text-sm text-muted">
-          {value ? isbnHint(value) : "Scanners usually send Enter after the code"}
+          {value ? isbnHint(value) : "Most scanners append Enter after the code"}
         </span>
       </label>
 
@@ -136,7 +136,7 @@ export function HardwareBarcodeScanner({
           disabled={!normalizeIsbn(value)}
           onClick={() => submitIsbn(value)}
         >
-          Look up ISBN
+          Look up
         </Button>
         <Button variant="secondary" onClick={onClose}>
           Cancel

@@ -47,12 +47,12 @@ export function BookForm({
     try {
       const data = await api.isbn.lookup(isbn);
       if (!data.title && !data.coverUrl) {
-        setError("No book found for that ISBN — you can still save it manually");
+        setError("No catalog record found for this ISBN. You may save the entry manually.");
         update("isbn", isbn);
         return;
       }
       if (!data.title) {
-        setError("No metadata found — cover attached if available");
+        setError("No metadata available. Cover image will be attached if provided.");
       }
       setForm((f) => ({
         ...f,
@@ -144,7 +144,7 @@ export function BookForm({
             disabled={lookingUp || !normalizeIsbn(form.isbn)}
             onClick={lookupIsbn}
           >
-            {lookingUp ? "…" : "Look up"}
+            {lookingUp ? "Looking up…" : "Look up"}
           </Button>
         </div>
         <span className="mt-1.5 block text-sm text-muted">{isbnHint(form.isbn)}</span>
@@ -170,7 +170,7 @@ export function BookForm({
         type="text"
         inputMode="url"
         placeholder="https://…"
-        hint="Or paste a link if you already have one online"
+        hint="Paste a URL if you have a cover image hosted online"
       />
 
       <div className="grid gap-5 sm:grid-cols-2">

@@ -31,12 +31,12 @@ export function AdminPage() {
   return (
     <div>
       <PageHeader
-        title="Inbox"
+        title="Support inbox"
         subtitle={`${openCount} open · ${tickets.length} total`}
       />
 
       {ready && tickets.length === 0 ? (
-        <p className="text-muted">No support requests yet.</p>
+        <p className="text-sm text-muted">No support requests received.</p>
       ) : (
         <ul className="divide-y divide-black/8 rounded-lg border border-black/8 bg-surface dark:divide-white/10 dark:border-white/10">
           {tickets.map((ticket) => (

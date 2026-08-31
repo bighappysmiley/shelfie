@@ -69,18 +69,18 @@ export function LocationsPage() {
         subtitle={
           loading
             ? "Loading…"
-            : `${assigned} of ${books.length} books have a place`
+            : `${assigned} of ${books.length} volumes assigned to a location`
         }
-        action={<ButtonLink to="/library">Open library</ButtonLink>}
+        action={<ButtonLink to="/library">View catalog</ButtonLink>}
       />
 
       {loading ? (
         <p className="text-muted">Loading…</p>
       ) : books.length === 0 ? (
         <EmptyState
-          title="No books yet"
-          description="Add books and set a room or shelf to organize them here."
-          action={<ButtonLink to="/add">Add a book</ButtonLink>}
+          title="No volumes in catalog"
+          description="Add books and assign room or shelf locations to organize them here."
+          action={<ButtonLink to="/add">Add book</ButtonLink>}
         />
       ) : (
         <div className="space-y-8">
@@ -99,7 +99,7 @@ export function LocationsPage() {
                     to={`/library?room=${encodeURIComponent(room.room)}`}
                     className="text-sm text-muted hover:text-foreground"
                   >
-                    Filter library →
+                    Filter catalog
                   </Link>
                 )}
               </div>

@@ -83,31 +83,31 @@ export function SettingsPage() {
 
   return (
     <div>
-      <PageHeader title="Settings" subtitle="Account and preferences" />
+      <PageHeader title="Settings" subtitle="Account, appearance, and data management" />
 
-      <div className="space-y-6">
+      <div className="space-y-4">
         <Card>
-          <h2 className="font-semibold">Help</h2>
+          <h2 className="text-sm font-semibold">Support</h2>
           <p className="mt-1 text-sm text-muted">
-            Questions, bugs, or feature ideas — we reply in-app.
+            Submit questions, report issues, or request features through the support portal.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Button variant="secondary" onClick={() => navigate("/support")}>
-              Open support
+              Contact support
             </Button>
             {isStaff && (
               <Button variant="secondary" onClick={() => navigate("/admin")}>
-                Inbox
+                Support inbox
               </Button>
             )}
           </div>
         </Card>
 
         <Card>
-          <h2 className="font-semibold">Account</h2>
+          <h2 className="text-sm font-semibold">Account</h2>
           <p className="mt-1 text-sm text-muted">{user?.email}</p>
           <p className="mt-2 text-sm text-muted">
-            Your library is private to this account.
+            Library data is private to this account.
           </p>
           <Button
             variant="secondary"
@@ -120,17 +120,17 @@ export function SettingsPage() {
         </Card>
 
         <Card>
-          <h2 className="font-semibold">Appearance</h2>
-          <p className="mt-1 text-sm text-muted">Switch between light and dark mode</p>
+          <h2 className="text-sm font-semibold">Appearance</h2>
+          <p className="mt-1 text-sm text-muted">Toggle between light and dark interface</p>
           <Button variant="secondary" className="mt-4" onClick={toggleDark}>
             {isDark ? "Switch to light mode" : "Switch to dark mode"}
           </Button>
         </Card>
 
         <Card>
-          <h2 className="font-semibold">Export data</h2>
+          <h2 className="text-sm font-semibold">Export data</h2>
           <p className="mt-1 text-sm text-muted">
-            Download your library and loan history as CSV
+            Download library and loan records as CSV
           </p>
           <Button variant="secondary" className="mt-4" onClick={handleExport}>
             Export CSV
@@ -138,9 +138,9 @@ export function SettingsPage() {
         </Card>
 
         <Card>
-          <h2 className="font-semibold">Import data</h2>
+          <h2 className="text-sm font-semibold">Import data</h2>
           <p className="mt-1 text-sm text-muted">
-            Import from a Goodreads CSV export or a JSON file
+            Import from Goodreads CSV or JSON format
           </p>
           <label className="mt-4 inline-block cursor-pointer">
             <span className="inline-flex items-center justify-center gap-2 rounded-lg border border-black/10 bg-surface px-4 py-2.5 text-[0.95rem] font-medium transition-colors hover:bg-black/[0.04] dark:border-white/10">

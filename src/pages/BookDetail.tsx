@@ -71,7 +71,7 @@ export function BookDetailPage() {
   if (editing) {
     return (
       <div>
-        <PageHeader title="Edit Book" />
+        <PageHeader title="Edit book" />
         <Card>
           <BookForm
             initial={{
@@ -118,7 +118,7 @@ export function BookDetailPage() {
 
       <PageHeader
         title={book.title}
-        subtitle={book.authors || "Unknown author"}
+        subtitle={book.authors || "Author not listed"}
         action={
           <div className="flex gap-2">
             <Button variant="secondary" onClick={() => setEditing(true)}>Edit</Button>
@@ -265,12 +265,12 @@ export function BookDetailPage() {
                 {book.activeLoan.loan.dueDate && ` · Due ${book.activeLoan.loan.dueDate}`}
               </p>
               <Button className="mt-4" onClick={handleReturn}>
-                Mark Returned
+                Mark returned
               </Button>
             </Card>
           ) : loaning ? (
             <Card className="!p-4">
-              <h3 className="font-medium">Loan this book</h3>
+              <h3 className="font-medium">Record loan</h3>
               <div className="mt-4 space-y-4">
                 <SelectField
                   label="Borrower"
@@ -285,7 +285,7 @@ export function BookDetailPage() {
                   ))}
                 </SelectField>
                 <TextField
-                  label="Or add new borrower"
+                  label="New borrower"
                   value={newBorrower}
                   onChange={(e) => setNewBorrower(e.target.value)}
                 />
@@ -296,7 +296,7 @@ export function BookDetailPage() {
                   onChange={(e) => setDueDate(e.target.value)}
                 />
                 <div className="flex gap-2">
-                  <Button onClick={handleLoan}>Loan out</Button>
+                  <Button onClick={handleLoan}>Record loan</Button>
                   <Button variant="secondary" onClick={() => setLoaning(false)}>
                     Cancel
                   </Button>
@@ -305,7 +305,7 @@ export function BookDetailPage() {
             </Card>
           ) : book.readingStatus !== "wishlist" ? (
             <Button variant="secondary" onClick={() => setLoaning(true)}>
-              Loan out
+              Record loan
             </Button>
           ) : null}
         </div>

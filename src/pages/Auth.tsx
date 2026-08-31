@@ -12,16 +12,16 @@ export function LandingPage() {
 
   return (
     <Container size="narrow">
-      <div className="py-10 sm:py-14">
-        <p className="text-sm font-medium uppercase tracking-widest text-muted">Shelfie</p>
-        <h1 className="mt-3 max-w-md text-2xl font-semibold tracking-tight sm:text-3xl">
-          Your books, where they live, and who borrowed them.
+      <div className="py-12 sm:py-16">
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted">Shelfie</p>
+        <h1 className="mt-4 max-w-lg text-2xl font-semibold tracking-tight sm:text-3xl">
+          Personal library catalog and loan management
         </h1>
-        <p className="mt-3 max-w-md text-[0.95rem] leading-relaxed text-muted">
-          Catalog your shelves, scan barcodes and covers, and keep track of loans — private to your
-          account.
+        <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted">
+          Organize your collection, track physical locations, manage loans, and import or export
+          catalog data. Each account maintains a private library.
         </p>
-        <div className="mt-6 flex flex-wrap gap-2">
+        <div className="mt-8 flex flex-wrap gap-2">
           <ButtonLink to="/signup">Create account</ButtonLink>
           <ButtonLink to="/login" variant="secondary">
             Sign in
@@ -44,11 +44,11 @@ function AuthShell({
   return (
     <Container size="form">
       <div className="py-10 sm:py-12">
-        <Link to="/" className="text-base font-semibold tracking-tight">
+        <Link to="/" className="text-sm font-semibold tracking-tight">
           Shelfie
         </Link>
-        <h1 className="mt-6 text-2xl font-semibold tracking-tight">{title}</h1>
-        <p className="mt-1.5 text-[0.95rem] text-muted">{subtitle}</p>
+        <h1 className="mt-6 text-xl font-semibold tracking-tight sm:text-2xl">{title}</h1>
+        <p className="mt-1 text-sm text-muted">{subtitle}</p>
         <Card className="mt-6">{children}</Card>
       </div>
     </Container>
@@ -73,14 +73,14 @@ export function LoginPage() {
       await signIn(email.trim(), password);
       navigate("/library", { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't sign in");
+      setError(err instanceof Error ? err.message : "Sign in failed. Check your credentials.");
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <AuthShell title="Sign in" subtitle="Welcome back to your library">
+    <AuthShell title="Sign in" subtitle="Access your library catalog">
       <form onSubmit={onSubmit} className="space-y-4">
         {error && <FormError message={error} />}
         <TextField
@@ -104,9 +104,9 @@ export function LoginPage() {
         </Button>
       </form>
       <p className="mt-4 text-center text-sm text-muted">
-        New here?{" "}
+        Do not have an account?{" "}
         <Link to="/signup" className="font-medium text-foreground hover:underline">
-          Create an account
+          Create one
         </Link>
       </p>
     </AuthShell>
@@ -136,19 +136,19 @@ export function SignupPage() {
     try {
       const result = await signUp(email.trim(), password);
       if (result.needsConfirmation) {
-        setInfo("Check your email for a confirmation link, then sign in.");
+        setInfo("A confirmation link has been sent to your email. Sign in after confirming.");
       } else {
         navigate("/library", { replace: true });
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't create account");
+      setError(err instanceof Error ? err.message : "Account creation failed. Please try again.");
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <AuthShell title="Create account" subtitle="Start your private library">
+    <AuthShell title="Create account" subtitle="Set up a private library catalog">
       <form onSubmit={onSubmit} className="space-y-4">
         {error && <FormError message={error} />}
         {info && (
@@ -169,16 +169,16 @@ export function SignupPage() {
           type="password"
           autoComplete="new-password"
           required
-          hint="At least 6 characters"
+          hint="Minimum 6 characters"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
         <Button type="submit" className="w-full" disabled={busy}>
-          {busy ? "Creating…" : "Create account"}
+          {busy ? "Creating account…" : "Create account"}
         </Button>
       </form>
       <p className="mt-4 text-center text-sm text-muted">
-        Already have an account?{" "}
+        Already registered?{" "}
         <Link to="/login" className="font-medium text-foreground hover:underline">
           Sign in
         </Link>

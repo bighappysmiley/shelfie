@@ -28,6 +28,7 @@ export function AddBookPage() {
   const [formKey, setFormKey] = useState(0);
   const [duplicateWarning, setDuplicateWarning] = useState("");
   const [loading, setLoading] = useState(false);
+  const [scanError, setScanError] = useState("");
   const [status, setStatus] = useState("");
   const [shelfBooks, setShelfBooks] = useState<
     { title: string; author: string; confidence: number }[]
@@ -75,11 +76,12 @@ export function AddBookPage() {
 
   const handleCoverPhoto = async (dataUrl: string, mediaType: string) => {
     setLoading(true);
+    setScanError("");
     setStatus("Identifying cover…");
     try {
       const result = await api.vision.cover(dataUrl, mediaType);
       if (!result.found) {
-        alert("Couldn't identify that cover. Try again or add manually.");
+        setScanError("Cover could not be identified. Enter details manually or try another image.");
         return;
       }
       setStatus("Looking up book details…");
@@ -96,7 +98,7 @@ export function AddBookPage() {
         setMode("manual");
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Cover scan failed");
+      setScanError(err instanceof Error ? err.message : "Cover scan failed.");
     } finally {
       setLoading(false);
       setStatus("");
@@ -105,17 +107,18 @@ export function AddBookPage() {
 
   const handleShelfPhoto = async (dataUrl: string, mediaType: string) => {
     setLoading(true);
-    setStatus("Reading book spines…");
+    setScanError("");
+    setStatus("Reading spines…");
     try {
       const result = await api.vision.shelf(dataUrl, mediaType);
       if (!result.books?.length) {
-        alert("Couldn't read any spines. Try better lighting or add books another way.");
+        setScanError("No readable spines detected. Improve lighting or add volumes manually.");
         return;
       }
       setShelfBooks(result.books);
       setMode("shelf-review");
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Shelf scan failed");
+      setScanError(err instanceof Error ? err.message : "Shelf scan failed.");
     } finally {
       setLoading(false);
       setStatus("");
@@ -158,16 +161,16 @@ export function AddBookPage() {
   };
 
   const tabs: { key: Mode; label: string }[] = [
-    { key: "manual", label: "Manual" },
+    { key: "manual", label: "Manual entry" },
     { key: "hardware", label: "USB / Bluetooth" },
-    { key: "camera", label: "Camera barcode" },
-    { key: "cover", label: "Cover photo" },
-    { key: "shelf", label: "Shelf scan" },
+    { key: "camera", label: "Barcode camera" },
+    { key: "cover", label: "Cover image" },
+    { key: "shelf", label: "Shelf image" },
   ];
 
   return (
     <div>
-      <PageHeader title="Add Book" subtitle="Catalog a new book" />
+      <PageHeader title="Add book" subtitle="Catalog a new volume in your library" />
 
       <div className="mb-6 flex flex-wrap gap-2">
         {tabs.map((t) => (
@@ -186,14 +189,17 @@ export function AddBookPage() {
       </div>
 
       <Card>
-        {loading && <p className="mb-4 text-muted">{status || "Working…"}</p>}
+        {loading && <p className="mb-4 text-sm text-muted">{status || "Processing…"}</p>}
+        {scanError && (
+          <p className="mb-4 rounded-md bg-warning-bg px-3 py-2.5 text-sm text-warning">{scanError}</p>
+        )}
 
         {mode === "manual" && (
           <BookForm
             key={formKey}
             initial={form}
             onSubmit={handleSubmit}
-            submitLabel="Add to library"
+            submitLabel="Add to catalog"
             duplicateWarning={duplicateWarning}
             onAllowDuplicate={() => {
               setForm((f) => ({ ...f, allowDuplicate: true }));
@@ -212,8 +218,8 @@ export function AddBookPage() {
 
         {mode === "cover" && (
           <PhotoCapture
-            label="Take a photo of the book cover. We'll identify the title and look up details."
-            actionLabel="Identify cover"
+            label="Photograph the book cover. Title and author will be identified automatically when possible."
+            actionLabel="Process cover"
             onCapture={handleCoverPhoto}
             onClose={() => setMode("manual")}
           />
@@ -221,8 +227,8 @@ export function AddBookPage() {
 
         {mode === "shelf" && (
           <PhotoCapture
-            label="Take a photo of your bookshelf. We'll read visible spines — review before adding."
-            actionLabel="Read spines"
+            label="Photograph a shelf of books. Detected titles can be reviewed before adding to the catalog."
+            actionLabel="Process shelf"
             onCapture={handleShelfPhoto}
             onClose={() => setMode("manual")}
           />

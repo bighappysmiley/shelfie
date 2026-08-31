@@ -15,7 +15,7 @@ export function Container({
     form: "max-w-md",
   };
   return (
-    <div className={`mx-auto w-full ${widths[size]} px-4 sm:px-5 ${className}`}>
+    <div className={`mx-auto w-full ${widths[size]} px-4 sm:px-6 ${className}`}>
       {children}
     </div>
   );
@@ -53,7 +53,7 @@ export function Card({
 }) {
   return (
     <div
-      className={`rounded-lg border border-black/10 bg-surface p-4 sm:p-5 dark:border-white/10 ${className}`}
+      className={`rounded-md border border-black/10 bg-surface p-4 shadow-sm dark:border-white/10 ${className}`}
       onClick={onClick}
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
@@ -74,11 +74,32 @@ export function PageHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-[1.65rem]">{title}</h1>
-        {subtitle && <div className="mt-1.5 text-[0.95rem] leading-relaxed text-muted">{subtitle}</div>}
+    <header className="mb-6 border-b border-black/10 pb-5 dark:border-white/10">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{title}</h1>
+          {subtitle && (
+            <p className="mt-1 text-sm leading-relaxed text-muted">{subtitle}</p>
+          )}
+        </div>
+        {action && <div className="shrink-0">{action}</div>}
       </div>
+    </header>
+  );
+}
+
+export function SectionHeading({
+  title,
+  action,
+  className = "",
+}: {
+  title: string;
+  action?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`mb-3 flex items-center justify-between gap-3 ${className}`}>
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">{title}</h2>
       {action}
     </div>
   );
@@ -94,9 +115,9 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="py-12 text-center">
-      <h2 className="text-lg font-semibold">{title}</h2>
-      {description && <p className="mt-1.5 text-sm text-muted">{description}</p>}
+    <div className="rounded-md border border-dashed border-black/15 bg-surface px-6 py-10 text-center dark:border-white/15">
+      <h2 className="text-base font-semibold">{title}</h2>
+      {description && <p className="mx-auto mt-2 max-w-sm text-sm text-muted">{description}</p>}
       {action && <div className="mt-4">{action}</div>}
     </div>
   );
@@ -115,7 +136,9 @@ export function Badge({
     success: "bg-success-bg text-success",
   };
   return (
-    <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium ${styles[variant]}`}>
+    <span
+      className={`inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium ${styles[variant]}`}
+    >
       {children}
     </span>
   );

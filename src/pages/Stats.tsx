@@ -25,7 +25,7 @@ export function StatsPage() {
 
   return (
     <div>
-      <PageHeader title="Stats" subtitle="Your collection at a glance" />
+      <PageHeader title="Reports" subtitle="Collection statistics and breakdowns" />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Card>
@@ -91,7 +91,7 @@ export function StatsPage() {
                 <li key={s.name}>
                   <p className="font-medium">{s.name}</p>
                   <p className="text-sm text-muted">
-                    Own: {s.owned.join(", ") || "—"}
+                    Volumes owned: {s.owned.join(", ") || "—"}
                   </p>
                 </li>
               ))}

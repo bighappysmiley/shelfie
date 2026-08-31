@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import { ButtonLink } from "@/components/Button";
 import { BookCard } from "@/components/BookCard";
-import { Card, PageHeader } from "@/components/layout";
+import { Card, PageHeader, SectionHeading } from "@/components/layout";
 import type { Book, LoanWithDetails } from "@/lib/types";
 
 export function HomePage() {
@@ -51,30 +51,30 @@ export function HomePage() {
   return (
     <div>
       <PageHeader
-        title="Shelfie"
-        subtitle="Find a book, loan it out, know where it lives."
+        title="Overview"
+        subtitle="Summary of your collection and active loans"
         action={<ButtonLink to="/add">Add book</ButtonLink>}
       />
 
       {(overdue.length > 0 || dueSoon.length > 0) && (
-        <div className="mb-5 space-y-2">
+        <div className="mb-6 space-y-2">
           {overdue.length > 0 && (
-            <div className="rounded-lg border border-warning/30 bg-warning-bg px-3 py-2.5">
-              <p className="font-medium text-warning">
-                {overdue.length} overdue loan{overdue.length > 1 ? "s" : ""}
+            <div className="rounded-md border border-warning/30 bg-warning-bg px-4 py-3">
+              <p className="text-sm font-medium text-warning">
+                {overdue.length} overdue loan{overdue.length > 1 ? "s" : ""} require attention
               </p>
               <Link to="/loaned" className="mt-1 inline-block text-sm text-warning underline">
-                Review loaned books →
+                View active loans
               </Link>
             </div>
           )}
           {dueSoon.length > 0 && overdue.length === 0 && (
-            <div className="rounded-lg border border-black/8 bg-surface px-3 py-2.5 dark:border-white/10">
-              <p className="font-medium">
-                {dueSoon.length} due in the next week
+            <div className="rounded-md border border-black/10 bg-surface px-4 py-3 dark:border-white/10">
+              <p className="text-sm font-medium">
+                {dueSoon.length} loan{dueSoon.length > 1 ? "s" : ""} due within 7 days
               </p>
               <Link to="/loaned" className="mt-1 inline-block text-sm text-muted hover:text-foreground">
-                See due dates →
+                View due dates
               </Link>
             </div>
           )}
@@ -84,74 +84,76 @@ export function HomePage() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Link
           to="/library"
-          className="rounded-lg border border-black/8 bg-surface p-3 transition-colors hover:border-black/20 dark:border-white/10"
+          className="rounded-md border border-black/10 bg-surface p-4 shadow-sm transition-colors hover:border-black/20 dark:border-white/10"
         >
-          <p className="text-sm text-muted">Books</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted">Total volumes</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums">
             {stats?.totalBooks ?? "—"}
           </p>
         </Link>
         <Link
           to="/library?status=on_loan"
-          className="rounded-lg border border-black/8 bg-surface p-3 transition-colors hover:border-black/20 dark:border-white/10"
+          className="rounded-md border border-black/10 bg-surface p-4 shadow-sm transition-colors hover:border-black/20 dark:border-white/10"
         >
-          <p className="text-sm text-muted">On loan</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted">On loan</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums">
             {stats?.activeLoans ?? loans.length}
           </p>
         </Link>
         <Link
           to="/library?status=wishlist"
-          className="rounded-lg border border-black/8 bg-surface p-3 transition-colors hover:border-black/20 dark:border-white/10"
+          className="rounded-md border border-black/10 bg-surface p-4 shadow-sm transition-colors hover:border-black/20 dark:border-white/10"
         >
-          <p className="text-sm text-muted">Wishlist</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted">Wishlist</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums">
             {stats?.byStatus?.wishlist ?? "—"}
           </p>
         </Link>
         <Link
           to="/loaned"
-          className="rounded-lg border border-black/8 bg-surface p-3 transition-colors hover:border-black/20 dark:border-white/10"
+          className="rounded-md border border-black/10 bg-surface p-4 shadow-sm transition-colors hover:border-black/20 dark:border-white/10"
         >
-          <p className="text-sm text-muted">Overdue</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted">Overdue</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums text-warning">
             {stats?.overdueCount ?? overdue.length}
           </p>
         </Link>
       </div>
 
-      <section className="mt-6">
-        <h2 className="mb-3 text-lg font-semibold">Add to library</h2>
+      <section className="mt-8">
+        <SectionHeading title="Add to catalog" />
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <ButtonLink to="/add" variant="secondary" className="w-full justify-center">
-            Manual
+            Manual entry
           </ButtonLink>
           <ButtonLink to="/add?mode=camera" variant="secondary" className="w-full justify-center">
-            Barcode
+            Barcode scan
           </ButtonLink>
           <ButtonLink to="/add?mode=cover" variant="secondary" className="w-full justify-center">
-            Cover photo
+            Cover image
           </ButtonLink>
           <ButtonLink to="/add?mode=shelf" variant="secondary" className="w-full justify-center">
-            Shelf scan
+            Shelf image
           </ButtonLink>
         </div>
       </section>
 
       {topRooms.length > 0 && (
-        <section className="mt-6">
-          <div className="mb-3 flex items-end justify-between">
-            <h2 className="text-lg font-semibold">By location</h2>
-            <Link to="/locations" className="text-sm text-muted hover:text-foreground">
-              All places
-            </Link>
-          </div>
+        <section className="mt-8">
+          <SectionHeading
+            title="By location"
+            action={
+              <Link to="/locations" className="text-xs text-muted hover:text-foreground">
+                View all
+              </Link>
+            }
+          />
           <div className="flex flex-wrap gap-2">
             {topRooms.map(([name, count]) => (
               <Link
                 key={name}
                 to={`/library?room=${encodeURIComponent(name)}`}
-                className="rounded-lg bg-accent-soft px-3 py-2 text-sm transition-colors hover:bg-black/[0.06] dark:hover:bg-white/[0.08]"
+                className="rounded-md border border-black/10 bg-surface px-3 py-2 text-sm shadow-sm transition-colors hover:border-black/20 dark:border-white/10"
               >
                 <span className="font-medium">{name}</span>
                 <span className="ml-2 text-muted">{count}</span>
@@ -161,15 +163,17 @@ export function HomePage() {
         </section>
       )}
 
-      <section className="mt-6">
-        <div className="mb-3 flex items-end justify-between">
-          <h2 className="text-lg font-semibold">Recently added</h2>
-          <Link to="/library?sort=added" className="text-sm text-muted hover:text-foreground">
-            Browse library
-          </Link>
-        </div>
+      <section className="mt-8">
+        <SectionHeading
+          title="Recently added"
+          action={
+            <Link to="/library?sort=added" className="text-xs text-muted hover:text-foreground">
+              Full catalog
+            </Link>
+          }
+        />
         {recent.length === 0 ? (
-          <p className="text-sm text-muted">Nothing here yet — add your first book.</p>
+          <p className="text-sm text-muted">No volumes in the catalog. Add a book to begin.</p>
         ) : (
           <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
             {recent.map((book) => (
@@ -179,15 +183,17 @@ export function HomePage() {
         )}
       </section>
 
-      <section className="mt-6">
-        <div className="mb-3 flex items-end justify-between">
-          <h2 className="text-lg font-semibold">Out on loan</h2>
-          <Link to="/loaned" className="text-sm text-muted hover:text-foreground">
-            View all
-          </Link>
-        </div>
+      <section className="mt-8">
+        <SectionHeading
+          title="Active loans"
+          action={
+            <Link to="/loaned" className="text-xs text-muted hover:text-foreground">
+              View all
+            </Link>
+          }
+        />
         {loans.length === 0 ? (
-          <p className="text-sm text-muted">No books on loan</p>
+          <p className="text-sm text-muted">No active loans.</p>
         ) : (
           <Card className="!p-0 overflow-hidden">
             <ul className="divide-y divide-black/8 dark:divide-white/10">
@@ -200,8 +206,8 @@ export function HomePage() {
                       className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.03]"
                     >
                       <div className="min-w-0">
-                        <p className="truncate font-medium">{l.book.title}</p>
-                        <p className="truncate text-sm text-muted">{l.borrower.name}</p>
+                        <p className="truncate text-sm font-medium">{l.book.title}</p>
+                        <p className="truncate text-xs text-muted">{l.borrower.name}</p>
                       </div>
                       <span
                         className={`shrink-0 text-xs ${isOverdue ? "font-medium text-warning" : "text-muted"}`}
@@ -220,15 +226,15 @@ export function HomePage() {
           </Card>
         )}
       </section>
-      <section className="mt-8 flex flex-wrap gap-4 border-t border-black/8 pt-5 text-sm dark:border-white/10">
+      <section className="mt-8 flex flex-wrap gap-4 border-t border-black/10 pt-5 text-sm dark:border-white/10">
         <Link to="/stats" className="text-muted hover:text-foreground">
-          Stats
+          Reports
         </Link>
         <Link to="/settings" className="text-muted hover:text-foreground">
           Settings
         </Link>
-        <Link to="/borrowers" className="text-muted hover:text-foreground">
-          Borrowers
+        <Link to="/support" className="text-muted hover:text-foreground">
+          Support
         </Link>
       </section>
     </div>

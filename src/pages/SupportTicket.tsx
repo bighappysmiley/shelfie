@@ -63,9 +63,9 @@ export function SupportTicketPage() {
   if (!ticket) {
     return (
       <div>
-        <p className="text-muted">We couldn&apos;t find that request.</p>
-        <Link to="/support" className="mt-4 inline-block font-medium text-foreground hover:underline">
-          Back to support
+        <p className="text-sm text-muted">This ticket could not be found.</p>
+        <Link to="/support" className="mt-4 inline-block text-sm font-medium text-foreground hover:underline">
+          Return to support
         </Link>
       </div>
     );
@@ -108,8 +108,8 @@ export function SupportTicketPage() {
 
   return (
     <div>
-      <Link to={backHref} className="text-sm text-muted hover:text-foreground">
-        {isStaff ? "Inbox" : "Support"}
+      <Link to={backHref} className="text-xs font-medium uppercase tracking-wide text-muted hover:text-foreground">
+        {isStaff ? "Support inbox" : "Support"}
       </Link>
       <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-[1.65rem]">{ticket.subject}</h1>
       <p className="mt-1.5 text-sm text-muted">
@@ -139,10 +139,10 @@ export function SupportTicketPage() {
         <Card className="mt-6">
           <form onSubmit={sendReply} className="space-y-4">
             <TextArea
-              label={isStaff ? "Reply" : "Add a message"}
+              label={isStaff ? "Reply" : "Message"}
               value={reply}
               onChange={(e) => setReply(e.target.value)}
-              hint="Enter to send. Shift+Enter for a new line."
+              hint="Press Enter to send. Shift+Enter for a new line."
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
@@ -175,7 +175,7 @@ export function SupportTicketPage() {
             className="font-medium text-foreground hover:underline"
             onClick={() => navigate("/support")}
           >
-            Open a new request
+            Submit a new request
           </button>
         </p>
       )}

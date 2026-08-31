@@ -96,9 +96,11 @@ export function BorrowerDetailPage() {
         )
       )}
 
-      <h2 className="mb-4 text-lg font-semibold">Currently has ({active.length})</h2>
+      <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted">
+        Active loans ({active.length})
+      </h2>
       {active.length === 0 ? (
-        <p className="mb-8 text-sm text-muted">Nothing on loan</p>
+        <p className="mb-8 text-sm text-muted">No active loans for this borrower.</p>
       ) : (
         <div className="mb-8 space-y-2">
           {active.map(({ loan, book }) => (
@@ -115,9 +117,11 @@ export function BorrowerDetailPage() {
         </div>
       )}
 
-      <h2 className="mb-4 text-lg font-semibold">Past loans ({past.length})</h2>
+      <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted">
+        Loan history ({past.length})
+      </h2>
       {past.length === 0 ? (
-        <p className="text-sm text-muted">No past loans</p>
+        <p className="text-sm text-muted">No completed loans on record.</p>
       ) : (
         <div className="space-y-2">
           {past.map(({ loan, book }) => (
