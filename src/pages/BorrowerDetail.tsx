@@ -59,7 +59,7 @@ export function BorrowerDetailPage() {
   return (
     <div>
       <div className="mb-6">
-        <Link to="/borrowers" className="text-[0.9375rem] text-accent">
+        <Link to="/borrowers" className="text-[0.9375rem] text-link">
           Borrowers
         </Link>
       </div>

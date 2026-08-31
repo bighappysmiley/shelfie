@@ -374,7 +374,7 @@ export function PlainButton({
     <button
       type="button"
       className={`min-h-[44px] w-full px-4 py-3 text-center text-[1.0625rem] font-normal transition-opacity active:opacity-60 disabled:opacity-40 ${
-        destructive ? "text-destructive" : "text-accent"
+        destructive ? "text-destructive" : "text-link"
       } ${className}`}
       {...props}
     >

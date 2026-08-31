@@ -44,7 +44,7 @@ function AuthShell({
   return (
     <Container size="form">
       <div className="py-10 sm:py-14">
-        <Link to="/" className="text-[1.0625rem] font-semibold text-accent">
+        <Link to="/" className="text-[1.0625rem] font-semibold text-link">
           Shelfie
         </Link>
         <h1 className="mt-8 text-[2.125rem] font-bold tracking-tight">{title}</h1>
@@ -111,7 +111,7 @@ export function LoginPage() {
       </Group>
       <p className="mt-6 text-center text-[0.9375rem] text-muted">
         Do not have an account?{" "}
-        <Link to="/signup" className="text-accent">
+        <Link to="/signup" className="text-link">
           Create one
         </Link>
       </p>
@@ -189,7 +189,7 @@ export function SignupPage() {
       </Group>
       <p className="mt-6 text-center text-[0.9375rem] text-muted">
         Already registered?{" "}
-        <Link to="/login" className="text-accent">
+        <Link to="/login" className="text-link">
           Sign in
         </Link>
       </p>

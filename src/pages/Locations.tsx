@@ -91,7 +91,7 @@ export function LocationsPage() {
                   room.room !== "Unassigned" ? (
                     <Link
                       to={`/library?room=${encodeURIComponent(room.room)}`}
-                      className="text-accent"
+                      className="text-link"
                     >
                       Filter
                     </Link>

@@ -35,7 +35,7 @@ function PublicShell() {
               Shelfie
             </Link>
             <div className="flex items-center gap-2">
-              <Link to="/login" className="text-[0.9375rem] text-accent">
+              <Link to="/login" className="text-[0.9375rem] text-link">
                 Sign In
               </Link>
               <ButtonLink to="/signup" size="sm">

@@ -51,7 +51,7 @@ export function AdminPage() {
               </div>
               <span
                 className={`shrink-0 text-[0.9375rem] ${
-                  ticket.status === "open" ? "font-medium text-accent" : "text-muted"
+                  ticket.status === "open" ? "font-medium text-link" : "text-muted"
                 }`}
               >
                 {ticket.status === "open" ? "Open" : "Closed"} · {formatWhen(ticket.created_at)}

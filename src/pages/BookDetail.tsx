@@ -111,7 +111,7 @@ export function BookDetailPage() {
   return (
     <div>
       <div className="mb-6">
-        <Link to="/library" className="text-[0.9375rem] text-accent">
+        <Link to="/library" className="text-[0.9375rem] text-link">
           Library
         </Link>
       </div>

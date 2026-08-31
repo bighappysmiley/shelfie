@@ -106,7 +106,7 @@ export function LoanedOutPage() {
                       {book.title}
                     </Link>
                     <p className="text-[0.9375rem] text-muted">
-                      <Link to={`/borrowers/${borrower.id}`} className="text-accent">
+                      <Link to={`/borrowers/${borrower.id}`} className="text-link">
                         {borrower.name}
                       </Link>
                     </p>

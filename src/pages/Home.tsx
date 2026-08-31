@@ -78,7 +78,7 @@ export function HomePage() {
               <p className="font-medium">
                 {dueSoon.length} due within 7 days
               </p>
-              <Link to="/loaned" className="mt-1 inline-block text-[0.9375rem] text-accent">
+              <Link to="/loaned" className="mt-1 inline-block text-[0.9375rem] text-link">
                 View due dates
               </Link>
             </Banner>
@@ -137,7 +137,7 @@ export function HomePage() {
         <section className="mb-6">
           <GroupHeader
             action={
-              <Link to="/locations" className="text-accent">
+              <Link to="/locations" className="text-link">
                 All
               </Link>
             }
@@ -161,7 +161,7 @@ export function HomePage() {
       <section className="mb-6">
         <GroupHeader
           action={
-            <Link to="/library?sort=added" className="text-accent">
+            <Link to="/library?sort=added" className="text-link">
               See All
             </Link>
           }
@@ -182,7 +182,7 @@ export function HomePage() {
       <section>
         <GroupHeader
           action={
-            <Link to="/loaned" className="text-accent">
+            <Link to="/loaned" className="text-link">
               See All
             </Link>
           }
@@ -220,7 +220,7 @@ export function HomePage() {
       <section>
         <GroupHeader
           action={
-            <Link to="/support" className="text-accent">
+            <Link to="/support" className="text-link">
               Live chat
             </Link>
           }

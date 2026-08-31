@@ -40,7 +40,7 @@ export function Navbar() {
                 className={({ isActive }) =>
                   `rounded-[var(--radius-control)] px-2.5 py-1 text-[0.9375rem] transition-colors ${
                     isActive
-                      ? "font-medium text-accent"
+                      ? "font-semibold text-foreground"
                       : "text-muted hover:text-foreground"
                   }`
                 }
@@ -54,7 +54,7 @@ export function Navbar() {
                 className={({ isActive }) =>
                   `rounded-[var(--radius-control)] px-2.5 py-1 text-[0.9375rem] transition-colors ${
                     isActive
-                      ? "font-medium text-accent"
+                      ? "font-semibold text-foreground"
                       : "text-muted hover:text-foreground"
                   }`
                 }
@@ -68,7 +68,7 @@ export function Navbar() {
               to="/settings"
               className={({ isActive }) =>
                 `inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:text-foreground ${
-                  isActive ? "text-accent" : ""
+                  isActive ? "text-foreground" : ""
                 }`
               }
               aria-label="Settings"
@@ -110,7 +110,7 @@ export function MobileNav() {
               end={item.end}
               className={({ isActive }) =>
                 `flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 py-0.5 text-[0.625rem] font-medium transition-colors ${
-                  isActive ? "text-accent" : "text-muted"
+                  isActive ? "font-semibold text-foreground" : "text-muted"
                 }`
               }
             >

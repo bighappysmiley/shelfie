@@ -260,7 +260,7 @@ export function LibraryPage() {
               Clear
             </Button>
           )}
-          <Link to="/locations" className="ml-auto text-[0.9375rem] text-accent">
+          <Link to="/locations" className="ml-auto text-[0.9375rem] text-link">
             Locations
           </Link>
         </div>
