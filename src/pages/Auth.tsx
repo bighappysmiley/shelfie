@@ -1,16 +1,31 @@
-import { useState, type FormEvent, type ReactNode } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { APP_TAGLINE } from "@/lib/brand";
 import { LandingLogoAnimation } from "@/components/LandingLogoAnimation";
 import { Logo } from "@/components/Logo";
+import { FullPageLoading } from "@/components/LoadingTree";
 import { Button, ButtonLink } from "@/components/Button";
 import { TextField, FormError } from "@/components/form";
 import { Container, Group, SegmentedControl } from "@/components/layout";
+import { storePendingInvite } from "@/lib/pending-invite";
+
+function useInviteParams() {
+  const [searchParams] = useSearchParams();
+  const email = searchParams.get("email") ?? "";
+  const inviteId = searchParams.get("invite");
+
+  useEffect(() => {
+    if (inviteId) storePendingInvite(inviteId);
+  }, [inviteId]);
+
+  return { email, inviteId };
+}
 
 export function LandingPage() {
   const { user, loading, pending2fa } = useAuth();
-  if (loading) return null;
+  useInviteParams();
+  if (loading) return <FullPageLoading />;
   if (user && !pending2fa) return <Navigate to="/setup" replace />;
   if (user && pending2fa) return <Navigate to="/verify-2fa" replace />;
 
@@ -70,10 +85,11 @@ function useAuthRedirect() {
 
 export function LoginPage() {
   const redirect = useAuthRedirect();
+  const { email: inviteEmail } = useInviteParams();
   const { signIn, signInWithPhone, verifyPhoneOtp } = useAuth();
   const navigate = useNavigate();
   const [mode, setMode] = useState<AuthMode>("email");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(inviteEmail);
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
@@ -229,10 +245,11 @@ export function LoginPage() {
 
 export function SignupPage() {
   const redirect = useAuthRedirect();
+  const { email: inviteEmail } = useInviteParams();
   const { signUp, signUpWithPhone, verifyPhoneOtp } = useAuth();
   const navigate = useNavigate();
   const [mode, setMode] = useState<AuthMode>("email");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(inviteEmail);
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");

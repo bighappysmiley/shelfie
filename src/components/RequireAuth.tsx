@@ -1,20 +1,13 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { LibraryProvider } from "@/lib/library";
+import { PageLoading } from "@/components/LoadingTree";
 
 export function RequireAuth() {
   const { user, loading, pending2fa } = useAuth();
 
   if (loading) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <div
-          className="h-8 w-8 animate-spin rounded-full border-2 border-fill border-t-accent"
-          role="status"
-          aria-label="Loading"
-        />
-      </div>
-    );
+    return <PageLoading />;
   }
 
   if (!user) return <Navigate to="/login" replace />;

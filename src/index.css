@@ -15,6 +15,7 @@
   --brand-hover: #2f4038;
   --brand-soft: rgba(61, 82, 72, 0.12);
   --logo-mark: #8fa898;
+  --logo-trunk: #7a5c44;
   --logo-text-on-brand: #f0f2e8;
   --logo-mark-on-brand: #a8c0ad;
   --logo-bg: #1a2426;
@@ -51,6 +52,7 @@
   --brand-hover: #bdd0c2;
   --brand-soft: rgba(168, 192, 173, 0.14);
   --logo-mark: #a8c0ad;
+  --logo-trunk: #9a7358;
   --hairline: rgba(240, 242, 232, 0.09);
   --surface: #222d2f;
   --fill: rgba(168, 192, 173, 0.1);
@@ -92,6 +94,7 @@
   --color-chat-mine: var(--chat-mine);
   --color-chat-theirs: var(--chat-theirs);
   --color-logo-mark: var(--logo-mark);
+  --color-logo-trunk: var(--logo-trunk);
   --color-logo-text-on-brand: var(--logo-text-on-brand);
   --color-logo-mark-on-brand: var(--logo-mark-on-brand);
   --color-logo-bg: var(--logo-bg);
@@ -247,5 +250,47 @@ h1, h2, h3 {
   }
   to {
     transform: translateX(0);
+  }
+}
+
+@keyframes loading-trunk-grow {
+  0% {
+    transform: scaleY(0.15);
+    opacity: 0.45;
+  }
+  100% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+@keyframes loading-canopy-grow {
+  0% {
+    transform: scale(0.45);
+    opacity: 0.35;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.loading-tree-trunk {
+  transform-box: fill-box;
+  transform-origin: bottom center;
+  animation: loading-trunk-grow 1.1s ease-in-out infinite alternate;
+}
+
+.loading-tree-canopy {
+  transform-box: fill-box;
+  transform-origin: bottom center;
+  animation: loading-canopy-grow 1.1s ease-in-out infinite alternate;
+  animation-delay: 0.12s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-tree-trunk,
+  .loading-tree-canopy {
+    animation: none;
   }
 }

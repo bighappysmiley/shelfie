@@ -9,6 +9,7 @@ import {
   Badge,
 } from "@/components/layout";
 import { Button } from "@/components/Button";
+import { PageLoading } from "@/components/LoadingTree";
 import { api } from "@/lib/api";
 import { useLibrary } from "@/lib/library";
 import type { LoanWithDetails } from "@/lib/types";
@@ -48,15 +49,7 @@ export function NotificationsPage() {
     pendingInvites.length > 0 || overdue.length > 0 || dueSoon.length > 0;
 
   if (loading) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <div
-          className="h-8 w-8 animate-spin rounded-full border-2 border-fill border-t-accent"
-          role="status"
-          aria-label="Loading"
-        />
-      </div>
-    );
+    return <PageLoading />;
   }
 
   if (!hasAny) {

@@ -24,6 +24,7 @@ export interface LibraryInvite {
   phone: string | null;
   status: "pending" | "accepted" | "revoked";
   createdAt: string;
+  emailSent?: boolean;
 }
 
 export type PreferredAuth = "email" | "phone" | "both";

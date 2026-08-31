@@ -11,6 +11,7 @@ import { api } from "./api";
 import { useAuth } from "./auth";
 import type { Library, LibraryInvite } from "./library-types";
 import { getActiveLibraryId, setActiveLibraryId } from "./library-storage";
+import { captureInviteFromUrl, clearPendingInvite, getPendingInvite } from "./pending-invite";
 
 type LibraryContextValue = {
   libraries: Library[];
@@ -42,6 +43,19 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
     setLoading(true);
     try {
+      captureInviteFromUrl();
+
+      const pendingInviteId = getPendingInvite();
+      if (pendingInviteId) {
+        try {
+          const { libraryId } = await api.libraries.acceptInvite(pendingInviteId);
+          clearPendingInvite();
+          setActiveLibraryId(libraryId);
+        } catch {
+          clearPendingInvite();
+        }
+      }
+
       const [{ libraries: list }, { invites }] = await Promise.all([
         api.libraries.list(),
         api.libraries.receivedInvites(),

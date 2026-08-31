@@ -87,7 +87,11 @@ export function LandingLogoAnimation() {
     <div className="inline-flex items-center gap-1 sm:gap-1.5">
       <div className="flex h-14 w-14 shrink-0 items-center justify-center sm:h-[3.5rem] sm:w-[3.5rem]">
         {showIcon && (
-          <LogoMark size={56} className="text-logo-mark-on-brand logo-icon-reveal" />
+          <LogoMark
+            size={56}
+            canopyClassName="text-logo-mark-on-brand"
+            className="logo-icon-reveal"
+          />
         )}
       </div>
 

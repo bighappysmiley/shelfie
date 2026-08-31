@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link, Navigate, Outlet, useLocation, BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { useLibrary } from "@/lib/library";
@@ -8,6 +9,7 @@ import { RequireAuth } from "@/components/RequireAuth";
 import { SidebarProvider } from "@/lib/sidebar";
 import { initTheme } from "@/lib/theme";
 import { syncPending } from "@/lib/offline";
+import { FullPageLoading } from "@/components/LoadingTree";
 import { LandingPage, LoginPage, SignupPage, Verify2FAPage } from "@/pages/Auth";
 import { HomePage } from "@/pages/Home";
 import { LibraryPage } from "@/pages/Library";
@@ -25,7 +27,6 @@ import { SupportPage } from "@/pages/Support";
 import { SupportTicketPage } from "@/pages/SupportTicket";
 import { AdminPage } from "@/pages/Admin";
 import { SetupPage, isSetupComplete } from "@/pages/Setup";
-import { useEffect } from "react";
 import { Logo } from "@/components/Logo";
 import { ButtonLink } from "@/components/Button";
 
@@ -75,15 +76,7 @@ function AppShell() {
   }, [user]);
 
   if (libraryLoading) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center bg-background">
-        <div
-          className="h-8 w-8 animate-spin rounded-full border-2 border-fill border-t-accent"
-          role="status"
-          aria-label="Loading library"
-        />
-      </div>
-    );
+    return <FullPageLoading label="Loading library" />;
   }
 
   if (!activeLibrary) {

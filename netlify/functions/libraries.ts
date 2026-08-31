@@ -2,7 +2,7 @@ import type { Config } from "@netlify/functions";
 import { json, error, parseBody } from "./utils";
 import { withAuth } from "./lib/auth";
 import { supabaseForToken } from "./lib/supabase";
-import { loadData, saveData } from "./lib/store";
+import { sendLibraryInviteEmail } from "./lib/email";
 
 export const config: Config = {
   path: "/api/libraries",
@@ -250,6 +250,34 @@ export default withAuth(async (request, user) => {
 
     if (inviteErr || !invite) return error(inviteErr?.message || "Invite failed", 500);
 
+    let emailSent = false;
+    if (email) {
+      const { data: library } = await supabase
+        .from("libraries")
+        .select("name")
+        .eq("id", inviteLibraryId)
+        .single();
+
+      const { data: inviterProfile } = await supabase
+        .from("user_profiles")
+        .select("display_name")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      const inviterName =
+        (inviterProfile?.display_name as string | undefined)?.trim() ||
+        user.email?.split("@")[0] ||
+        "Someone";
+
+      const emailResult = await sendLibraryInviteEmail({
+        to: email,
+        libraryName: (library?.name as string | undefined) || "a library",
+        inviterName,
+        inviteId: invite.id as string,
+      });
+      emailSent = emailResult.sent;
+    }
+
     return json(
       {
         id: invite.id,
@@ -258,6 +286,7 @@ export default withAuth(async (request, user) => {
         phone: invite.phone,
         status: invite.status,
         createdAt: invite.created_at,
+        emailSent,
       },
       201,
     );

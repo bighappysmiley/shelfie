@@ -152,9 +152,17 @@ export function SettingsPage() {
         inviteMode === "email"
           ? { email: inviteContact.trim() }
           : { phone: inviteContact.trim() };
-      await api.libraries.invite(activeLibrary.id, contact);
+      const invite = await api.libraries.invite(activeLibrary.id, contact);
       setInviteContact("");
-      setInviteMsg("Invitation sent");
+      if (inviteMode === "email") {
+        setInviteMsg(
+          invite.emailSent
+            ? `Invitation email sent to ${contact.email}`
+            : "Invitation saved — email could not be sent (check server configuration)",
+        );
+      } else {
+        setInviteMsg("Invitation sent");
+      }
       const { invites } = await api.libraries.sentInvites(activeLibrary.id);
       setSentInvites(invites);
     } catch (err) {

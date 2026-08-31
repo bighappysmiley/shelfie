@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { Logo } from "@/components/Logo";
+import { FullPageLoading } from "@/components/LoadingTree";
 import { Button } from "@/components/Button";
 import { TextField, FormError } from "@/components/form";
 import { Container, Group, GroupFooter } from "@/components/layout";
@@ -92,15 +93,7 @@ export function SetupPage() {
   };
 
   if (loading) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center bg-background">
-        <div
-          className="h-8 w-8 animate-spin rounded-full border-2 border-fill border-t-accent"
-          role="status"
-          aria-label="Loading"
-        />
-      </div>
-    );
+    return <FullPageLoading />;
   }
 
   return (
