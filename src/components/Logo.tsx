@@ -35,23 +35,19 @@ export function LogoMark({
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden
-      className={className}
+      className={`${growing ? "loading-tree-grow" : ""} ${className}`.trim()}
       {...props}
     >
-      <g className={growing ? "loading-tree-canopy" : undefined}>
-        <path
-          fill="currentColor"
-          className={canopyClassName}
-          d="M24 8 40 34a2 2 0 0 1-1.8 2H9.8A2 2 0 0 1 8 34L24 8Z"
-        />
-      </g>
-      <g className={growing ? "loading-tree-trunk" : undefined}>
-        <path
-          fill="currentColor"
-          className="text-logo-trunk"
-          d="M21.25 36.5h5.5v6.25a1.5 1.5 0 0 1-1.5 1.5h-2.5a1.5 1.5 0 0 1-1.5-1.5V36.5Z"
-        />
-      </g>
+      <path
+        fill="currentColor"
+        className={canopyClassName}
+        d="M24 8 40 34a2 2 0 0 1-1.8 2H9.8A2 2 0 0 1 8 34L24 8Z"
+      />
+      <path
+        fill="currentColor"
+        className="text-logo-trunk"
+        d="M21.25 36.5h5.5v6.25a1.5 1.5 0 0 1-1.5 1.5h-2.5a1.5 1.5 0 0 1-1.5-1.5V36.5Z"
+      />
     </svg>
   );
 }

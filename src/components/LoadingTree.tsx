@@ -2,7 +2,7 @@ import { LogoMark } from "./Logo";
 
 export function LoadingTree({
   label = "Loading",
-  size = 48,
+  size = 64,
   className = "",
 }: {
   label?: string;
@@ -24,7 +24,7 @@ export function LoadingTree({
 export function PageLoading({ label = "Loading" }: { label?: string }) {
   return (
     <div className="flex min-h-[50vh] items-center justify-center">
-      <LoadingTree label={label} size={56} />
+      <LoadingTree label={label} size={72} />
     </div>
   );
 }
@@ -32,7 +32,7 @@ export function PageLoading({ label = "Loading" }: { label?: string }) {
 export function FullPageLoading({ label = "Loading" }: { label?: string }) {
   return (
     <div className="flex min-h-dvh items-center justify-center bg-background">
-      <LoadingTree label={label} size={56} />
+      <LoadingTree label={label} size={72} />
     </div>
   );
 }
