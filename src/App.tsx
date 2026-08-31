@@ -26,9 +26,10 @@ import { NotificationsPage } from "@/pages/Notifications";
 import { SupportPage } from "@/pages/Support";
 import { SupportTicketPage } from "@/pages/SupportTicket";
 import { AdminPage } from "@/pages/Admin";
-import { SetupPage, isSetupComplete } from "@/pages/Setup";
+import { SetupPage, needsSetup } from "@/pages/Setup";
 import { Logo } from "@/components/Logo";
 import { ButtonLink } from "@/components/Button";
+import { UpdateBanner } from "@/components/UpdateBanner";
 
 function PublicShell() {
   return (
@@ -83,7 +84,13 @@ function AppShell() {
     return <Navigate to="/setup" replace state={{ from: location.pathname }} />;
   }
 
-  if (user && (!isSetupComplete(user.id) || !userProfile?.displayName?.trim())) {
+  if (
+    user &&
+    needsSetup({
+      displayName: userProfile?.displayName,
+      libraryCount: 1,
+    })
+  ) {
     return <Navigate to="/setup" replace />;
   }
 
@@ -143,6 +150,7 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <SidebarProvider>
+          <UpdateBanner />
           <AppRoutes />
         </SidebarProvider>
       </AuthProvider>

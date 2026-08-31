@@ -19,7 +19,7 @@ type LibraryContextValue = {
   pendingInvites: LibraryInvite[];
   loading: boolean;
   setActiveLibrary: (id: string) => void;
-  refreshLibraries: () => Promise<void>;
+  refreshLibraries: (opts?: { silent?: boolean }) => Promise<void>;
   createLibrary: (name: string) => Promise<Library>;
   renameLibrary: (id: string, name: string) => Promise<void>;
 };
@@ -32,16 +32,22 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const [pendingInvites, setPendingInvites] = useState<LibraryInvite[]>([]);
   const [activeId, setActiveId] = useState<string | null>(() => getActiveLibraryId());
   const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
 
-  const refreshLibraries = useCallback(async () => {
+  const refreshLibraries = useCallback(async (opts?: { silent?: boolean }) => {
     if (!user) {
       setLibraries([]);
       setPendingInvites([]);
+      setActiveId(null);
+      setActiveLibraryId(null);
       setLoading(false);
+      setHasLoaded(false);
       return;
     }
 
-    setLoading(true);
+    const silent = opts?.silent ?? hasLoaded;
+    if (!silent) setLoading(true);
+
     try {
       captureInviteFromUrl();
 
@@ -71,19 +77,24 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
       setActiveId(nextId);
       setActiveLibraryId(nextId);
-    } catch {
-      setLibraries([]);
-      setPendingInvites([]);
-      setActiveId(null);
-      setActiveLibraryId(null);
+      setHasLoaded(true);
+    } catch (err) {
+      // Keep existing libraries on refresh failure so setup/home don't bounce.
+      console.error("Failed to refresh libraries:", err);
+      if (!hasLoaded) {
+        setLibraries([]);
+        setPendingInvites([]);
+        setActiveId(null);
+        setActiveLibraryId(null);
+      }
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, hasLoaded]);
 
   useEffect(() => {
-    refreshLibraries();
-  }, [refreshLibraries]);
+    refreshLibraries({ silent: false });
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps -- reload when user changes
 
   const setActiveLibrary = useCallback((id: string) => {
     setActiveId(id);
@@ -92,15 +103,23 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
   const createLibrary = useCallback(async (name: string) => {
     const library = await api.libraries.create(name);
-    await refreshLibraries();
+    setLibraries((prev) => {
+      if (prev.some((l) => l.id === library.id)) return prev;
+      return [...prev, library];
+    });
     setActiveLibrary(library.id);
+    setHasLoaded(true);
+    void refreshLibraries({ silent: true });
     return library;
   }, [refreshLibraries, setActiveLibrary]);
 
   const renameLibrary = useCallback(
     async (id: string, name: string) => {
-      await api.libraries.rename(id, name);
-      await refreshLibraries();
+      const updated = await api.libraries.rename(id, name);
+      setLibraries((prev) =>
+        prev.map((l) => (l.id === id ? { ...l, name: updated.name ?? name } : l)),
+      );
+      void refreshLibraries({ silent: true });
     },
     [refreshLibraries],
   );

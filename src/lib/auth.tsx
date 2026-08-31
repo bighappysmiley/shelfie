@@ -167,6 +167,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (phoneErr) throw phoneErr;
       }
 
+      // Optimistic local update so setup → home doesn't bounce on a stale profile.
+      setUserProfile((prev) => ({
+        userId: data.user!.id,
+        displayName:
+          patch.displayName !== undefined
+            ? patch.displayName?.trim() || null
+            : prev?.displayName ?? null,
+        phone:
+          patch.phone !== undefined
+            ? patch.phone
+              ? normalizePhone(patch.phone)
+              : null
+            : prev?.phone ?? null,
+        require2fa: patch.require2fa ?? prev?.require2fa ?? false,
+        preferredAuth: patch.preferredAuth ?? prev?.preferredAuth ?? "email",
+      }));
+
       await refreshProfile();
     },
     [refreshProfile],

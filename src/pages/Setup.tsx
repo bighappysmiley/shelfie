@@ -9,23 +9,12 @@ import { useLibrary } from "@/lib/library";
 import { useAuth } from "@/lib/auth";
 import { APP_TAGLINE } from "@/lib/brand";
 
-const SETUP_KEY_PREFIX = "pine-bookkeeping-setup-complete";
-
-export function isSetupComplete(userId?: string | null): boolean {
-  if (!userId) return false;
-  try {
-    return localStorage.getItem(`${SETUP_KEY_PREFIX}:${userId}`) === "true";
-  } catch {
-    return false;
-  }
-}
-
-export function markSetupComplete(userId: string) {
-  try {
-    localStorage.setItem(`${SETUP_KEY_PREFIX}:${userId}`, "true");
-  } catch {
-    /* ignore */
-  }
+/** Setup is complete when the account has a display name and at least one library. */
+export function needsSetup(opts: {
+  displayName?: string | null;
+  libraryCount: number;
+}): boolean {
+  return !opts.displayName?.trim() || opts.libraryCount === 0;
 }
 
 export function SetupPage() {
@@ -45,18 +34,17 @@ export function SetupPage() {
   }, [userProfile?.displayName]);
 
   useEffect(() => {
-    if (activeLibrary?.name && activeLibrary.name !== "My Library") {
+    if (activeLibrary?.name) {
       setLibraryName(activeLibrary.name);
     }
   }, [activeLibrary?.name]);
 
-  if (
-    !loading &&
-    user &&
-    libraries.length > 0 &&
-    isSetupComplete(user.id) &&
-    userProfile?.displayName?.trim()
-  ) {
+  const setupNeeded = needsSetup({
+    displayName: userProfile?.displayName,
+    libraryCount: libraries.length,
+  });
+
+  if (!loading && user && !setupNeeded) {
     return <Navigate to="/home" replace />;
   }
 
@@ -78,12 +66,13 @@ export function SetupPage() {
       if (libraries.length === 0) {
         await createLibrary(libTrimmed);
       } else if (activeLibrary) {
-        await renameLibrary(activeLibrary.id, libTrimmed);
+        if (activeLibrary.name !== libTrimmed) {
+          await renameLibrary(activeLibrary.id, libTrimmed);
+        }
       } else {
         await createLibrary(libTrimmed);
       }
 
-      markSetupComplete(user!.id);
       navigate("/home", { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Setup failed. Please try again.");
