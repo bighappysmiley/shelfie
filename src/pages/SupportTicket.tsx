@@ -64,7 +64,7 @@ export function SupportTicketPage() {
     return (
       <div>
         <p className="text-muted">We couldn&apos;t find that request.</p>
-        <Link to="/support" className="mt-4 inline-block font-medium text-brand hover:underline">
+        <Link to="/support" className="mt-4 inline-block font-medium text-foreground hover:underline">
           Back to support
         </Link>
       </div>
@@ -111,19 +111,20 @@ export function SupportTicketPage() {
       <Link to={backHref} className="text-sm text-muted hover:text-foreground">
         {isStaff ? "Inbox" : "Support"}
       </Link>
-      <h1 className="mt-3 text-3xl font-semibold tracking-tight">{ticket.subject}</h1>
-      <p className="mt-2 text-sm text-muted">
-        {ticket.contact_email} · {ticket.status === "open" ? "Open" : "Closed"}
+      <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-[1.65rem]">{ticket.subject}</h1>
+      <p className="mt-1.5 text-sm text-muted">
+        {isStaff && <span>{ticket.contact_email} · </span>}
+        {ticket.status === "open" ? "Open" : "Closed"}
       </p>
 
-      <ol className="mt-8 space-y-3">
+      <ol className="mt-6 space-y-4 border-t border-black/8 pt-6 dark:border-white/10">
         {messages.map((message) => (
           <ChatBubble
             key={message.id}
             message={message}
             viewerId={user?.id}
             viewerIsStaff={isStaff}
-            visitorLabel={ticket.contact_email}
+            visitorLabel={isStaff ? ticket.contact_email : "You"}
           />
         ))}
       </ol>
@@ -135,7 +136,7 @@ export function SupportTicketPage() {
       )}
 
       {canReply ? (
-        <Card className="mt-8">
+        <Card className="mt-6">
           <form onSubmit={sendReply} className="space-y-4">
             <TextArea
               label={isStaff ? "Reply" : "Add a message"}
@@ -167,11 +168,11 @@ export function SupportTicketPage() {
           </form>
         </Card>
       ) : (
-        <p className="mt-8 text-sm text-muted">
+        <p className="mt-6 text-sm text-muted">
           This ticket is closed.{" "}
           <button
             type="button"
-            className="font-medium text-brand hover:underline"
+            className="font-medium text-foreground hover:underline"
             onClick={() => navigate("/support")}
           >
             Open a new request

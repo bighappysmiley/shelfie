@@ -1,16 +1,6 @@
 import type { TicketMessage } from "@/lib/support-types";
 import { formatDateTime, messageAuthorLabel } from "@/lib/support-types";
 
-type Side = "mine" | "theirs" | "system";
-
-function sideFor(message: TicketMessage, viewerIsStaff: boolean): Side {
-  if (message.kind === "system") return "system";
-  if (viewerIsStaff) {
-    return message.kind === "staff" ? "mine" : "theirs";
-  }
-  return message.kind === "user" ? "mine" : "theirs";
-}
-
 export function ChatBubble({
   message,
   viewerId,
@@ -22,38 +12,29 @@ export function ChatBubble({
   viewerIsStaff: boolean;
   visitorLabel: string;
 }) {
-  const side = sideFor(message, viewerIsStaff);
   const name = messageAuthorLabel(message, viewerId, visitorLabel);
   const time = formatDateTime(message.created_at);
 
-  if (side === "system") {
+  if (message.kind === "system") {
     return (
-      <li className="flex justify-center px-2">
-        <p className="max-w-[90%] text-center text-xs leading-relaxed text-muted">
-          {message.body}
-        </p>
+      <li className="text-center text-xs text-muted">
+        {message.body}
       </li>
     );
   }
 
-  const mine = side === "mine";
+  const isStaffMessage = message.kind === "staff";
+  const isMine =
+    (viewerIsStaff && isStaffMessage && message.author_id === viewerId) ||
+    (!viewerIsStaff && message.kind === "user" && message.author_id === viewerId);
 
   return (
-    <li className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-      <div className={`flex max-w-[85%] flex-col ${mine ? "items-end" : "items-start"}`}>
-        <p className={`px-1 text-[0.7rem] text-muted ${mine ? "text-right" : "text-left"}`}>
-          {name} · {time}
-        </p>
-        <p
-          className={`mt-0.5 whitespace-pre-wrap px-3.5 py-2 text-sm leading-relaxed ${
-            mine
-              ? "rounded-[1.15rem] rounded-br-md bg-chat-mine text-white"
-              : "rounded-[1.15rem] rounded-bl-md bg-chat-theirs text-foreground"
-          }`}
-        >
-          {message.body}
-        </p>
+    <li className="border-b border-black/8 pb-4 last:border-0 dark:border-white/10">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-sm font-medium">{isMine ? "You" : name}</p>
+        <p className="text-xs text-muted">{time}</p>
       </div>
+      <p className="mt-1.5 whitespace-pre-wrap text-[0.95rem] leading-relaxed">{message.body}</p>
     </li>
   );
 }

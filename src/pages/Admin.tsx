@@ -38,12 +38,12 @@ export function AdminPage() {
       {ready && tickets.length === 0 ? (
         <p className="text-muted">No support requests yet.</p>
       ) : (
-        <ul className="divide-y divide-black/8 rounded-xl border border-black/8 bg-surface dark:divide-white/10 dark:border-white/10">
+        <ul className="divide-y divide-black/8 rounded-lg border border-black/8 bg-surface dark:divide-white/10 dark:border-white/10">
           {tickets.map((ticket) => (
             <li key={ticket.id}>
               <Link
                 to={`/support/${ticket.id}`}
-                className="flex flex-wrap items-baseline justify-between gap-3 px-4 py-4 transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.03]"
+                className="flex flex-wrap items-baseline justify-between gap-2 px-3 py-3 transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.03]"
               >
                 <div className="min-w-0">
                   <p className="font-medium">{ticket.subject}</p>
@@ -51,7 +51,7 @@ export function AdminPage() {
                 </div>
                 <span
                   className={`shrink-0 text-sm ${
-                    ticket.status === "open" ? "font-medium text-brand" : "text-muted"
+                    ticket.status === "open" ? "font-medium text-foreground" : "text-muted"
                   }`}
                 >
                   {ticket.status === "open" ? "Open" : "Closed"} · {formatWhen(ticket.created_at)}

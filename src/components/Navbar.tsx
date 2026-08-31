@@ -24,12 +24,12 @@ export function Navbar() {
   const { isStaff } = useAuth();
 
   return (
-    <header className="sticky top-0 z-50 border-b border-black/8 bg-surface/95 backdrop-blur-sm safe-top dark:border-white/10">
+    <header className="sticky top-0 z-50 border-b border-black/8 bg-surface safe-top dark:border-white/10">
       <Container>
-        <div className="flex h-14 items-center gap-4">
+        <div className="flex h-12 items-center gap-3">
           <NavLink
             to="/home"
-            className="shrink-0 text-[1.05rem] font-semibold tracking-tight text-brand"
+            className="shrink-0 text-base font-semibold tracking-tight text-foreground"
           >
             Shelfie
           </NavLink>
@@ -39,9 +39,9 @@ export function Navbar() {
                 key={l.to}
                 to={l.to}
                 className={({ isActive }) =>
-                  `rounded-lg px-3 py-1.5 text-[0.9rem] transition-colors ${
+                  `rounded-md px-2.5 py-1 text-[0.875rem] transition-colors ${
                     isActive
-                      ? "bg-brand-soft font-medium text-brand"
+                      ? "bg-accent-soft font-medium text-foreground"
                       : "text-muted hover:bg-black/[0.03] hover:text-foreground dark:hover:bg-white/[0.04]"
                   }`
                 }
@@ -53,9 +53,9 @@ export function Navbar() {
               <NavLink
                 to="/admin"
                 className={({ isActive }) =>
-                  `rounded-lg px-3 py-1.5 text-[0.9rem] transition-colors ${
+                  `rounded-md px-2.5 py-1 text-[0.875rem] transition-colors ${
                     isActive
-                      ? "bg-warm-soft font-medium text-warm"
+                      ? "bg-accent-soft font-medium text-foreground"
                       : "text-muted hover:bg-black/[0.03] hover:text-foreground dark:hover:bg-white/[0.04]"
                   }`
                 }
@@ -78,7 +78,7 @@ export function Navbar() {
             </NavLink>
             <NavLink
               to="/add"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-[0.9rem] font-medium text-white hover:bg-brand-hover"
+              className="inline-flex items-center gap-1.5 rounded-md bg-accent px-2.5 py-1 text-[0.875rem] font-medium text-accent-contrast hover:bg-accent-hover"
             >
               <IconPlus size={16} />
               <span className="hidden sm:inline">Add book</span>
@@ -102,8 +102,8 @@ const mobileItems = [
 
 export function MobileNav() {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-black/8 bg-surface/95 backdrop-blur-sm safe-bottom md:hidden dark:border-white/10">
-      <div className="flex justify-around px-1 py-1.5">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-black/8 bg-surface safe-bottom md:hidden dark:border-white/10">
+      <div className="flex justify-around px-0.5 py-1">
         {mobileItems.map((item) => {
           const Icon = item.icon;
           return (
@@ -126,11 +126,11 @@ export function MobileNav() {
               {({ isActive }) => (
                 <>
                   <span
-                    className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+                    className={`flex h-7 w-7 items-center justify-center rounded-md ${
                       item.emphasize
-                        ? "bg-brand text-white"
+                        ? "bg-accent text-accent-contrast"
                         : isActive
-                          ? "bg-brand-soft text-brand"
+                          ? "bg-accent-soft text-foreground"
                           : ""
                     }`}
                   >

@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
-import { SUPPORT_EMAIL } from "@/lib/auth";
 import type { Ticket } from "@/lib/support-types";
 import { formatWhen } from "@/lib/support-types";
 import { PageHeader, Card } from "@/components/layout";
@@ -77,30 +76,22 @@ export function SupportPage() {
     <div>
       <PageHeader
         title="Support"
-        subtitle={
-          <>
-            Open a request and we&apos;ll reply here. For something urgent, email{" "}
-            <a href={`mailto:${SUPPORT_EMAIL}`} className="font-medium text-brand hover:underline">
-              {SUPPORT_EMAIL}
-            </a>
-            .
-          </>
-        }
+        subtitle="Send a message and we'll reply here on this page."
       />
 
       {sent && (
-        <Card className="mb-6 border-success/30 bg-success-bg">
-          <p className="text-sm font-medium text-success">Submitted. We&apos;ll reply on this page.</p>
+        <Card className="mb-4 border-success/20 bg-success-bg">
+          <p className="text-sm text-success">Submitted. We'll reply in your ticket list below.</p>
         </Card>
       )}
       {error && (
-        <div className="mb-6">
+        <div className="mb-4">
           <FormError message={error} />
         </div>
       )}
 
       <Card>
-        <form onSubmit={submit} className="space-y-4">
+        <form onSubmit={submit} className="space-y-3">
           <TextField
             label="Subject"
             required
@@ -121,20 +112,20 @@ export function SupportPage() {
         </form>
       </Card>
 
-      <div className="mt-10">
-        <h2 className="text-lg font-semibold">Your tickets</h2>
+      <div className="mt-8">
+        <h2 className="text-base font-semibold">Your tickets</h2>
         {tickets.length === 0 ? (
-          <p className="mt-3 text-muted">None yet.</p>
+          <p className="mt-2 text-sm text-muted">None yet.</p>
         ) : (
-          <ul className="mt-4 divide-y divide-black/8 rounded-xl border border-black/8 bg-surface dark:divide-white/10 dark:border-white/10">
+          <ul className="mt-3 divide-y divide-black/10 border border-black/10 bg-surface dark:divide-white/10 dark:border-white/10">
             {tickets.map((ticket) => (
               <li key={ticket.id}>
                 <Link
                   to={`/support/${ticket.id}`}
-                  className="flex flex-wrap items-baseline justify-between gap-3 px-4 py-4 transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.03]"
+                  className="flex flex-wrap items-baseline justify-between gap-2 px-3 py-3 text-sm transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.03]"
                 >
                   <span className="font-medium">{ticket.subject}</span>
-                  <span className="text-sm text-muted">
+                  <span className="text-muted">
                     {ticket.status === "open" ? "Open" : "Closed"} · {formatWhen(ticket.created_at)}
                   </span>
                 </Link>

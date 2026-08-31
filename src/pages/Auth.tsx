@@ -1,9 +1,9 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
-import { Button } from "@/components/Button";
+import { Button, ButtonLink } from "@/components/Button";
 import { TextField, FormError } from "@/components/form";
-import { Card } from "@/components/layout";
+import { Card, Container } from "@/components/layout";
 
 export function LandingPage() {
   const { user, loading } = useAuth();
@@ -11,39 +11,24 @@ export function LandingPage() {
   if (user) return <Navigate to="/library" replace />;
 
   return (
-    <div className="relative min-h-[calc(100dvh-3.5rem)] overflow-hidden">
-      <div
-        className="pointer-events-none absolute inset-0 -z-10"
-        style={{
-          background:
-            "radial-gradient(ellipse 80% 60% at 20% 0%, #e8e8ed 0%, transparent 55%), radial-gradient(ellipse 70% 50% at 90% 20%, #dfe3ea 0%, transparent 50%), linear-gradient(180deg, #f5f5f7 0%, #ebebef 100%)",
-        }}
-      />
-      <div className="mx-auto flex max-w-3xl flex-col items-start px-6 pb-16 pt-16 sm:px-8 sm:pt-24">
-        <p className="text-4xl font-semibold tracking-tight sm:text-5xl">Shelfie</p>
-        <h1 className="mt-4 max-w-xl text-2xl font-semibold tracking-tight text-foreground/90 sm:text-3xl">
+    <Container size="narrow">
+      <div className="py-10 sm:py-14">
+        <p className="text-sm font-medium uppercase tracking-widest text-muted">Shelfie</p>
+        <h1 className="mt-3 max-w-md text-2xl font-semibold tracking-tight sm:text-3xl">
           Your books, where they live, and who borrowed them.
         </h1>
-        <p className="mt-4 max-w-lg text-lg text-muted">
+        <p className="mt-3 max-w-md text-[0.95rem] leading-relaxed text-muted">
           Catalog your shelves, scan barcodes and covers, and keep track of loans — private to your
           account.
         </p>
-        <div className="mt-8 flex flex-wrap gap-3">
-          <Link
-            to="/signup"
-            className="inline-flex items-center justify-center rounded-lg bg-brand px-5 py-2.5 text-[0.95rem] font-medium text-white hover:bg-brand-hover"
-          >
-            Create account
-          </Link>
-          <Link
-            to="/login"
-            className="inline-flex items-center justify-center rounded-lg border border-black/10 bg-surface px-5 py-2.5 text-[0.95rem] font-medium hover:bg-black/[0.04] dark:border-white/10"
-          >
+        <div className="mt-6 flex flex-wrap gap-2">
+          <ButtonLink to="/signup">Create account</ButtonLink>
+          <ButtonLink to="/login" variant="secondary">
             Sign in
-          </Link>
+          </ButtonLink>
         </div>
       </div>
-    </div>
+    </Container>
   );
 }
 
@@ -57,14 +42,16 @@ function AuthShell({
   children: ReactNode;
 }) {
   return (
-    <div className="mx-auto max-w-md px-6 py-12 sm:px-8">
-      <Link to="/" className="text-lg font-semibold tracking-tight">
-        Shelfie
-      </Link>
-      <h1 className="mt-8 text-3xl font-semibold tracking-tight">{title}</h1>
-      <p className="mt-2 text-muted">{subtitle}</p>
-      <Card className="mt-8">{children}</Card>
-    </div>
+    <Container size="form">
+      <div className="py-10 sm:py-12">
+        <Link to="/" className="text-base font-semibold tracking-tight">
+          Shelfie
+        </Link>
+        <h1 className="mt-6 text-2xl font-semibold tracking-tight">{title}</h1>
+        <p className="mt-1.5 text-[0.95rem] text-muted">{subtitle}</p>
+        <Card className="mt-6">{children}</Card>
+      </div>
+    </Container>
   );
 }
 
@@ -165,7 +152,7 @@ export function SignupPage() {
       <form onSubmit={onSubmit} className="space-y-4">
         {error && <FormError message={error} />}
         {info && (
-          <p className="rounded-lg bg-success-bg px-4 py-3 text-sm font-medium text-success">
+          <p className="rounded-md bg-success-bg px-3 py-2.5 text-sm font-medium text-success">
             {info}
           </p>
         )}

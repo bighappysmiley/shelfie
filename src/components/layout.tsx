@@ -10,12 +10,12 @@ export function Container({
   size?: "wide" | "narrow" | "form";
 }) {
   const widths = {
-    wide: "max-w-5xl",
-    narrow: "max-w-3xl",
+    wide: "max-w-4xl",
+    narrow: "max-w-xl",
     form: "max-w-md",
   };
   return (
-    <div className={`mx-auto w-full ${widths[size]} px-6 sm:px-8 ${className}`}>
+    <div className={`mx-auto w-full ${widths[size]} px-4 sm:px-5 ${className}`}>
       {children}
     </div>
   );
@@ -35,7 +35,7 @@ export function Section({
   return (
     <section
       id={id}
-      className={`py-8 sm:py-12 ${id ? "scroll-mt-24" : ""} ${className}`}
+      className={`py-6 sm:py-8 ${id ? "scroll-mt-20" : ""} ${className}`}
     >
       <Container size={size}>{children}</Container>
     </section>
@@ -53,7 +53,7 @@ export function Card({
 }) {
   return (
     <div
-      className={`rounded-xl border border-black/8 bg-surface p-6 dark:border-white/10 ${className}`}
+      className={`rounded-lg border border-black/10 bg-surface p-4 sm:p-5 dark:border-white/10 ${className}`}
       onClick={onClick}
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
@@ -74,12 +74,10 @@ export function PageHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{title}</h1>
-        {subtitle && (
-          <p className="mt-2 text-lg text-muted">{subtitle}</p>
-        )}
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-[1.65rem]">{title}</h1>
+        {subtitle && <div className="mt-1.5 text-[0.95rem] leading-relaxed text-muted">{subtitle}</div>}
       </div>
       {action}
     </div>
@@ -96,10 +94,10 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="py-16 text-center">
-      <h2 className="text-xl font-semibold">{title}</h2>
-      {description && <p className="mt-2 text-muted">{description}</p>}
-      {action && <div className="mt-6">{action}</div>}
+    <div className="py-12 text-center">
+      <h2 className="text-lg font-semibold">{title}</h2>
+      {description && <p className="mt-1.5 text-sm text-muted">{description}</p>}
+      {action && <div className="mt-4">{action}</div>}
     </div>
   );
 }
@@ -117,7 +115,7 @@ export function Badge({
     success: "bg-success-bg text-success",
   };
   return (
-    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${styles[variant]}`}>
+    <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium ${styles[variant]}`}>
       {children}
     </span>
   );

@@ -244,8 +244,8 @@ export function LibraryPage() {
               onClick={() => setStatus(chip.value)}
               className={`shrink-0 rounded-lg px-3 py-1.5 text-sm transition-colors ${
                 status === chip.value
-                  ? "bg-brand font-medium text-white"
-                  : "bg-brand-soft text-foreground hover:bg-black/[0.06] dark:hover:bg-white/[0.08]"
+                  ? "bg-accent font-medium text-accent-contrast"
+                  : "bg-accent-soft text-foreground hover:bg-black/[0.06] dark:hover:bg-white/[0.08]"
               }`}
             >
               {chip.label}
@@ -281,7 +281,7 @@ export function LibraryPage() {
         </div>
 
         {showFilters && (
-          <div className="flex flex-wrap gap-3 rounded-xl border border-black/8 bg-surface p-4 dark:border-white/10">
+          <div className="flex flex-wrap gap-3 rounded-lg border border-black/8 bg-surface p-3 dark:border-white/10">
             <SelectField
               label="Format"
               aria-label="Format"
@@ -336,8 +336,8 @@ export function LibraryPage() {
                 onClick={() => setTag(tag === t ? "" : t)}
                 className={`rounded-md px-2 py-0.5 text-xs ${
                   tag === t
-                    ? "bg-brand text-white"
-                    : "bg-brand-soft text-muted hover:text-foreground"
+                    ? "bg-accent text-accent-contrast"
+                    : "bg-accent-soft text-muted hover:text-foreground"
                 }`}
               >
                 {t}
@@ -348,7 +348,7 @@ export function LibraryPage() {
       </div>
 
       {bulkMode && (
-        <div className="mb-4 space-y-3 rounded-xl border border-black/8 bg-surface p-4 dark:border-white/10">
+        <div className="mb-4 space-y-3 rounded-lg border border-black/8 bg-surface p-3 dark:border-white/10">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm text-muted">
               {selected.size} selected

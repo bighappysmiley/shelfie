@@ -12,7 +12,6 @@ import { supabase } from "./supabase";
 import type { StaffMember } from "./support-types";
 
 export const APP_URL = "https://shelfielibrary.netlify.app";
-export const SUPPORT_EMAIL = "hf@bighappysmiley.com";
 
 type AuthContextValue = {
   session: Session | null;

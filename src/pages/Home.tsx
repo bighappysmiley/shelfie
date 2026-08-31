@@ -57,9 +57,9 @@ export function HomePage() {
       />
 
       {(overdue.length > 0 || dueSoon.length > 0) && (
-        <div className="mb-6 space-y-2">
+        <div className="mb-5 space-y-2">
           {overdue.length > 0 && (
-            <div className="rounded-xl border border-warning/30 bg-warning-bg px-4 py-3">
+            <div className="rounded-lg border border-warning/30 bg-warning-bg px-3 py-2.5">
               <p className="font-medium text-warning">
                 {overdue.length} overdue loan{overdue.length > 1 ? "s" : ""}
               </p>
@@ -69,7 +69,7 @@ export function HomePage() {
             </div>
           )}
           {dueSoon.length > 0 && overdue.length === 0 && (
-            <div className="rounded-xl border border-black/8 bg-surface px-4 py-3 dark:border-white/10">
+            <div className="rounded-lg border border-black/8 bg-surface px-3 py-2.5 dark:border-white/10">
               <p className="font-medium">
                 {dueSoon.length} due in the next week
               </p>
@@ -84,7 +84,7 @@ export function HomePage() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Link
           to="/library"
-          className="rounded-xl border border-black/8 bg-surface p-4 transition-colors hover:border-black/20 dark:border-white/10"
+          className="rounded-lg border border-black/8 bg-surface p-3 transition-colors hover:border-black/20 dark:border-white/10"
         >
           <p className="text-sm text-muted">Books</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums">
@@ -93,7 +93,7 @@ export function HomePage() {
         </Link>
         <Link
           to="/library?status=on_loan"
-          className="rounded-xl border border-black/8 bg-surface p-4 transition-colors hover:border-black/20 dark:border-white/10"
+          className="rounded-lg border border-black/8 bg-surface p-3 transition-colors hover:border-black/20 dark:border-white/10"
         >
           <p className="text-sm text-muted">On loan</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums">
@@ -102,7 +102,7 @@ export function HomePage() {
         </Link>
         <Link
           to="/library?status=wishlist"
-          className="rounded-xl border border-black/8 bg-surface p-4 transition-colors hover:border-black/20 dark:border-white/10"
+          className="rounded-lg border border-black/8 bg-surface p-3 transition-colors hover:border-black/20 dark:border-white/10"
         >
           <p className="text-sm text-muted">Wishlist</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums">
@@ -111,7 +111,7 @@ export function HomePage() {
         </Link>
         <Link
           to="/loaned"
-          className="rounded-xl border border-black/8 bg-surface p-4 transition-colors hover:border-black/20 dark:border-white/10"
+          className="rounded-lg border border-black/8 bg-surface p-3 transition-colors hover:border-black/20 dark:border-white/10"
         >
           <p className="text-sm text-muted">Overdue</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums text-warning">
@@ -120,7 +120,7 @@ export function HomePage() {
         </Link>
       </div>
 
-      <section className="mt-8">
+      <section className="mt-6">
         <h2 className="mb-3 text-lg font-semibold">Add to library</h2>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <ButtonLink to="/add" variant="secondary" className="w-full justify-center">
@@ -139,7 +139,7 @@ export function HomePage() {
       </section>
 
       {topRooms.length > 0 && (
-        <section className="mt-8">
+        <section className="mt-6">
           <div className="mb-3 flex items-end justify-between">
             <h2 className="text-lg font-semibold">By location</h2>
             <Link to="/locations" className="text-sm text-muted hover:text-foreground">
@@ -161,7 +161,7 @@ export function HomePage() {
         </section>
       )}
 
-      <section className="mt-8">
+      <section className="mt-6">
         <div className="mb-3 flex items-end justify-between">
           <h2 className="text-lg font-semibold">Recently added</h2>
           <Link to="/library?sort=added" className="text-sm text-muted hover:text-foreground">
@@ -179,7 +179,7 @@ export function HomePage() {
         )}
       </section>
 
-      <section className="mt-8">
+      <section className="mt-6">
         <div className="mb-3 flex items-end justify-between">
           <h2 className="text-lg font-semibold">Out on loan</h2>
           <Link to="/loaned" className="text-sm text-muted hover:text-foreground">
@@ -220,7 +220,7 @@ export function HomePage() {
           </Card>
         )}
       </section>
-      <section className="mt-10 flex flex-wrap gap-4 border-t border-black/8 pt-6 text-sm dark:border-white/10">
+      <section className="mt-8 flex flex-wrap gap-4 border-t border-black/8 pt-5 text-sm dark:border-white/10">
         <Link to="/stats" className="text-muted hover:text-foreground">
           Stats
         </Link>

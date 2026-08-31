@@ -1,49 +1,45 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f5f5f7;
-  --foreground: #1d1d1f;
-  --muted: #6e6e73;
-  --brand: #0071e3;
-  --brand-hover: #0077ed;
-  --brand-soft: #e8f2ff;
-  --accent: #0071e3;
-  --accent-hover: #005bb5;
-  --accent-soft: #e8f2ff;
-  --accent-contrast: #ffffff;
-  --warm: #b45309;
-  --warm-soft: #fff7ed;
-  --hairline: rgba(0, 0, 0, 0.08);
-  --surface: #ffffff;
-  --warning: #c93400;
-  --warning-bg: #fff4f0;
-  --success: #1a7f37;
-  --success-bg: #f0faf3;
-  --chat-mine: #0071e3;
-  --chat-theirs: #e9e9eb;
+  --background: #f7f4ef;
+  --foreground: #1c1814;
+  --muted: #6b6560;
+  --accent: #3d3428;
+  --accent-hover: #2a231b;
+  --accent-soft: #ebe6dd;
+  --accent-contrast: #f7f4ef;
+  --brand: #3d3428;
+  --brand-hover: #2a231b;
+  --brand-soft: #ebe6dd;
+  --hairline: rgba(28, 24, 20, 0.1);
+  --surface: #fffcf7;
+  --warning: #9a3412;
+  --warning-bg: #fef3ec;
+  --success: #2f5c3e;
+  --success-bg: #eef5f0;
+  --chat-mine: #ebe6dd;
+  --chat-theirs: #fffcf7;
 }
 
 .dark {
-  --background: #1d1d1f;
-  --foreground: #f5f5f7;
-  --muted: #a1a1a6;
-  --brand: #0a84ff;
-  --brand-hover: #409cff;
-  --brand-soft: #1a2e42;
-  --accent: #0a84ff;
-  --accent-hover: #409cff;
-  --accent-soft: #1a2e42;
-  --accent-contrast: #ffffff;
-  --warm: #fbbf24;
-  --warm-soft: #3a2a18;
-  --hairline: rgba(255, 255, 255, 0.1);
-  --surface: #2c2c2e;
-  --warning: #ff6b4a;
-  --warning-bg: #3a2018;
-  --success: #4ade80;
-  --success-bg: #1a2e22;
-  --chat-mine: #0a84ff;
-  --chat-theirs: #3a3a3c;
+  --background: #141210;
+  --foreground: #f0ebe3;
+  --muted: #a39e97;
+  --accent: #d4c4b0;
+  --accent-hover: #e8dcc8;
+  --accent-soft: #2a2622;
+  --accent-contrast: #141210;
+  --brand: #d4c4b0;
+  --brand-hover: #e8dcc8;
+  --brand-soft: #2a2622;
+  --hairline: rgba(240, 235, 227, 0.1);
+  --surface: #1e1b18;
+  --warning: #e07a5f;
+  --warning-bg: #3a2218;
+  --success: #7cb892;
+  --success-bg: #1a2a20;
+  --chat-mine: #2a2622;
+  --chat-theirs: #1e1b18;
 }
 
 @theme inline {
@@ -57,8 +53,6 @@
   --color-accent-hover: var(--accent-hover);
   --color-accent-soft: var(--accent-soft);
   --color-accent-contrast: var(--accent-contrast);
-  --color-warm: var(--warm);
-  --color-warm-soft: var(--warm-soft);
   --color-surface: var(--surface);
   --color-warning: var(--warning);
   --color-warning-bg: var(--warning-bg);
@@ -71,7 +65,7 @@
 }
 
 html {
-  font-size: 17px;
+  font-size: 16px;
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
 }
@@ -88,13 +82,12 @@ body {
 }
 
 h1, h2, h3 {
-  letter-spacing: -0.022em;
+  letter-spacing: -0.02em;
 }
 
 :focus-visible {
-  outline: 2px solid var(--brand);
+  outline: 2px solid var(--foreground);
   outline-offset: 2px;
-  border-radius: 6px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -108,19 +101,19 @@ h1, h2, h3 {
 
 .skip-link {
   position: absolute;
-  left: 1.5rem;
+  left: 1rem;
   top: -4rem;
   z-index: 100;
   background: var(--foreground);
   color: var(--background);
-  padding: 0.6rem 1rem;
-  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
   font-weight: 600;
-  transition: top 0.15s ease;
+  font-size: 0.9rem;
 }
 
 .skip-link:focus {
-  top: 1rem;
+  top: 0.75rem;
 }
 
 .safe-bottom {

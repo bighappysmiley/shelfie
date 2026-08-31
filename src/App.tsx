@@ -2,7 +2,6 @@ import { Link } from "react-router-dom";
 import { BrowserRouter, Routes, Route, Outlet } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { Navbar, MobileNav } from "@/components/Navbar";
-import { SupportFab } from "@/components/SupportFab";
 import { Container } from "@/components/layout";
 import { RequireAuth } from "@/components/RequireAuth";
 import { syncPending } from "@/lib/offline";
@@ -30,20 +29,20 @@ function PublicShell() {
       </a>
       <header className="border-b border-black/8 bg-surface/95 safe-top dark:border-white/10">
         <Container>
-          <div className="flex h-14 items-center justify-between">
-            <Link to="/" className="text-[1.05rem] font-semibold tracking-tight text-brand">
+          <div className="flex h-12 items-center justify-between">
+            <Link to="/" className="text-base font-semibold tracking-tight text-foreground">
               Shelfie
             </Link>
             <div className="flex items-center gap-2">
               <Link
                 to="/login"
-                className="rounded-lg px-3 py-1.5 text-[0.9rem] text-muted hover:text-foreground"
+                className="rounded-md px-2.5 py-1 text-[0.875rem] text-muted hover:text-foreground"
               >
                 Sign in
               </Link>
               <Link
                 to="/signup"
-                className="rounded-lg bg-brand px-3 py-1.5 text-[0.9rem] font-medium text-white hover:bg-brand-hover"
+                className="rounded-md bg-accent px-2.5 py-1 text-[0.875rem] font-medium text-accent-contrast hover:bg-accent-hover"
               >
                 Create account
               </Link>
@@ -75,17 +74,16 @@ function AppShell() {
   }, [user]);
 
   return (
-    <div className="min-h-full pb-24 md:pb-0">
+    <div className="min-h-full pb-20 md:pb-0">
       <a href="#main" className="skip-link">
         Skip to content
       </a>
       <Navbar />
-      <main id="main" className="py-6">
+      <main id="main" className="py-4 sm:py-5">
         <Container>
           <Outlet />
         </Container>
       </main>
-      <SupportFab />
       <MobileNav />
     </div>
   );
