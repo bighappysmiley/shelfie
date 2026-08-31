@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import type { Ticket } from "@/lib/support-types";
 import { formatWhen } from "@/lib/support-types";
+import { APP_NAME } from "@/lib/brand";
 import { PageHeader, Group, GroupHeader } from "@/components/layout";
 import { SupportChat } from "@/components/SupportChat";
 
@@ -32,7 +33,7 @@ export function SupportPage() {
     <div>
       <PageHeader
         title="Support"
-        subtitle="Live chat with the Shelfie team"
+        subtitle={`Live chat with the ${APP_NAME} team`}
       />
 
       <SupportChat

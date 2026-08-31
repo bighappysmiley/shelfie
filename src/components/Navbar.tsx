@@ -1,6 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { Container } from "./layout";
 import { useAuth } from "@/lib/auth";
+import { APP_NAME } from "@/lib/brand";
 import {
   IconHome,
   IconLibrary,
@@ -30,7 +31,7 @@ export function Navbar() {
             to="/home"
             className="shrink-0 text-[1.0625rem] font-semibold tracking-tight text-foreground"
           >
-            Shelfie
+            {APP_NAME}
           </NavLink>
           <nav className="hidden flex-1 items-center gap-0.5 md:flex">
             {desktopLinks.map((l) => (

@@ -1,3 +1,5 @@
+import { APP_NAME } from "./brand";
+
 export type TicketStatus = "open" | "closed";
 
 export type MessageKind = "user" | "staff" | "system";
@@ -55,7 +57,7 @@ export function messageAuthorLabel(
   viewerId: string | undefined,
   visitorLabel: string,
 ): string {
-  if (message.kind === "system") return "Shelfie";
+  if (message.kind === "system") return APP_NAME;
   if (message.kind === "staff") return message.author_name || "Support";
   if (message.author_id && message.author_id === viewerId) return "You";
   return visitorLabel;

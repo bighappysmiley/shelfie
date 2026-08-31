@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
+import { APP_NAME, APP_TAGLINE } from "@/lib/brand";
 import { Button, ButtonLink } from "@/components/Button";
 import { TextField, FormError } from "@/components/form";
 import { Container, Group } from "@/components/layout";
@@ -14,10 +15,13 @@ export function LandingPage() {
     <Container size="narrow">
       <div className="py-16 sm:py-24">
         <h1 className="text-[2.125rem] font-bold tracking-tight sm:text-[2.75rem]">
-          Shelfie
+          {APP_NAME}
         </h1>
+        <p className="mt-3 text-[0.8125rem] font-medium uppercase tracking-wide text-muted">
+          Forest library
+        </p>
         <p className="mt-4 max-w-md text-[1.25rem] leading-snug text-muted">
-          Catalog your books, track loans, and manage locations in one private library.
+          {APP_TAGLINE}. Catalog books, track loans, and organize your collection.
         </p>
         <div className="mt-10 flex flex-col gap-3 sm:flex-row">
           <ButtonLink to="/signup" className="w-full sm:w-auto">
@@ -44,8 +48,8 @@ function AuthShell({
   return (
     <Container size="form">
       <div className="py-10 sm:py-14">
-        <Link to="/" className="text-[1.0625rem] font-semibold text-link">
-          Shelfie
+        <Link to="/" className="text-[1.0625rem] font-semibold text-foreground">
+          {APP_NAME}
         </Link>
         <h1 className="mt-8 text-[2.125rem] font-bold tracking-tight">{title}</h1>
         <p className="mt-2 text-[1.0625rem] text-muted">{subtitle}</p>

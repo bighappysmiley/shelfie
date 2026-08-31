@@ -28,7 +28,7 @@ export function SettingsPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `shelfie-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `bracken-export-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -73,7 +73,7 @@ export function SettingsPage() {
 
   const toggleDark = (on: boolean) => {
     document.documentElement.classList.toggle("dark", on);
-    localStorage.setItem("shelfie-theme", on ? "dark" : "light");
+    localStorage.setItem("bracken-theme", on ? "dark" : "light");
     setIsDark(on);
   };
 

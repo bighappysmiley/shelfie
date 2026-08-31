@@ -1,6 +1,6 @@
-# Shelfie
+# Bracken
 
-Your personal library — catalog books, know where they live, and track who borrowed them.
+Your personal library among the trees — catalog books, know where they live, and track who borrowed them.
 
 ## What you can do
 

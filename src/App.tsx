@@ -21,6 +21,7 @@ import { SupportTicketPage } from "@/pages/SupportTicket";
 import { AdminPage } from "@/pages/Admin";
 import { useEffect } from "react";
 import { ButtonLink } from "@/components/Button";
+import { APP_NAME } from "@/lib/brand";
 
 function PublicShell() {
   return (
@@ -32,7 +33,7 @@ function PublicShell() {
         <Container>
           <div className="flex h-11 items-center justify-between">
             <Link to="/" className="text-[1.0625rem] font-semibold tracking-tight text-foreground">
-              Shelfie
+              {APP_NAME}
             </Link>
             <div className="flex items-center gap-2">
               <Link to="/login" className="text-[0.9375rem] text-link">
@@ -56,7 +57,10 @@ function AppShell() {
   const { user } = useAuth();
 
   useEffect(() => {
-    const theme = localStorage.getItem("shelfie-theme");
+    const theme =
+      localStorage.getItem("bracken-theme") ??
+      localStorage.getItem("understory-theme") ??
+      localStorage.getItem("shelfie-theme");
     if (theme === "dark") {
       document.documentElement.classList.add("dark");
     }
