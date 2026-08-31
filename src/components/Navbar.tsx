@@ -1,7 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { Container } from "./layout";
 import { useAuth } from "@/lib/auth";
-import { APP_NAME } from "@/lib/brand";
+import { Logo } from "./Logo";
 import {
   IconHome,
   IconLibrary,
@@ -26,20 +26,17 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50 nav-material hairline-b safe-top">
       <Container>
-        <div className="flex h-11 items-center gap-2">
-          <NavLink
-            to="/home"
-            className="shrink-0 text-[1.0625rem] font-semibold tracking-tight text-foreground"
-          >
-            {APP_NAME}
+        <div className="flex h-12 items-center gap-3">
+          <NavLink to="/home" className="shrink-0 rounded-[var(--radius-control)] outline-offset-2">
+            <Logo size="sm" />
           </NavLink>
-          <nav className="hidden flex-1 items-center gap-0.5 md:flex">
+          <nav className="hidden min-w-0 flex-1 items-center gap-0.5 md:flex">
             {desktopLinks.map((l) => (
               <NavLink
                 key={l.to}
                 to={l.to}
                 className={({ isActive }) =>
-                  `rounded-[var(--radius-control)] px-2.5 py-1 text-[0.9375rem] transition-colors ${
+                  `rounded-[var(--radius-control)] px-2 py-1 text-[0.875rem] transition-colors ${
                     isActive
                       ? "font-semibold text-foreground"
                       : "text-muted hover:text-foreground"
@@ -53,7 +50,7 @@ export function Navbar() {
               <NavLink
                 to="/admin"
                 className={({ isActive }) =>
-                  `rounded-[var(--radius-control)] px-2.5 py-1 text-[0.9375rem] transition-colors ${
+                  `rounded-[var(--radius-control)] px-2 py-1 text-[0.875rem] transition-colors ${
                     isActive
                       ? "font-semibold text-foreground"
                       : "text-muted hover:text-foreground"

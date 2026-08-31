@@ -20,8 +20,8 @@ import { SupportPage } from "@/pages/Support";
 import { SupportTicketPage } from "@/pages/SupportTicket";
 import { AdminPage } from "@/pages/Admin";
 import { useEffect } from "react";
+import { Logo } from "@/components/Logo";
 import { ButtonLink } from "@/components/Button";
-import { APP_NAME } from "@/lib/brand";
 
 function PublicShell() {
   return (
@@ -31,9 +31,9 @@ function PublicShell() {
       </a>
       <header className="nav-material hairline-b safe-top">
         <Container>
-          <div className="flex h-11 items-center justify-between">
-            <Link to="/" className="text-[1.0625rem] font-semibold tracking-tight text-foreground">
-              {APP_NAME}
+          <div className="flex h-12 items-center justify-between">
+            <Link to="/" className="rounded-[var(--radius-control)] outline-offset-2">
+              <Logo size="sm" />
             </Link>
             <div className="flex items-center gap-2">
               <Link to="/login" className="text-[0.9375rem] text-link">

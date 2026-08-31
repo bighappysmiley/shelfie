@@ -1,7 +1,8 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
-import { APP_NAME, APP_TAGLINE } from "@/lib/brand";
+import { APP_TAGLINE } from "@/lib/brand";
+import { Logo } from "@/components/Logo";
 import { Button, ButtonLink } from "@/components/Button";
 import { TextField, FormError } from "@/components/form";
 import { Container, Group } from "@/components/layout";
@@ -13,14 +14,12 @@ export function LandingPage() {
 
   return (
     <Container size="narrow">
-      <div className="py-16 sm:py-24">
-        <h1 className="text-[2.125rem] font-bold tracking-tight sm:text-[2.75rem]">
-          {APP_NAME}
-        </h1>
-        <p className="mt-4 max-w-md text-[1.25rem] leading-snug text-muted">
+      <div className="flex flex-col items-center py-16 text-center sm:py-24">
+        <Logo size="lg" />
+        <p className="mt-6 max-w-sm text-[1.0625rem] leading-relaxed text-muted sm:text-[1.125rem]">
           {APP_TAGLINE}
         </p>
-        <div className="mt-10 flex flex-col gap-3 sm:flex-row">
+        <div className="mt-9 flex w-full max-w-xs flex-col gap-2.5 sm:max-w-none sm:flex-row sm:justify-center">
           <ButtonLink to="/signup" className="w-full sm:w-auto">
             Create Account
           </ButtonLink>
@@ -45,8 +44,8 @@ function AuthShell({
   return (
     <Container size="form">
       <div className="py-10 sm:py-14">
-        <Link to="/" className="text-[1.0625rem] font-semibold text-foreground">
-          {APP_NAME}
+        <Link to="/" className="inline-block rounded-[var(--radius-control)] outline-offset-2">
+          <Logo size="md" />
         </Link>
         <h1 className="mt-8 text-[2.125rem] font-bold tracking-tight">{title}</h1>
         <p className="mt-2 text-[1.0625rem] text-muted">{subtitle}</p>
