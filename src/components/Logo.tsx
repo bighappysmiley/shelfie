@@ -14,7 +14,7 @@ const presets = {
   lg: { mark: 56, gap: "gap-2.5", text: logoTextClasses.lg },
 } as const;
 
-/** Open book with bookmark — catalog / bookkeeping, one clear symbol. */
+/** Simple pine: three tiers + trunk. */
 export function LogoMark({
   size = 32,
   className = "",
@@ -32,27 +32,32 @@ export function LogoMark({
       {...props}
     >
       <path
-        d="M24 8V18M24 18L20 22M24 18L28 22"
+        d="M24 42V32"
         stroke="currentColor"
-        strokeWidth="2"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+      />
+      <path
+        d="M14 32L24 20L34 32"
+        stroke="currentColor"
+        strokeWidth="2.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <path
-        d="M24 16C16 16 12 20 12 28V38C12 40.2 16 41 24 39"
+        d="M17 24L24 16L31 24"
         stroke="currentColor"
-        strokeWidth="2"
+        strokeWidth="2.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <path
-        d="M24 16C32 16 36 20 36 28V38C36 40.2 32 41 24 39"
+        d="M20 18L24 12L28 18"
         stroke="currentColor"
-        strokeWidth="2"
+        strokeWidth="2.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <path d="M24 16V39" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
