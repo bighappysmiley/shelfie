@@ -9,7 +9,7 @@ import {
 } from "./lib/store";
 import { isbnVariants, normalizeIsbn } from "./lib/isbn";
 import { json, error, parseBody } from "./utils";
-import { withAuth } from "./lib/auth";
+import { withLibraryAuth } from "./lib/library-auth";
 
 export const config: Config = {
   path: "/api/books",
@@ -34,11 +34,11 @@ function withActiveLoan(
   };
 }
 
-export default withAuth(async (request, user) => {
+export default withLibraryAuth(async (request, ctx) => {
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
 
-  const data = await loadData(user.id);
+  const data = await loadData(ctx.libraryId, ctx.user.id);
 
     if (request.method === "GET") {
       if (id) {
@@ -191,7 +191,7 @@ export default withAuth(async (request, user) => {
       };
 
       data.books.push(book);
-      await saveData(user.id, data);
+      await saveData(ctx.libraryId, data);
       return json(book, 201);
     }
 
@@ -226,7 +226,7 @@ export default withAuth(async (request, user) => {
       book.updatedAt = nowIso();
 
       data.books[idx] = book;
-      await saveData(user.id, data);
+      await saveData(ctx.libraryId, data);
       return json(book);
     }
 
@@ -234,7 +234,7 @@ export default withAuth(async (request, user) => {
       if (!id) return error("Book id required");
       data.books = data.books.filter((b) => b.id !== id);
       data.loans = data.loans.filter((l) => l.bookId !== id);
-      await saveData(user.id, data);
+      await saveData(ctx.libraryId, data);
       return json({ ok: true });
     }
 

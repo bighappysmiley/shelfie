@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { getActiveLibraryId } from "./library-storage";
 
 const API_BASE = "/api";
 
@@ -14,6 +15,11 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     ...(options?.headers as Record<string, string> | undefined),
   };
   if (token) headers.Authorization = `Bearer ${token}`;
+
+  const libraryId = getActiveLibraryId();
+  if (libraryId && !path.startsWith("/libraries")) {
+    headers["X-Library-Id"] = libraryId;
+  }
 
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
@@ -40,6 +46,8 @@ export async function fetchAuthed(path: string): Promise<Response> {
   const token = await getAccessToken();
   const headers: Record<string, string> = {};
   if (token) headers.Authorization = `Bearer ${token}`;
+  const libraryId = getActiveLibraryId();
+  if (libraryId) headers["X-Library-Id"] = libraryId;
   return fetch(path.startsWith("/") ? path : `${API_BASE}${path}`, { headers });
 }
 
@@ -108,6 +116,52 @@ export const api = {
       request<{ imported: number }>("/data?action=import", {
         method: "POST",
         body: JSON.stringify({ books }),
+      }),
+  },
+  libraries: {
+    list: () =>
+      request<{ libraries: import("./library-types").Library[] }>("/libraries"),
+    create: (name: string) =>
+      request<import("./library-types").Library>("/libraries", {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      }),
+    rename: (id: string, name: string) =>
+      request<import("./library-types").Library>(`/libraries?id=${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ name }),
+      }),
+    members: (libraryId: string) =>
+      request<{ members: import("./library-types").LibraryMember[] }>(
+        `/libraries?action=members&libraryId=${libraryId}`,
+      ),
+    sentInvites: (libraryId: string) =>
+      request<{ invites: import("./library-types").LibraryInvite[] }>(
+        `/libraries?action=invites&scope=sent&libraryId=${libraryId}`,
+      ),
+    receivedInvites: () =>
+      request<{ invites: import("./library-types").LibraryInvite[] }>(
+        "/libraries?action=invites",
+      ),
+    invite: (libraryId: string, contact: { email?: string; phone?: string }) =>
+      request<import("./library-types").LibraryInvite>("/libraries?action=invite", {
+        method: "POST",
+        body: JSON.stringify({ libraryId, ...contact }),
+      }),
+    acceptInvite: (inviteId: string) =>
+      request<{ ok: boolean; libraryId: string }>("/libraries?action=accept", {
+        method: "POST",
+        body: JSON.stringify({ inviteId }),
+      }),
+    revokeInvite: (inviteId: string) =>
+      request<{ ok: boolean }>("/libraries?action=revoke", {
+        method: "POST",
+        body: JSON.stringify({ inviteId }),
+      }),
+    removeMember: (libraryId: string, userId: string) =>
+      request<{ ok: boolean }>("/libraries?action=remove-member", {
+        method: "POST",
+        body: JSON.stringify({ libraryId, userId }),
       }),
   },
 };

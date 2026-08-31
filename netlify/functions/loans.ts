@@ -1,18 +1,18 @@
 import type { Config } from "@netlify/functions";
 import { loadData, saveData, newId, nowIso, todayDate, type Loan } from "./lib/store";
 import { json, error, parseBody } from "./utils";
-import { withAuth } from "./lib/auth";
+import { withLibraryAuth } from "./lib/library-auth";
 
 export const config: Config = {
   path: "/api/loans",
 };
 
-export default withAuth(async (request, user) => {
+export default withLibraryAuth(async (request, ctx) => {
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
   const activeOnly = url.searchParams.get("active") === "true";
 
-  const data = await loadData(user.id);
+  const data = await loadData(ctx.libraryId, ctx.user.id);
 
     if (request.method === "GET") {
       let loans = data.loans;
@@ -65,7 +65,7 @@ export default withAuth(async (request, user) => {
       };
 
       data.loans.push(loan);
-      await saveData(user.id, data);
+      await saveData(ctx.libraryId, data);
       return json(loan, 201);
     }
 
@@ -86,7 +86,7 @@ export default withAuth(async (request, user) => {
           ...data.loans[idx],
           dateReturned: body.dateReturned ?? todayDate(),
         };
-        await saveData(user.id, data);
+        await saveData(ctx.libraryId, data);
         return json(data.loans[idx]);
       }
 
@@ -96,7 +96,7 @@ export default withAuth(async (request, user) => {
           ...(body.dueDate !== undefined ? { dueDate: body.dueDate || null } : {}),
           ...(body.notes !== undefined ? { notes: body.notes } : {}),
         };
-        await saveData(user.id, data);
+        await saveData(ctx.libraryId, data);
         return json(data.loans[idx]);
       }
 

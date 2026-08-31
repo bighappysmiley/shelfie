@@ -70,13 +70,13 @@ function store() {
   return getStore({ name: "shelfie", consistency: "strong" });
 }
 
-function dataKey(userId: string): string {
-  return `library:${userId}`;
+function dataKey(libraryId: string): string {
+  return `library:${libraryId}`;
 }
 
-export async function loadData(userId: string): Promise<ShelfieData> {
-  const data = await store().get(dataKey(userId), { type: "json" });
-  if (!data) return structuredClone(EMPTY);
+function normalizeData(raw: unknown): ShelfieData {
+  if (!raw || typeof raw !== "object") return structuredClone(EMPTY);
+  const data = raw as Partial<ShelfieData>;
   return {
     books: Array.isArray(data.books) ? data.books : [],
     borrowers: Array.isArray(data.borrowers) ? data.borrowers : [],
@@ -84,8 +84,27 @@ export async function loadData(userId: string): Promise<ShelfieData> {
   };
 }
 
-export async function saveData(userId: string, data: ShelfieData): Promise<void> {
-  await store().setJSON(dataKey(userId), data);
+/** Load library blob, migrating from legacy per-user key when needed. */
+export async function loadData(
+  libraryId: string,
+  legacyUserId?: string,
+): Promise<ShelfieData> {
+  const key = dataKey(libraryId);
+  let raw = await store().get(key, { type: "json" });
+
+  if (!raw && legacyUserId && legacyUserId !== libraryId) {
+    const legacy = await store().get(dataKey(legacyUserId), { type: "json" });
+    if (legacy) {
+      await store().setJSON(key, legacy);
+      raw = legacy;
+    }
+  }
+
+  return normalizeData(raw);
+}
+
+export async function saveData(libraryId: string, data: ShelfieData): Promise<void> {
+  await store().setJSON(dataKey(libraryId), data);
 }
 
 export function newId(): string {

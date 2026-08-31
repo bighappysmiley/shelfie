@@ -1,6 +1,7 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import type { Book } from "./types";
 import { supabase } from "./supabase";
+import { getActiveLibraryId } from "./library-storage";
 
 interface ShelfieDB extends DBSchema {
   books: { key: string; value: Book; indexes: { "by-title": string } };
@@ -39,6 +40,8 @@ async function authHeaders(): Promise<Record<string, string>> {
   if (data.session?.access_token) {
     headers.Authorization = `Bearer ${data.session.access_token}`;
   }
+  const libraryId = getActiveLibraryId();
+  if (libraryId) headers["X-Library-Id"] = libraryId;
   return headers;
 }
 

@@ -1,17 +1,17 @@
 import type { Config } from "@netlify/functions";
 import { loadData, saveData, newId, nowIso, type Borrower } from "./lib/store";
 import { json, error, parseBody } from "./utils";
-import { withAuth } from "./lib/auth";
+import { withLibraryAuth } from "./lib/library-auth";
 
 export const config: Config = {
   path: "/api/borrowers",
 };
 
-export default withAuth(async (request, user) => {
+export default withLibraryAuth(async (request, ctx) => {
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
 
-  const data = await loadData(user.id);
+  const data = await loadData(ctx.libraryId, ctx.user.id);
 
     if (request.method === "GET") {
       if (id) {
@@ -56,7 +56,7 @@ export default withAuth(async (request, user) => {
       };
 
       data.borrowers.push(borrower);
-      await saveData(user.id, data);
+      await saveData(ctx.libraryId, data);
       return json(borrower, 201);
     }
 
@@ -79,7 +79,7 @@ export default withAuth(async (request, user) => {
       if (body.avatarUrl !== undefined) borrower.avatarUrl = body.avatarUrl || null;
 
       data.borrowers[idx] = borrower;
-      await saveData(user.id, data);
+      await saveData(ctx.libraryId, data);
       return json(borrower);
     }
 
@@ -92,7 +92,7 @@ export default withAuth(async (request, user) => {
       data.borrowers = data.borrowers.filter((b) => b.id !== id);
       // Keep past loans for history? Or remove orphaned. Remove orphaned cleanly:
       data.loans = data.loans.filter((l) => l.borrowerId !== id);
-      await saveData(user.id, data);
+      await saveData(ctx.libraryId, data);
       return json({ ok: true });
     }
 

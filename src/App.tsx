@@ -1,11 +1,12 @@
 import { Link } from "react-router-dom";
 import { BrowserRouter, Routes, Route, Outlet } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth";
+import { useLibrary } from "@/lib/library";
 import { Navbar, MobileNav } from "@/components/Navbar";
 import { Container } from "@/components/layout";
 import { RequireAuth } from "@/components/RequireAuth";
 import { syncPending } from "@/lib/offline";
-import { LandingPage, LoginPage, SignupPage } from "@/pages/Auth";
+import { LandingPage, LoginPage, SignupPage, Verify2FAPage } from "@/pages/Auth";
 import { HomePage } from "@/pages/Home";
 import { LibraryPage } from "@/pages/Library";
 import { LocationsPage } from "@/pages/Locations";
@@ -55,6 +56,7 @@ function PublicShell() {
 
 function AppShell() {
   const { user } = useAuth();
+  const { loading: libraryLoading, activeLibrary } = useLibrary();
 
   useEffect(() => {
     const theme =
@@ -73,6 +75,26 @@ function AppShell() {
     window.addEventListener("online", handleOnline);
     return () => window.removeEventListener("online", handleOnline);
   }, [user]);
+
+  if (libraryLoading) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-background">
+        <div
+          className="h-8 w-8 animate-spin rounded-full border-2 border-fill border-t-accent"
+          role="status"
+          aria-label="Loading library"
+        />
+      </div>
+    );
+  }
+
+  if (!activeLibrary) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-background px-4 text-center">
+        <p className="text-muted">No library available. Check Settings to create one.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-dvh bg-background pb-[calc(3.25rem+env(safe-area-inset-bottom,0px))] md:pb-0">
@@ -97,6 +119,7 @@ function AppRoutes() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/verify-2fa" element={<Verify2FAPage />} />
       </Route>
 
       <Route element={<RequireAuth />}>

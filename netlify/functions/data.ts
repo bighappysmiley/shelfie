@@ -8,7 +8,7 @@ import {
   type Book,
 } from "./lib/store";
 import { json, error, parseBody, corsHeaders } from "./utils";
-import { withAuth } from "./lib/auth";
+import { withLibraryAuth } from "./lib/library-auth";
 
 export const config: Config = {
   path: "/api/data",
@@ -23,11 +23,11 @@ function escapeCsv(val: string | number | null | undefined): string {
   return s;
 }
 
-export default withAuth(async (request, user) => {
+export default withLibraryAuth(async (request, ctx) => {
   const url = new URL(request.url);
   const action = url.searchParams.get("action");
 
-  const data = await loadData(user.id);
+  const data = await loadData(ctx.libraryId, ctx.user.id);
 
     if (request.method === "GET" && action === "export") {
       const bookHeaders = [
@@ -187,7 +187,7 @@ export default withAuth(async (request, user) => {
         imported++;
       }
 
-      await saveData(user.id, data);
+      await saveData(ctx.libraryId, data);
       return json({ imported });
     }
 

@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 import { Container } from "./layout";
 import { useAuth } from "@/lib/auth";
 import { Logo } from "./Logo";
+import { LibrarySwitcher } from "./LibrarySwitcher";
 import {
   IconHome,
   IconLibrary,
@@ -30,6 +31,7 @@ export function Navbar() {
           <NavLink to="/home" className="shrink-0 rounded-[var(--radius-control)] outline-offset-2">
             <Logo size="sm" />
           </NavLink>
+          <LibrarySwitcher compact />
           <nav className="hidden min-w-0 flex-1 items-center gap-0.5 md:flex">
             {desktopLinks.map((l) => (
               <NavLink
