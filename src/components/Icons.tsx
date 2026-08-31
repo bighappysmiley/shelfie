@@ -144,3 +144,45 @@ export function IconFilter(props: IconProps) {
     </Icon>
   );
 }
+
+export function IconMenu(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 7h16M4 12h16M4 17h16" />
+    </Icon>
+  );
+}
+
+export function IconBell(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M18 16v-5a6 6 0 1 0-12 0v5l-2 2h16l-2-2z" />
+      <path d="M10 20a2 2 0 0 0 4 0" />
+    </Icon>
+  );
+}
+
+export function IconUser(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M5 19c0-3.5 3-6 7-6s7 2.5 7 6" />
+    </Icon>
+  );
+}
+
+export function IconMoon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M21 14.5A8.5 8.5 0 1 1 9.5 3a6.5 6.5 0 0 0 11.5 11.5z" />
+    </Icon>
+  );
+}
+
+export function IconX(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M6 6l12 12M18 6 6 18" />
+    </Icon>
+  );
+}

@@ -5,6 +5,8 @@ import { useLibrary } from "@/lib/library";
 import { Navbar, MobileNav } from "@/components/Navbar";
 import { Container } from "@/components/layout";
 import { RequireAuth } from "@/components/RequireAuth";
+import { SidebarProvider } from "@/lib/sidebar";
+import { initTheme } from "@/lib/theme";
 import { syncPending } from "@/lib/offline";
 import { LandingPage, LoginPage, SignupPage, Verify2FAPage } from "@/pages/Auth";
 import { HomePage } from "@/pages/Home";
@@ -17,6 +19,8 @@ import { BorrowersPage } from "@/pages/Borrowers";
 import { BorrowerDetailPage } from "@/pages/BorrowerDetail";
 import { StatsPage } from "@/pages/Stats";
 import { SettingsPage } from "@/pages/Settings";
+import { AccountPage } from "@/pages/Account";
+import { NotificationsPage } from "@/pages/Notifications";
 import { SupportPage } from "@/pages/Support";
 import { SupportTicketPage } from "@/pages/SupportTicket";
 import { AdminPage } from "@/pages/Admin";
@@ -59,15 +63,7 @@ function AppShell() {
   const { loading: libraryLoading, activeLibrary } = useLibrary();
 
   useEffect(() => {
-    const theme =
-      localStorage.getItem("pine-bookkeeping-theme") ??
-      localStorage.getItem("pine-books-theme") ??
-      localStorage.getItem("bracken-theme") ??
-      localStorage.getItem("understory-theme") ??
-      localStorage.getItem("shelfie-theme");
-    if (theme === "dark") {
-      document.documentElement.classList.add("dark");
-    }
+    initTheme();
 
     const handleOnline = () => {
       if (user) syncPending();
@@ -137,6 +133,8 @@ function AppRoutes() {
           <Route path="/support/:id" element={<SupportTicketPage />} />
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/account" element={<AccountPage />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
         </Route>
       </Route>
     </Routes>
@@ -147,7 +145,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppRoutes />
+        <SidebarProvider>
+          <AppRoutes />
+        </SidebarProvider>
       </AuthProvider>
     </BrowserRouter>
   );

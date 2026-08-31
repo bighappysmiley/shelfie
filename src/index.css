@@ -240,3 +240,12 @@ h1, h2, h3 {
 .logo-icon-reveal {
   animation: logo-icon-reveal 320ms ease-out forwards;
 }
+
+@keyframes sidebar-in {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}

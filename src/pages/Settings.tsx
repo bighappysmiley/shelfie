@@ -1,41 +1,30 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   PageHeader,
   Group,
   GroupHeader,
   GroupFooter,
   ListRow,
-  ToggleRow,
-  PlainButton,
   SegmentedControl,
-  Banner,
 } from "@/components/layout";
 import { Button } from "@/components/Button";
 import { TextField } from "@/components/form";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useLibrary } from "@/lib/library";
-import type { LibraryInvite, LibraryMember, PreferredAuth } from "@/lib/library-types";
+import type { LibraryInvite, LibraryMember } from "@/lib/library-types";
 
 export function SettingsPage() {
-  const { user, signOut, isStaff, userProfile, updateProfile } = useAuth();
+  const { user } = useAuth();
   const {
     activeLibrary,
     libraries,
-    pendingInvites,
-    refreshLibraries,
     createLibrary,
     renameLibrary,
   } = useLibrary();
-  const navigate = useNavigate();
 
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState("");
-  const [signingOut, setSigningOut] = useState(false);
-  const [isDark, setIsDark] = useState(() =>
-    document.documentElement.classList.contains("dark"),
-  );
 
   const [libraryName, setLibraryName] = useState("");
   const [savingName, setSavingName] = useState(false);
@@ -50,23 +39,9 @@ export function SettingsPage() {
   const [members, setMembers] = useState<LibraryMember[]>([]);
   const [sentInvites, setSentInvites] = useState<LibraryInvite[]>([]);
 
-  const [profilePhone, setProfilePhone] = useState("");
-  const [require2fa, setRequire2fa] = useState(false);
-  const [preferredAuth, setPreferredAuth] = useState<PreferredAuth>("email");
-  const [savingProfile, setSavingProfile] = useState(false);
-  const [profileMsg, setProfileMsg] = useState("");
-
   useEffect(() => {
     if (activeLibrary) setLibraryName(activeLibrary.name);
   }, [activeLibrary]);
-
-  useEffect(() => {
-    if (userProfile) {
-      setProfilePhone(userProfile.phone ?? "");
-      setRequire2fa(userProfile.require2fa);
-      setPreferredAuth(userProfile.preferredAuth);
-    }
-  }, [userProfile]);
 
   useEffect(() => {
     if (!activeLibrary) return;
@@ -141,22 +116,6 @@ export function SettingsPage() {
     }
   };
 
-  const toggleDark = (on: boolean) => {
-    document.documentElement.classList.toggle("dark", on);
-    localStorage.setItem("pine-bookkeeping-theme", on ? "dark" : "light");
-    setIsDark(on);
-  };
-
-  const handleSignOut = async () => {
-    setSigningOut(true);
-    try {
-      await signOut();
-      navigate("/", { replace: true });
-    } finally {
-      setSigningOut(false);
-    }
-  };
-
   const saveLibraryName = async () => {
     if (!activeLibrary || activeLibrary.role !== "owner") return;
     setSavingName(true);
@@ -205,19 +164,6 @@ export function SettingsPage() {
     }
   };
 
-  const handleAcceptInvite = async (inviteId: string) => {
-    try {
-      const res = await api.libraries.acceptInvite(inviteId);
-      await refreshLibraries();
-      setResult(`Joined library`);
-      if (res.libraryId) {
-        /* active library will refresh */
-      }
-    } catch (err) {
-      setResult(err instanceof Error ? err.message : "Could not accept invite");
-    }
-  };
-
   const handleRevokeInvite = async (inviteId: string) => {
     if (!activeLibrary) return;
     try {
@@ -240,23 +186,6 @@ export function SettingsPage() {
     }
   };
 
-  const saveSecurityProfile = async () => {
-    setSavingProfile(true);
-    setProfileMsg("");
-    try {
-      await updateProfile({
-        phone: profilePhone.trim() || null,
-        require2fa: require2fa,
-        preferredAuth,
-      });
-      setProfileMsg("Security settings saved");
-    } catch (err) {
-      setProfileMsg(err instanceof Error ? err.message : "Save failed");
-    } finally {
-      setSavingProfile(false);
-    }
-  };
-
   const memberLabel = (m: LibraryMember) => {
     if (m.userId === user?.id) return "You";
     return `${m.userId.slice(0, 8)}…`;
@@ -264,34 +193,9 @@ export function SettingsPage() {
 
   return (
     <div>
-      <PageHeader title="Settings" />
+      <PageHeader title="Library Settings" subtitle={activeLibrary?.name} />
 
       <div className="space-y-6">
-        {pendingInvites.length > 0 && (
-          <section>
-            <GroupHeader>Library Invitations</GroupHeader>
-            <Group>
-              {pendingInvites.map((inv) => (
-                <ListRow
-                  key={inv.id}
-                  title={inv.libraryName ?? "Library"}
-                  subtitle={inv.email ?? inv.phone ?? undefined}
-                  trailing={
-                    <button
-                      type="button"
-                      onClick={() => handleAcceptInvite(inv.id)}
-                      className="text-link text-[0.9375rem]"
-                    >
-                      Accept
-                    </button>
-                  }
-                />
-              ))}
-            </Group>
-            <GroupFooter>Accept to get shared access to a library catalog.</GroupFooter>
-          </section>
-        )}
-
         <section>
           <GroupHeader>Library</GroupHeader>
           <Group>
@@ -399,7 +303,11 @@ export function SettingsPage() {
                   />
                   <div className="px-4 py-3">
                     {inviteMsg && (
-                      <p className={`mb-2 text-[0.9375rem] ${inviteMsg.includes("sent") ? "text-success" : "text-destructive"}`}>
+                      <p
+                        className={`mb-2 text-[0.9375rem] ${
+                          inviteMsg.includes("sent") ? "text-success" : "text-destructive"
+                        }`}
+                      >
                         {inviteMsg}
                       </p>
                     )}
@@ -439,76 +347,6 @@ export function SettingsPage() {
         )}
 
         <section>
-          <GroupHeader>Support</GroupHeader>
-          <Group>
-            <ListRow title="Live Chat" to="/support" chevron />
-            {isStaff && <ListRow title="Support Inbox" to="/admin" chevron />}
-          </Group>
-        </section>
-
-        <section>
-          <GroupHeader>Account</GroupHeader>
-          <Group>
-            <ListRow title="Email" trailing={user?.email ?? "—"} />
-            <ListRow title="Phone" trailing={userProfile?.phone ?? user?.phone ?? "Not set"} />
-          </Group>
-        </section>
-
-        <section>
-          <GroupHeader>Sign-In & Security</GroupHeader>
-          <Group>
-            <div className="px-4 py-3 hairline-b">
-              <SegmentedControl
-                value={preferredAuth}
-                onChange={(v) => setPreferredAuth(v as PreferredAuth)}
-                options={[
-                  { value: "email", label: "Email" },
-                  { value: "phone", label: "Phone" },
-                  { value: "both", label: "Both" },
-                ]}
-              />
-            </div>
-            <TextField
-              label="Phone Number"
-              type="tel"
-              grouped
-              hint="Used for phone sign-in and as a second factor"
-              placeholder="+1 555 0100"
-              value={profilePhone}
-              onChange={(e) => setProfilePhone(e.target.value)}
-            />
-            <ToggleRow
-              label="Two-Factor Authentication"
-              hint="Require a code from your phone or email after password sign-in"
-              checked={require2fa}
-              onChange={setRequire2fa}
-            />
-            <div className="px-4 py-3">
-              {profileMsg && (
-                <p className={`mb-2 text-[0.9375rem] ${profileMsg.includes("saved") ? "text-success" : "text-destructive"}`}>
-                  {profileMsg}
-                </p>
-              )}
-              <Button className="w-full" onClick={saveSecurityProfile} disabled={savingProfile}>
-                {savingProfile ? "Saving…" : "Save Security Settings"}
-              </Button>
-            </div>
-          </Group>
-          {(preferredAuth === "phone" || preferredAuth === "both") && (
-            <Banner className="mt-2">
-              Phone sign-in requires SMS to be enabled in your Supabase project.
-            </Banner>
-          )}
-        </section>
-
-        <section>
-          <GroupHeader>Appearance</GroupHeader>
-          <Group>
-            <ToggleRow label="Dark Mode" checked={isDark} onChange={toggleDark} />
-          </Group>
-        </section>
-
-        <section>
           <GroupHeader>Data</GroupHeader>
           <Group>
             <ListRow title="Export CSV" onClick={handleExport} chevron />
@@ -528,12 +366,6 @@ export function SettingsPage() {
           </Group>
           {result && <GroupFooter>{result}</GroupFooter>}
         </section>
-
-        <Group>
-          <PlainButton onClick={handleSignOut} disabled={signingOut} destructive>
-            {signingOut ? "Signing Out…" : "Sign Out"}
-          </PlainButton>
-        </Group>
       </div>
     </div>
   );

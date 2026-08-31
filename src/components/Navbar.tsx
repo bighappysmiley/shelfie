@@ -1,14 +1,14 @@
 import { NavLink } from "react-router-dom";
 import { Container } from "./layout";
-import { useAuth } from "@/lib/auth";
+import { useLibrary } from "@/lib/library";
 import { Logo } from "./Logo";
 import { LibrarySwitcher } from "./LibrarySwitcher";
+import { AppSidebar, SidebarMenuButton } from "./AppSidebar";
 import {
   IconHome,
   IconLibrary,
   IconPlus,
   IconLoan,
-  IconChat,
   IconSettings,
 } from "./Icons";
 
@@ -18,74 +18,63 @@ const desktopLinks = [
   { to: "/loaned", label: "Loans" },
   { to: "/borrowers", label: "Borrowers" },
   { to: "/stats", label: "Reports" },
-  { to: "/support", label: "Support" },
 ];
 
 export function Navbar() {
-  const { isStaff } = useAuth();
+  const { pendingInvites } = useLibrary();
 
   return (
-    <header className="sticky top-0 z-50 nav-material hairline-b safe-top">
-      <Container>
-        <div className="flex h-12 items-center gap-3">
-          <NavLink to="/home" className="shrink-0 rounded-[var(--radius-control)] outline-offset-2">
-            <Logo size="sm" />
-          </NavLink>
-          <LibrarySwitcher compact />
-          <nav className="hidden min-w-0 flex-1 items-center gap-0.5 md:flex">
-            {desktopLinks.map((l) => (
+    <>
+      <header className="sticky top-0 z-50 nav-material hairline-b safe-top">
+        <Container>
+          <div className="flex h-12 items-center gap-2 sm:gap-3">
+            <SidebarMenuButton badge={pendingInvites.length} className="hidden md:inline-flex" />
+            <NavLink to="/home" className="shrink-0 rounded-[var(--radius-control)] outline-offset-2">
+              <Logo size="sm" />
+            </NavLink>
+            <LibrarySwitcher compact />
+            <nav className="hidden min-w-0 flex-1 items-center gap-0.5 md:flex">
+              {desktopLinks.map((l) => (
+                <NavLink
+                  key={l.to}
+                  to={l.to}
+                  className={({ isActive }) =>
+                    `rounded-[var(--radius-control)] px-2 py-1 text-[0.875rem] transition-colors ${
+                      isActive
+                        ? "font-semibold text-foreground"
+                        : "text-muted hover:text-foreground"
+                    }`
+                  }
+                >
+                  {l.label}
+                </NavLink>
+              ))}
+            </nav>
+            <div className="ml-auto flex items-center gap-1">
               <NavLink
-                key={l.to}
-                to={l.to}
+                to="/settings"
                 className={({ isActive }) =>
-                  `rounded-[var(--radius-control)] px-2 py-1 text-[0.875rem] transition-colors ${
-                    isActive
-                      ? "font-semibold text-foreground"
-                      : "text-muted hover:text-foreground"
+                  `inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:text-foreground ${
+                    isActive ? "text-foreground" : ""
                   }`
                 }
+                aria-label="Library settings"
               >
-                {l.label}
+                <IconSettings size={22} />
               </NavLink>
-            ))}
-            {isStaff && (
               <NavLink
-                to="/admin"
-                className={({ isActive }) =>
-                  `rounded-[var(--radius-control)] px-2 py-1 text-[0.875rem] transition-colors ${
-                    isActive
-                      ? "font-semibold text-foreground"
-                      : "text-muted hover:text-foreground"
-                  }`
-                }
+                to="/add"
+                className="inline-flex min-h-[32px] items-center gap-1 rounded-[var(--radius-pill)] bg-accent px-3.5 text-[0.9375rem] font-medium text-accent-contrast hover:bg-accent-hover"
               >
-                Inbox
+                <IconPlus size={16} />
+                <span className="hidden sm:inline">Add</span>
               </NavLink>
-            )}
-          </nav>
-          <div className="ml-auto flex items-center gap-1">
-            <NavLink
-              to="/settings"
-              className={({ isActive }) =>
-                `inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-muted transition-colors hover:text-foreground ${
-                  isActive ? "text-foreground" : ""
-                }`
-              }
-              aria-label="Settings"
-            >
-              <IconSettings size={22} />
-            </NavLink>
-            <NavLink
-              to="/add"
-              className="inline-flex min-h-[32px] items-center gap-1 rounded-[var(--radius-pill)] bg-accent px-3.5 text-[0.9375rem] font-medium text-accent-contrast hover:bg-accent-hover"
-            >
-              <IconPlus size={16} />
-              <span className="hidden sm:inline">Add</span>
-            </NavLink>
+            </div>
           </div>
-        </div>
-      </Container>
-    </header>
+        </Container>
+      </header>
+      <AppSidebar />
+    </>
   );
 }
 
@@ -93,11 +82,13 @@ const mobileItems = [
   { to: "/home", label: "Home", icon: IconHome, end: true },
   { to: "/library", label: "Library", icon: IconLibrary },
   { to: "/add", label: "Add", icon: IconPlus, emphasize: true },
-  { to: "/support", label: "Chat", icon: IconChat },
   { to: "/loaned", label: "Loans", icon: IconLoan },
+  { to: "/settings", label: "Settings", icon: IconSettings },
 ];
 
 export function MobileNav() {
+  const { pendingInvites } = useLibrary();
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 nav-material hairline-t safe-bottom md:hidden">
       <div className="flex justify-around px-1 pt-1 pb-1">
@@ -109,7 +100,7 @@ export function MobileNav() {
               to={item.to}
               end={item.end}
               className={({ isActive }) =>
-                `flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 py-0.5 text-[0.625rem] font-medium transition-colors ${
+                `relative flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 py-0.5 text-[0.625rem] font-medium transition-colors ${
                   isActive ? "font-semibold text-foreground" : "text-muted"
                 }`
               }
@@ -123,6 +114,12 @@ export function MobileNav() {
             </NavLink>
           );
         })}
+      </div>
+      {/* Floating menu button above tab bar */}
+      <div className="pointer-events-none absolute -top-12 left-3">
+        <div className="pointer-events-auto">
+          <SidebarMenuButton badge={pendingInvites.length} />
+        </div>
       </div>
     </nav>
   );

@@ -11,6 +11,8 @@ Part of the Pine family: use **Pine Books** for reading habits and **Pine Bookke
 - Organize by room and shelf, tags, status, and series
 - Loan books to friends and track due dates
 - Export or import your catalog
+- **Team libraries** — invite others by email or phone; switch between libraries
+- **Sidebar menu** — notifications, support, account, and dark mode (library actions stay in the main nav)
 
 ## For operators (deploy)
 
@@ -26,7 +28,7 @@ Built as a Vite + React PWA on Netlify Functions + Netlify Blobs, with Supabase 
 | `VITE_SUPABASE_ANON_KEY` | Same anon key (needed at build time) |
 | `GEMINI_API_KEY` | Optional — enables cover & shelf photo features |
 
-In Supabase → Authentication → URL configuration, set **Site URL** to `https://shelfielibrary.netlify.app` (Management API; not available via MCP). Email confirmation is auto-handled in the database so sign-up can sign in immediately.
+In Supabase → Authentication → URL configuration, set **Site URL** to `https://shelfielibrary.netlify.app`. For **phone sign-in**, enable the Phone provider and configure an SMS provider (Twilio, etc.) — see [docs/SUPABASE_PHONE_AUTH.md](docs/SUPABASE_PHONE_AUTH.md).
 
 ### Local development
 
