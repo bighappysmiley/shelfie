@@ -9,8 +9,8 @@ const iconsDir = join(publicDir, "icons");
 
 const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
   <rect width="48" height="48" fill="#f0f2e8"/>
-  <path fill="#3d5248" d="M24 8 40 36a2 2 0 0 1-1.8 2H9.8A2 2 0 0 1 8 36L24 8Z"/>
-  <path fill="#3d5248" d="M21.25 36h5.5v6.75a1.5 1.5 0 0 1-1.5 1.5h-2.5a1.5 1.5 0 0 1-1.5-1.5V36Z"/>
+  <path fill="#8fa898" d="M24 8 40 34a2 2 0 0 1-1.8 2H9.8A2 2 0 0 1 8 34L24 8Z"/>
+  <path fill="#7a5c44" d="M21.25 36.5h5.5v6.25a1.5 1.5 0 0 1-1.5 1.5h-2.5a1.5 1.5 0 0 1-1.5-1.5V36.5Z"/>
 </svg>`;
 
 async function writePng(svg, size, path) {

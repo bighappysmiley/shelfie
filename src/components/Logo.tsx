@@ -42,14 +42,14 @@ export function LogoMark({
         <path
           fill="currentColor"
           className={canopyClassName}
-          d="M24 8 40 36a2 2 0 0 1-1.8 2H9.8A2 2 0 0 1 8 36L24 8Z"
+          d="M24 8 40 34a2 2 0 0 1-1.8 2H9.8A2 2 0 0 1 8 34L24 8Z"
         />
       </g>
       <g className={growing ? "loading-tree-trunk" : undefined}>
         <path
           fill="currentColor"
           className="text-logo-trunk"
-          d="M21.25 36h5.5v6.75a1.5 1.5 0 0 1-1.5 1.5h-2.5a1.5 1.5 0 0 1-1.5-1.5V36Z"
+          d="M21.25 36.5h5.5v6.25a1.5 1.5 0 0 1-1.5 1.5h-2.5a1.5 1.5 0 0 1-1.5-1.5V36.5Z"
         />
       </g>
     </svg>
