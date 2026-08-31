@@ -4,17 +4,17 @@ import { APP_WORDMARK_PRIMARY, APP_WORDMARK_SECONDARY } from "@/lib/brand";
 const presets = {
   sm: {
     mark: 30,
-    gap: "gap-3",
+    gap: "gap-1.5",
     text: "font-logo text-[0.9375rem] font-medium leading-[1.06] tracking-[0.01em]",
   },
   md: {
     mark: 38,
-    gap: "gap-3.5",
+    gap: "gap-2",
     text: "font-logo text-[1.0625rem] font-medium leading-[1.06] tracking-[0.01em]",
   },
   lg: {
     mark: 56,
-    gap: "gap-5",
+    gap: "gap-2.5",
     text: "font-logo text-[1.75rem] font-medium leading-[1.06] tracking-[0.015em] sm:text-[2rem]",
   },
 } as const;

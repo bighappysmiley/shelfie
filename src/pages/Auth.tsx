@@ -2,6 +2,7 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { APP_TAGLINE } from "@/lib/brand";
+import { LandingLogoAnimation } from "@/components/LandingLogoAnimation";
 import { Logo } from "@/components/Logo";
 import { Button, ButtonLink } from "@/components/Button";
 import { TextField, FormError } from "@/components/form";
@@ -16,7 +17,7 @@ export function LandingPage() {
     <Container size="narrow">
       <div className="flex flex-col py-14 sm:py-20">
         <div className="w-full max-w-md rounded-[1.25rem] bg-logo-bg px-10 py-12 sm:px-12 sm:py-14">
-          <Logo size="lg" variant="brand" />
+          <LandingLogoAnimation />
         </div>
         <p className="mt-8 max-w-md text-left text-[1.0625rem] leading-relaxed text-muted sm:text-[1.125rem]">
           {APP_TAGLINE}
