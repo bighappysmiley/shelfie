@@ -3,26 +3,23 @@ import { APP_WORDMARK_PRIMARY, APP_WORDMARK_SECONDARY } from "@/lib/brand";
 
 const presets = {
   sm: {
-    mark: 28,
-    gap: "gap-2",
-    primary: "text-[0.9375rem] font-semibold leading-[1.05] tracking-tight",
-    secondary: "text-[0.625rem] font-medium leading-[1.05] tracking-[0.02em] text-muted",
+    mark: 30,
+    gap: "gap-3",
+    text: "text-[0.9375rem] font-medium leading-[1.08] tracking-[-0.01em]",
   },
   md: {
-    mark: 36,
-    gap: "gap-2.5",
-    primary: "text-[1.125rem] font-semibold leading-[1.05] tracking-tight",
-    secondary: "text-[0.75rem] font-medium leading-[1.05] tracking-[0.02em] text-muted",
+    mark: 38,
+    gap: "gap-3.5",
+    text: "text-[1.0625rem] font-medium leading-[1.08] tracking-[-0.01em]",
   },
   lg: {
-    mark: 52,
-    gap: "gap-3.5",
-    primary: "text-[2rem] font-semibold leading-[1.05] tracking-tight sm:text-[2.25rem]",
-    secondary:
-      "text-[0.9375rem] font-medium leading-[1.05] tracking-[0.04em] text-muted sm:text-[1rem]",
+    mark: 56,
+    gap: "gap-5",
+    text: "text-[1.75rem] font-medium leading-[1.08] tracking-[-0.02em] sm:text-[2rem]",
   },
 } as const;
 
+/** Line-art diamond: pine bough / book spine (matches brand reference). */
 export function LogoMark({
   size = 32,
   className = "",
@@ -32,34 +29,31 @@ export function LogoMark({
     <svg
       width={size}
       height={size}
-      viewBox="0 0 48 48"
+      viewBox="0 0 64 64"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden
       className={className}
       {...props}
     >
-      <path d="M24 5L30.5 15.5H17.5L24 5Z" fill="currentColor" />
-      <path d="M24 12.5L33.5 26.5H14.5L24 12.5Z" fill="currentColor" opacity="0.92" />
-      <path d="M24 21L36.5 39.5H11.5L24 21Z" fill="currentColor" opacity="0.84" />
-      <rect x="21.5" y="36.5" width="5" height="7.5" rx="1" fill="currentColor" />
-      <rect
-        x="13.5"
-        y="27.5"
-        width="21"
-        height="14"
-        rx="1.75"
-        fill="var(--surface)"
+      <path
+        d="M32 7 55 32 32 57 9 32Z"
         stroke="currentColor"
         strokeWidth="1.75"
+        strokeLinejoin="round"
       />
-      <path d="M24 28.25V40.75" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" />
       <path
-        d="M16.25 32H20.75M27.25 32H31.75M16.25 35.25H20M27.75 35.25H31.25"
+        d="M32 50V17"
         stroke="currentColor"
-        strokeWidth="1"
+        strokeWidth="1.75"
         strokeLinecap="round"
-        opacity="0.35"
+      />
+      <path
+        d="M27 29 32 21 37 29M23 35 32 25 41 35M19 41 32 30 45 41M15 47 32 36 49 47"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </svg>
   );
@@ -68,21 +62,27 @@ export function LogoMark({
 export function Logo({
   size = "sm",
   showText = true,
+  variant = "default",
   className = "",
 }: {
   size?: keyof typeof presets;
   showText?: boolean;
+  variant?: "default" | "brand";
   className?: string;
 }) {
   const preset = presets[size];
+  const onBrand = variant === "brand";
 
   return (
     <div className={`inline-flex items-center ${preset.gap} ${className}`}>
-      <LogoMark size={preset.mark} className="shrink-0 text-accent" />
+      <LogoMark
+        size={preset.mark}
+        className={`shrink-0 ${onBrand ? "text-logo-mark-on-brand" : "text-logo-mark"}`}
+      />
       {showText && (
-        <div className="flex min-w-0 flex-col">
-          <span className={`text-foreground ${preset.primary}`}>{APP_WORDMARK_PRIMARY}</span>
-          <span className={preset.secondary}>{APP_WORDMARK_SECONDARY}</span>
+        <div className={`flex flex-col gap-0 ${onBrand ? "text-logo-text-on-brand" : "text-foreground"}`}>
+          <span className={preset.text}>{APP_WORDMARK_PRIMARY}</span>
+          <span className={preset.text}>{APP_WORDMARK_SECONDARY}</span>
         </div>
       )}
     </div>

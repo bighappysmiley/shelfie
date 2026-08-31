@@ -14,9 +14,11 @@ export function LandingPage() {
 
   return (
     <Container size="narrow">
-      <div className="flex flex-col items-center py-16 text-center sm:py-24">
-        <Logo size="lg" />
-        <p className="mt-6 max-w-sm text-[1.0625rem] leading-relaxed text-muted sm:text-[1.125rem]">
+      <div className="flex flex-col items-center py-14 text-center sm:py-20">
+        <div className="w-full max-w-sm rounded-[1.25rem] bg-logo-bg px-10 py-12 sm:px-12 sm:py-14">
+          <Logo size="lg" variant="brand" className="mx-auto" />
+        </div>
+        <p className="mt-8 max-w-sm text-[1.0625rem] leading-relaxed text-muted sm:text-[1.125rem]">
           {APP_TAGLINE}
         </p>
         <div className="mt-9 flex w-full max-w-xs flex-col gap-2.5 sm:max-w-none sm:flex-row sm:justify-center">
@@ -44,8 +46,8 @@ function AuthShell({
   return (
     <Container size="form">
       <div className="py-10 sm:py-14">
-        <Link to="/" className="inline-block rounded-[var(--radius-control)] outline-offset-2">
-          <Logo size="md" />
+        <Link to="/" className="inline-block rounded-[var(--radius-control)] bg-logo-bg px-4 py-3 outline-offset-2">
+          <Logo size="md" variant="brand" />
         </Link>
         <h1 className="mt-8 text-[2.125rem] font-bold tracking-tight">{title}</h1>
         <p className="mt-2 text-[1.0625rem] text-muted">{subtitle}</p>
