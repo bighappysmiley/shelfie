@@ -35,6 +35,14 @@
   --radius-group: 0.625rem;
   --radius-control: 0.5rem;
   --radius-pill: 624.9375rem;
+  --community-rail: #e0e4db;
+  --community-panel: var(--surface);
+  --community-chat: var(--background);
+  --community-input: #e8ebe3;
+  --community-border: var(--hairline);
+  --community-hover: var(--fill);
+  --community-channel-hover: rgba(61, 82, 72, 0.06);
+  --community-channel-active: rgba(61, 82, 72, 0.12);
 }
 
 .dark {
@@ -66,6 +74,14 @@
   --chat-mine: #4a6358;
   --chat-theirs: #2a3436;
   --nav-blur: rgba(26, 36, 38, 0.9);
+  --community-rail: #1e1f22;
+  --community-panel: #2b2d31;
+  --community-chat: #313338;
+  --community-input: #383a40;
+  --community-border: rgba(255, 255, 255, 0.06);
+  --community-hover: rgba(79, 84, 92, 0.32);
+  --community-channel-hover: rgba(79, 84, 92, 0.16);
+  --community-channel-active: rgba(79, 84, 92, 0.48);
 }
 
 @theme inline {
@@ -390,29 +406,9 @@ h1, h2, h3 {
   }
 }
 
-/* Isolate Community shell from app light-theme tokens — Discord dark palette */
+/* Community shell — follows app light/dark via :root / .dark community tokens above */
 .community-discord-shell {
-  --foreground: #f2f3f5;
-  --muted: #949ba4;
-  --surface: #2b2d31;
-  --fill: rgba(79, 84, 92, 0.32);
-  --fill-secondary: rgba(79, 84, 92, 0.48);
-  --accent: #5865f2;
-  --accent-contrast: #ffffff;
-  --accent-hover: #4752c4;
-  --link: #00a8fc;
-  --chat-mine: #5865f2;
-  --chat-theirs: #383a40;
-  --destructive: #f23f43;
-  --community-rail: #1e1f22;
-  --community-panel: #2b2d31;
-  --community-chat: #313338;
-  --community-input: #383a40;
-  --community-border: rgba(255, 255, 255, 0.06);
-  --community-hover: rgba(79, 84, 92, 0.32);
-  --community-channel-hover: rgba(79, 84, 92, 0.16);
-  --community-channel-active: rgba(79, 84, 92, 0.48);
-  color-scheme: dark;
+  color: var(--foreground);
 }
 
 .community-message-grouped {
@@ -434,11 +430,6 @@ h1, h2, h3 {
   opacity: 1;
 }
 
-.community-discord-shell input,
-.community-discord-shell textarea,
-.community-discord-shell select {
-  color: #f0f2e8;
-}
 
 .community-scroll {
   -webkit-overflow-scrolling: touch;

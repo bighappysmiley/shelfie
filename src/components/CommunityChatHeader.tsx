@@ -37,24 +37,24 @@ export function CommunityChatHeader({
       <button
         type="button"
         onClick={onOpenChannels}
-        className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1.5 py-1 text-left hover:bg-white/[0.06]"
+        className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1.5 py-1 text-left hover:bg-[var(--community-hover)]"
         aria-label="Open channels"
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.06] text-white/70">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-fill text-muted">
           <HashGlyph className="h-4 w-4" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="flex items-center gap-1 truncate text-[0.9375rem] font-semibold text-white">
+          <span className="flex items-center gap-1 truncate text-[0.9375rem] font-semibold text-foreground">
             {inChannel ? (
               <>
-                <span className="text-white/45">#</span>
+                <span className="text-muted">#</span>
                 {channelName}
               </>
             ) : (
               serverName
             )}
           </span>
-          <span className="truncate text-[0.6875rem] text-white/45">
+          <span className="truncate text-[0.6875rem] text-muted">
             {inChannel ? serverName : "Tap to browse channels"}
           </span>
         </span>
@@ -63,7 +63,7 @@ export function CommunityChatHeader({
         <button
           type="button"
           onClick={onOpenChannelSettings}
-          className="rounded-lg p-2 text-white/45 hover:bg-white/10 hover:text-white"
+          className="rounded-lg p-2 text-muted hover:bg-[var(--community-hover)] hover:text-foreground"
           title="Channel settings"
           aria-label="Channel settings"
         >
@@ -74,7 +74,7 @@ export function CommunityChatHeader({
         <button
           type="button"
           onClick={onOpenMembers}
-          className="rounded-lg p-2 text-white/45 hover:bg-white/10 hover:text-white"
+          className="rounded-lg p-2 text-muted hover:bg-[var(--community-hover)] hover:text-foreground"
           title="Members"
           aria-label="Members"
         >

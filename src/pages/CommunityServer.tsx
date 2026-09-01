@@ -363,7 +363,7 @@ export function CommunityServerPage() {
             {canConfigure && (
               <Link
                 to={`/community/s/${serverId}/settings`}
-                className="rounded p-1.5 text-white/45 hover:bg-white/10 hover:text-white"
+                className="rounded p-1.5 text-muted hover:bg-[var(--community-hover)] hover:text-foreground"
                 title="Server settings"
               >
                 <IconSettings size={16} />
@@ -373,7 +373,7 @@ export function CommunityServerPage() {
           {!isMember && server && (server.isPublic || server.isOfficial || server.joinMode === "invite") && (
             <div className="shrink-0 border-b border-[var(--community-border)] bg-accent/15 px-3 py-2">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-[0.75rem] text-white/55">
+                <p className="text-[0.75rem] text-muted">
                   {joinRequestStatus === "pending"
                     ? "Join request pending."
                     : server.joinMode === "invite"
@@ -520,7 +520,7 @@ export function CommunityServerPage() {
             <Link
               to={`/community/s/${serverId}/settings`}
               onClick={() => setMobileNavOpen(false)}
-              className="rounded-lg p-2 text-white/45 hover:bg-white/10 hover:text-white"
+              className="rounded-lg p-2 text-muted hover:bg-[var(--community-hover)] hover:text-foreground"
               title="Server settings"
               aria-label="Server settings"
             >
@@ -537,7 +537,7 @@ export function CommunityServerPage() {
                   setModal({ type: "create-category" });
                   setMobileNavOpen(false);
                 }}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-white/[0.06] px-3 py-2 text-[0.8125rem] font-medium text-white/80 hover:bg-white/10"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-fill px-3 py-2 text-[0.8125rem] font-medium text-foreground hover:bg-[var(--community-hover)]"
               >
                 <IconPlus size={14} />
                 Category
@@ -548,7 +548,7 @@ export function CommunityServerPage() {
                   setModal({ type: "create-channel", categoryId: categories[0]?.id ?? null });
                   setMobileNavOpen(false);
                 }}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-[0.8125rem] font-medium text-white hover:opacity-90"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-[0.8125rem] font-medium text-accent-contrast hover:opacity-90"
               >
                 <IconChat size={14} />
                 Channel
@@ -695,7 +695,7 @@ function ChannelSidebar({
   onCreateCategory: () => void;
   loading: boolean;
 }) {
-  if (loading) return <p className="px-2 text-[0.8125rem] text-white/45">Loading…</p>;
+  if (loading) return <p className="px-2 text-[0.8125rem] text-muted">Loading…</p>;
   const uncategorized = channelsByCategory.get(null) ?? [];
 
   return (
@@ -720,7 +720,7 @@ function ChannelSidebar({
                     type="button"
                     title="Create channel"
                     onClick={() => onCreateChannel(cat.id)}
-                    className="rounded p-0.5 text-white/40 hover:bg-white/10 hover:text-white"
+                    className="rounded p-0.5 text-muted hover:bg-[var(--community-hover)] hover:text-foreground"
                   >
                     <IconPlus size={14} />
                   </button>
@@ -728,7 +728,7 @@ function ChannelSidebar({
                     type="button"
                     title="Edit category"
                     onClick={() => onEditCategory(cat)}
-                    className="rounded p-0.5 text-white/40 hover:bg-white/10 hover:text-white"
+                    className="rounded p-0.5 text-muted hover:bg-[var(--community-hover)] hover:text-foreground"
                   >
                     <IconSettings size={14} />
                   </button>
@@ -790,7 +790,7 @@ function ChannelSidebar({
           <button
             type="button"
             onClick={onCreateCategory}
-            className="flex w-full items-center gap-2 rounded-[0.5rem] px-2 py-1.5 text-[0.8125rem] text-white/45 hover:bg-white/[0.06] hover:text-white"
+            className="flex w-full items-center gap-2 rounded-[0.5rem] px-2 py-1.5 text-[0.8125rem] text-muted hover:bg-[var(--community-channel-hover)] hover:text-foreground"
           >
             <IconPlus size={14} />
             Create category
@@ -798,7 +798,7 @@ function ChannelSidebar({
           <button
             type="button"
             onClick={() => onCreateChannel(categories[0]?.id ?? null)}
-            className="flex w-full items-center gap-2 rounded-[0.5rem] px-2 py-1.5 text-[0.8125rem] text-white/45 hover:bg-white/[0.06] hover:text-white"
+            className="flex w-full items-center gap-2 rounded-[0.5rem] px-2 py-1.5 text-[0.8125rem] text-muted hover:bg-[var(--community-channel-hover)] hover:text-foreground"
           >
             <IconChat size={14} />
             Create channel
@@ -1379,13 +1379,13 @@ function ChannelRoom({
               hint={isForum && !forumThreadId ? "You're creating a new forum post." : undefined}
             />
           ) : group.kind === "announcement" && (isMember || isAppOwner || canConfigure) ? (
-            <div className="mx-4 mb-4 rounded-lg border border-dashed border-white/10 px-4 py-3 text-center">
+            <div className="mx-4 mb-4 rounded-lg border border-dashed border-[var(--community-border)] px-4 py-3 text-center">
               <p className="text-[0.875rem] text-muted">
                 Only moderators and admins can post in announcement channels.
               </p>
             </div>
           ) : (
-            <div className="mx-4 mb-4 rounded-lg border border-dashed border-white/10 px-4 py-3 text-center">
+            <div className="mx-4 mb-4 rounded-lg border border-dashed border-[var(--community-border)] px-4 py-3 text-center">
               <p className="mb-2 text-[0.875rem] text-muted">Join this server to post messages.</p>
               <Button size="sm" disabled={joining || joinDisabled} onClick={() => void onJoin()}>
                 {joining ? "Joining…" : joinLabel}

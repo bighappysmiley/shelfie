@@ -7,7 +7,7 @@ function Chevron({ open }: { open: boolean }) {
   return (
     <svg
       viewBox="0 0 16 16"
-      className={`h-3.5 w-3.5 shrink-0 text-white/40 transition-transform ${open ? "rotate-0" : "-rotate-90"}`}
+      className={`h-3.5 w-3.5 shrink-0 text-muted transition-transform ${open ? "rotate-0" : "-rotate-90"}`}
       fill="none"
       aria-hidden
     >
@@ -39,7 +39,7 @@ export function CommunityDiscover({
   const [officialOpen, setOfficialOpen] = useState(true);
 
   if (loading) {
-    return <p className="text-white/50">Loading communities…</p>;
+    return <p className="text-muted">Loading communities…</p>;
   }
 
   const hero = officialServers[0];
@@ -53,12 +53,12 @@ export function CommunityDiscover({
             type="button"
             onClick={() => setOfficialOpen((v) => !v)}
             aria-expanded={officialOpen}
-            className="flex min-w-0 flex-1 items-center gap-2 rounded-lg py-1 text-left hover:bg-white/[0.04]"
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-lg py-1 text-left hover:bg-[var(--community-hover)]"
           >
             <Chevron open={officialOpen} />
             <div className="min-w-0">
-              <p className="text-[0.6875rem] font-bold uppercase tracking-wider text-white/40">Official</p>
-              <p className="text-[0.75rem] text-white/35">Curated by Pine</p>
+              <p className="text-[0.6875rem] font-bold uppercase tracking-wider text-muted">Official</p>
+              <p className="text-[0.75rem] text-muted/80">Curated by Pine</p>
             </div>
           </button>
           {isOwner && officialServers.length > 1 && officialOpen && (
@@ -91,14 +91,14 @@ export function CommunityDiscover({
                     <div className="flex justify-end gap-1">
                       <button
                         type="button"
-                        className="rounded px-2 py-1 text-xs text-white/50 hover:bg-white/10"
+                        className="rounded px-2 py-1 text-xs text-muted hover:bg-[var(--community-hover)]"
                         disabled
                       >
                         ↑
                       </button>
                       <button
                         type="button"
-                        className="rounded px-2 py-1 text-xs text-white/50 hover:bg-white/10"
+                        className="rounded px-2 py-1 text-xs text-muted hover:bg-[var(--community-hover)]"
                         disabled={officialServers.length < 2}
                         onClick={() => onMoveOfficial(0, 1)}
                       >
@@ -126,7 +126,7 @@ export function CommunityDiscover({
                           <div className="flex justify-end gap-1">
                             <button
                               type="button"
-                              className="rounded px-2 py-1 text-xs text-white/50 hover:bg-white/10"
+                              className="rounded px-2 py-1 text-xs text-muted hover:bg-[var(--community-hover)]"
                               disabled={index === 0}
                               onClick={() => onMoveOfficial(index, -1)}
                             >
@@ -134,7 +134,7 @@ export function CommunityDiscover({
                             </button>
                             <button
                               type="button"
-                              className="rounded px-2 py-1 text-xs text-white/50 hover:bg-white/10"
+                              className="rounded px-2 py-1 text-xs text-muted hover:bg-[var(--community-hover)]"
                               disabled={index === officialServers.length - 1}
                               onClick={() => onMoveOfficial(index, 1)}
                             >
@@ -157,7 +157,7 @@ export function CommunityDiscover({
       </section>
 
       <section>
-        <p className="mb-3 px-1 text-[0.6875rem] font-bold uppercase tracking-wider text-white/40">
+        <p className="mb-3 px-1 text-[0.6875rem] font-bold uppercase tracking-wider text-muted">
           Popular communities
         </p>
         {publicServers.length === 0 ? (

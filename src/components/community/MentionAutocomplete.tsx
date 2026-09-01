@@ -16,7 +16,7 @@ export function MentionAutocomplete({
           <button
             type="button"
             onClick={() => onPick(m)}
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-[0.875rem] hover:bg-white/[0.06]"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-[0.875rem] hover:bg-[var(--community-hover)]"
           >
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent/20 text-[0.75rem] font-semibold text-accent">
               {m.label.slice(0, 1).toUpperCase()}

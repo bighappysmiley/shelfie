@@ -160,13 +160,13 @@ export function CommunityDiscordShell({
           <IconHome size={22} />
         </RailButton>
 
-        <div className="mx-auto my-1.5 h-0.5 w-8 rounded-full bg-white/10" />
+        <div className="mx-auto my-1.5 h-0.5 w-8 rounded-full bg-[var(--community-border)]" />
 
         <RailButton label="Server list" active={pane === "list"} onClick={() => navigate("/community")}>
           <IconList size={22} />
         </RailButton>
 
-        <div className="mx-auto my-1.5 h-0.5 w-8 rounded-full bg-white/10" />
+        <div className="mx-auto my-1.5 h-0.5 w-8 rounded-full bg-[var(--community-border)]" />
 
         {servers.map((s) => (
           <ServerGlyph
@@ -259,7 +259,7 @@ export function CommunityPanelHeader({
   trailing?: ReactNode;
 }) {
   return (
-    <header className="flex h-12 shrink-0 items-center gap-3 border-b border-black/20 px-4">
+    <header className="flex h-12 shrink-0 items-center gap-3 border-b border-[var(--community-border)] px-4">
       <div className="min-w-0 flex-1">
         <h1 className="truncate text-[1rem] font-semibold tracking-tight text-foreground">{title}</h1>
         {subtitle && <p className="truncate text-[0.75rem] text-muted">{subtitle}</p>}

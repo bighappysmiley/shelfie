@@ -202,7 +202,7 @@ export function CommunityPage() {
   );
 
   const usernameNotice = user && !userProfile?.communityUsername && (
-    <div className="mb-3 rounded-xl bg-fill px-3 py-3 text-[0.8125rem] text-white/70">
+    <div className="mb-3 rounded-xl bg-fill px-3 py-3 text-[0.8125rem] text-muted">
       Set your Community @username in{" "}
       <Link to="/account" className="text-accent underline">
         Account
@@ -218,7 +218,7 @@ export function CommunityPage() {
           <CommunityPanelHeader
             title="Discover"
             subtitle="Explore communities"
-            trailing={<IconCompass size={18} className="text-white/40" />}
+            trailing={<IconCompass size={18} className="text-muted" />}
           />
           <CommunityScrollBody className="px-3 py-3 text-foreground [&_h2]:text-foreground [&_.text-muted]:!text-muted">
             {usernameNotice}
@@ -228,18 +228,18 @@ export function CommunityPage() {
               </div>
             )}
             {notice && (
-              <p className="mb-3 rounded-xl bg-emerald-500/15 px-3 py-2 text-[0.8125rem] text-emerald-300">{notice}</p>
+              <p className="mb-3 rounded-xl bg-success-bg px-3 py-2 text-[0.8125rem] text-success">{notice}</p>
             )}
             <label className="relative mb-4 block">
               <IconSearch
                 size={16}
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/40"
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"
               />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search communities…"
-                className="w-full rounded-xl bg-fill py-2.5 pl-9 pr-3 text-[0.9375rem] text-white outline-none ring-accent placeholder:text-white/35 focus:ring-2"
+                className="w-full rounded-xl bg-fill py-2.5 pl-9 pr-3 text-[0.9375rem] text-foreground outline-none ring-accent placeholder:text-muted/70 focus:ring-2"
               />
             </label>
             <CommunityDiscover
@@ -259,7 +259,7 @@ export function CommunityPage() {
           <CommunityPanelHeader
             title="Your servers"
             subtitle={`${myServers.length} joined`}
-            trailing={<IconCommunity size={18} className="text-white/40" />}
+            trailing={<IconCommunity size={18} className="text-muted" />}
           />
           <CommunityScrollBody className="px-3 py-3 text-foreground [&_h2]:text-foreground [&_.text-muted]:!text-muted">
             {usernameNotice}
@@ -271,17 +271,17 @@ export function CommunityPage() {
             <label className="relative mb-3 block">
               <IconSearch
                 size={16}
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/40"
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"
               />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Find a server…"
-                className="w-full rounded-xl bg-fill py-2.5 pl-9 pr-3 text-[0.9375rem] text-white outline-none ring-accent placeholder:text-white/35 focus:ring-2"
+                className="w-full rounded-xl bg-fill py-2.5 pl-9 pr-3 text-[0.9375rem] text-foreground outline-none ring-accent placeholder:text-muted/70 focus:ring-2"
               />
             </label>
             {loading ? (
-              <p className="text-white/50">Loading…</p>
+              <p className="text-muted">Loading…</p>
             ) : filteredMine.length === 0 ? (
               <EmptyState
                 title={query ? "No matches" : "No servers yet"}
@@ -311,7 +311,7 @@ export function CommunityPage() {
                         {s.canManage && (
                           <Link
                             to={`/community/s/${s.id}/settings`}
-                            className="rounded-lg p-2 text-white/45 hover:bg-white/10 hover:text-white"
+                            className="rounded-lg p-2 text-muted hover:bg-[var(--community-hover)] hover:text-foreground"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <IconSettings size={18} />
@@ -325,7 +325,7 @@ export function CommunityPage() {
               </div>
             )}
             {libraries.length > 1 && canCreateServer && (
-              <p className="mt-4 px-1 text-[0.75rem] text-white/40">
+              <p className="mt-4 px-1 text-[0.75rem] text-muted">
                 New servers are created under your active library ({activeLibrary?.name}).
               </p>
             )}

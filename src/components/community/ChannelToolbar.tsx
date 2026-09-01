@@ -111,7 +111,7 @@ export function ChannelToolbar({
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder={`Search #${group.name}`}
-              className="w-full rounded-md bg-[var(--community-input)] py-2 pl-9 pr-3 text-[0.875rem] outline-none ring-1 ring-white/[0.06] placeholder:text-muted/70 focus:ring-accent/40"
+              className="w-full rounded-md bg-[var(--community-input)] py-2 pl-9 pr-3 text-[0.875rem] outline-none ring-1 ring-[var(--community-border)] placeholder:text-muted/70 focus:ring-accent/40"
               autoFocus
             />
           </div>

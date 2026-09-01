@@ -125,7 +125,7 @@ export function ChannelMessageComposer({
 
       {hint && <p className="mb-2 text-[0.75rem] text-muted">{hint}</p>}
 
-      <div className="flex items-end gap-2 rounded-lg bg-[var(--community-input)] px-2 py-1.5 ring-1 ring-white/[0.06]">
+      <div className="flex items-end gap-2 rounded-lg bg-[var(--community-input)] px-2 py-1.5 ring-1 ring-[var(--community-border)]">
         <ComposerIconButton label="More actions" onClick={() => setPlusOpen(true)} active={plusOpen}>
           <IconPlus size={20} />
         </ComposerIconButton>

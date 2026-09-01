@@ -84,7 +84,7 @@ export function CommunityAvatar({
 
   return (
     <div className={`inline-flex shrink-0 rounded-full ${ringClass} ${RING_PADDING[size]}`}>
-      <div className="rounded-full bg-[var(--community-chat,#2a3436)]">{inner}</div>
+      <div className="rounded-full bg-[var(--community-chat)]">{inner}</div>
     </div>
   );
 }

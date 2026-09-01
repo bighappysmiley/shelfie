@@ -31,7 +31,7 @@ export function DiscoverServerCard({
 
   return (
     <article
-      className={`community-discover-card flex flex-col overflow-hidden rounded-2xl bg-[var(--community-panel)] ring-1 ring-white/[0.08] ${
+      className={`community-discover-card flex flex-col overflow-hidden rounded-2xl bg-[var(--community-panel)] ring-1 ring-[var(--community-border)] ${
         isHero ? "min-w-[min(100%,20rem)]" : isFeatured ? "min-w-[11rem] shrink-0" : ""
       }`}
     >
@@ -55,22 +55,22 @@ export function DiscoverServerCard({
             </span>
           )}
           {rank != null && !server.isOfficial && (
-            <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/40 text-[0.6875rem] font-bold text-white">
+            <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-foreground/15 text-[0.6875rem] font-bold text-foreground">
               #{rank}
             </span>
           )}
         </div>
         <div className={`flex flex-1 flex-col ${isHero ? "gap-2 p-4" : "gap-1 p-3"}`}>
-          <h3 className={`truncate font-semibold text-white ${isHero ? "text-[1.0625rem]" : "text-[0.9375rem]"}`}>
+          <h3 className={`truncate font-semibold text-foreground ${isHero ? "text-[1.0625rem]" : "text-[0.9375rem]"}`}>
             {server.name}
           </h3>
-          <p className={`text-white/50 ${isHero ? "line-clamp-2 text-[0.8125rem]" : "line-clamp-2 text-[0.75rem]"}`}>
+          <p className={`text-muted ${isHero ? "line-clamp-2 text-[0.8125rem]" : "line-clamp-2 text-[0.75rem]"}`}>
             {server.description || formatPopularity(server)}
           </p>
-          <p className="mt-auto text-[0.6875rem] text-white/35">{formatPopularity(server)}</p>
+          <p className="mt-auto text-[0.6875rem] text-muted/80">{formatPopularity(server)}</p>
         </div>
       </button>
-      {trailing && <div className="border-t border-white/[0.06] px-3 py-2">{trailing}</div>}
+      {trailing && <div className="border-t border-[var(--community-border)] px-3 py-2">{trailing}</div>}
     </article>
   );
 }
