@@ -4,6 +4,7 @@ import { useAuth } from "@/lib/auth";
 import { useLibrary } from "@/lib/library";
 import {
   createServerRole,
+  deleteServer,
   deleteServerRole,
   getServer,
   listServerRoles,
@@ -266,6 +267,38 @@ export function CommunityServerSettingsPage() {
           >
             {busy ? "Saving…" : "Save visibility"}
           </Button>
+          <div className="rounded-[var(--radius-group)] border border-destructive/30 bg-destructive-bg/40 p-4">
+            <p className="font-medium text-destructive">Delete server</p>
+            <p className="mt-1 text-[0.8125rem] text-muted">
+              Permanently removes this server, its channels, roles, and messages. The library itself
+              is not deleted.
+            </p>
+            <Button
+              className="mt-3"
+              variant="danger"
+              size="sm"
+              disabled={busy}
+              onClick={async () => {
+                if (
+                  !confirm(
+                    `Delete server “${server.name}”? This cannot be undone.`,
+                  )
+                ) {
+                  return;
+                }
+                setBusy(true);
+                try {
+                  await deleteServer(serverId);
+                  navigate("/community");
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : "Could not delete");
+                  setBusy(false);
+                }
+              }}
+            >
+              Delete server
+            </Button>
+          </div>
           <p className="text-[0.8125rem] text-muted">
             Library: <Link to="/settings" className="text-link">{library?.name || server.libraryId}</Link>
           </p>

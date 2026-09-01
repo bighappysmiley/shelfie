@@ -18,6 +18,7 @@ import {
   deleteCommunityCategory,
   deleteGroupMessage,
   getServer,
+  isServerMember,
   joinServer,
   listCommunityCategories,
   listCommunityGroups,
@@ -103,10 +104,12 @@ export function CommunityServerPage() {
   const { libraries } = useLibrary();
 
   const [server, setServer] = useState<CommunityServer | null>(null);
+  const [isMember, setIsMember] = useState(false);
   const [categories, setCategories] = useState<CommunityCategory[]>([]);
   const [channels, setChannels] = useState<CommunityGroup[]>([]);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
+  const [joining, setJoining] = useState(false);
   const [error, setError] = useState("");
   const [modal, setModal] = useState<Modal>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -120,13 +123,15 @@ export function CommunityServerPage() {
     try {
       const s = await getServer(serverId);
       if (!s) throw new Error("Server not found");
-      await joinServer(serverId, user.id).catch(() => undefined);
+      const member = await isServerMember(serverId, user.id);
+      setIsMember(member);
       const [cats, groups] = await Promise.all([
         listCommunityCategories(serverId),
         listCommunityGroups(user.id, serverId),
       ]);
       setServer({
         ...s,
+        isMember: member,
         canManage: library?.role === "owner" || isOwner,
       });
       setCategories(cats);
@@ -232,6 +237,31 @@ export function CommunityServerPage() {
               </Link>
             )}
           </div>
+          {!isMember && server && (server.isPublic || server.isOfficial) && (
+            <div className="border-b border-black/[0.06] bg-accent/10 px-3 py-2 dark:border-white/[0.08]">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[0.75rem] text-muted">Previewing — join to chat and appear in Joined.</p>
+                <Button
+                  size="sm"
+                  disabled={joining || !user}
+                  onClick={async () => {
+                    if (!user) return;
+                    setJoining(true);
+                    try {
+                      await joinServer(serverId, user.id);
+                      await refresh();
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : "Could not join");
+                    } finally {
+                      setJoining(false);
+                    }
+                  }}
+                >
+                  {joining ? "…" : "Join server"}
+                </Button>
+              </div>
+            </div>
+          )}
           <div className="flex-1 overflow-y-auto px-2 py-3">{sidebar}</div>
         </aside>
 
@@ -282,6 +312,19 @@ export function CommunityServerPage() {
               displayName={userProfile?.displayName?.trim() || user.email || "Member"}
               isAppOwner={Boolean(isOwner)}
               canConfigure={canConfigure}
+              isMember={isMember}
+              onJoin={async () => {
+                setJoining(true);
+                try {
+                  await joinServer(server.id, user.id);
+                  await refresh();
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : "Could not join");
+                } finally {
+                  setJoining(false);
+                }
+              }}
+              joining={joining}
               onOpenSettings={() => setModal({ type: "edit-channel", channel: active })}
               onChanged={refresh}
             />
@@ -521,6 +564,9 @@ function ChannelRoom({
   displayName,
   isAppOwner,
   canConfigure,
+  isMember,
+  onJoin,
+  joining,
   onOpenSettings,
   onChanged,
 }: {
@@ -530,6 +576,9 @@ function ChannelRoom({
   displayName: string;
   isAppOwner: boolean;
   canConfigure: boolean;
+  isMember: boolean;
+  onJoin: () => Promise<void>;
+  joining: boolean;
   onOpenSettings: () => void;
   onChanged: () => void;
 }) {
@@ -542,12 +591,12 @@ function ChannelRoom({
   const [error, setError] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const myRole = group.myRole ?? (isAppOwner || canConfigure ? "admin" : group.isOfficial ? "member" : null);
+  const myRole = group.myRole ?? (isAppOwner || canConfigure ? "admin" : isMember || group.isOfficial ? "member" : null);
   const manage = canManageMembers(myRole, isAppOwner || canConfigure);
   const moderate = canModerate(myRole, isAppOwner || canConfigure);
   const allowsChat = group.kind === "chat" || group.kind === "both";
   const allowsSuggestions = group.kind === "suggestions" || group.kind === "both";
-  const canPost = Boolean(myRole) || group.isOfficial || isAppOwner || canConfigure;
+  const canPost = isMember || isAppOwner || canConfigure;
 
   const load = useCallback(async () => {
     const [msgs, mems] = await Promise.all([
@@ -737,7 +786,12 @@ function ChannelRoom({
                 </Button>
               </div>
             ) : (
-              <p className="text-center text-[0.875rem] text-muted">You need access to post here.</p>
+              <div className="rounded-[var(--radius-control)] border border-dashed border-black/10 px-4 py-3 text-center dark:border-white/10">
+                <p className="mb-2 text-[0.875rem] text-muted">Join this server to post messages.</p>
+                <Button size="sm" disabled={joining} onClick={() => void onJoin()}>
+                  {joining ? "Joining…" : "Join server"}
+                </Button>
+              </div>
             )}
           </form>
         </>

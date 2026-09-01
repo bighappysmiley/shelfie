@@ -242,33 +242,37 @@ export async function recomputeServerScore(serverId: string): Promise<void> {
     .eq("id", serverId);
 }
 
-/** Ensure the active (or given) library has a community server. */
-export async function ensureLibraryServer(input: {
+/** Create a community server for a library (explicit only — never auto-created). */
+export async function createLibraryServer(input: {
   libraryId: string;
-  libraryName: string;
+  name: string;
+  description?: string;
+  isPublic?: boolean;
   userId: string;
   isLibraryOwner: boolean;
 }): Promise<CommunityServer> {
-  const { data: existing } = await supabase
-    .from("community_servers")
-    .select("*")
-    .eq("library_id", input.libraryId)
-    .maybeSingle();
-
-  if (existing) {
-    return mapServer(existing as ServerRow, { canManage: input.isLibraryOwner });
-  }
-
   if (!input.isLibraryOwner) {
     throw new Error("Only the library owner can create this library’s server");
+  }
+
+  const { data: existing } = await supabase
+    .from("community_servers")
+    .select("id")
+    .eq("library_id", input.libraryId)
+    .maybeSingle();
+  if (existing) {
+    throw new Error("This library already has a server. Open it from Your servers.");
   }
 
   const { data, error } = await supabase
     .from("community_servers")
     .insert({
       library_id: input.libraryId,
-      name: input.libraryName,
-      is_public: false,
+      name: input.name.trim() || "My Server",
+      description: input.description?.trim() || null,
+      is_public: Boolean(input.isPublic),
+      is_official: false,
+      official_position: null,
       created_by: input.userId,
     })
     .select("*")
@@ -293,10 +297,22 @@ export async function ensureLibraryServer(input: {
   });
 
   await recomputeServerScore(server.id);
-  return mapServer(server, { canManage: true, memberCount: 1 });
+  return mapServer(server, { canManage: true, isMember: true, memberCount: 1 });
 }
 
-export async function listPublicServers(): Promise<CommunityServer[]> {
+/** Look up an existing server for a library — does not create one. */
+export async function getServerForLibrary(libraryId: string): Promise<CommunityServer | null> {
+  const { data, error } = await supabase
+    .from("community_servers")
+    .select("*")
+    .eq("library_id", libraryId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return mapServer(data as ServerRow);
+}
+
+export async function listPublicServers(userId?: string): Promise<CommunityServer[]> {
   const { data, error } = await supabase
     .from("community_servers")
     .select("*")
@@ -306,10 +322,12 @@ export async function listPublicServers(): Promise<CommunityServer[]> {
     .order("member_count", { ascending: false })
     .order("name", { ascending: true });
   if (error) throw error;
-  return ((data ?? []) as ServerRow[]).map((r) => mapServer(r));
+  const rows = (data ?? []) as ServerRow[];
+  const memberIds = userId ? await memberServerIdSet(userId) : new Set<string>();
+  return rows.map((r) => mapServer(r, { isMember: memberIds.has(r.id) }));
 }
 
-export async function listOfficialServers(): Promise<CommunityServer[]> {
+export async function listOfficialServers(userId?: string): Promise<CommunityServer[]> {
   const { data, error } = await supabase
     .from("community_servers")
     .select("*")
@@ -318,17 +336,29 @@ export async function listOfficialServers(): Promise<CommunityServer[]> {
     .order("activity_score", { ascending: false })
     .order("name", { ascending: true });
   if (error) throw error;
-  return ((data ?? []) as ServerRow[]).map((r) => mapServer(r));
+  const rows = (data ?? []) as ServerRow[];
+  const memberIds = userId ? await memberServerIdSet(userId) : new Set<string>();
+  return rows.map((r) => mapServer(r, { isMember: memberIds.has(r.id) }));
 }
 
+async function memberServerIdSet(userId: string): Promise<Set<string>> {
+  const { data } = await supabase
+    .from("community_server_members")
+    .select("server_id")
+    .eq("user_id", userId);
+  return new Set((data ?? []).map((m) => m.server_id as string));
+}
+
+/** Servers the user has joined (membership only — libraries do not auto-appear). */
 export async function listMyServers(userId: string): Promise<CommunityServer[]> {
   const [{ data: memberships }, { data: libraryMemberships }] = await Promise.all([
     supabase.from("community_server_members").select("server_id, role_id").eq("user_id", userId),
     supabase.from("library_members").select("library_id, role").eq("user_id", userId),
   ]);
 
-  const libraryIds = (libraryMemberships ?? []).map((m) => m.library_id as string);
   const memberServerIds = (memberships ?? []).map((m) => m.server_id as string);
+  if (memberServerIds.length === 0) return [];
+
   const roleByServer = new Map(
     (memberships ?? []).map((m) => [m.server_id as string, m.role_id as string | null]),
   );
@@ -336,33 +366,17 @@ export async function listMyServers(userId: string): Promise<CommunityServer[]> 
     (libraryMemberships ?? []).map((m) => [m.library_id as string, m.role as string]),
   );
 
-  if (libraryIds.length === 0 && memberServerIds.length === 0) return [];
+  const { data, error } = await supabase
+    .from("community_servers")
+    .select("*")
+    .in("id", memberServerIds)
+    .order("name");
+  if (error) throw error;
 
-  let rows: ServerRow[] = [];
-
-  if (libraryIds.length > 0) {
-    const { data, error } = await supabase
-      .from("community_servers")
-      .select("*")
-      .in("library_id", libraryIds)
-      .order("name");
-    if (error) throw error;
-    rows = (data ?? []) as ServerRow[];
-  }
-
-  const have = new Set(rows.map((r) => r.id));
-  const missing = memberServerIds.filter((id) => !have.has(id));
-  if (missing.length > 0) {
-    const { data, error } = await supabase.from("community_servers").select("*").in("id", missing);
-    if (error) throw error;
-    rows = [...rows, ...((data ?? []) as ServerRow[])];
-  }
-
-  rows.sort((a, b) => a.name.localeCompare(b.name));
-
-  return rows.map((r) =>
+  return ((data ?? []) as ServerRow[]).map((r) =>
     mapServer(r, {
       myRoleId: roleByServer.get(r.id) ?? null,
+      isMember: true,
       canManage: libraryRole.get(r.library_id) === "owner",
     }),
   );
@@ -445,6 +459,31 @@ export async function joinServer(serverId: string, userId: string): Promise<void
   });
   if (error) throw error;
   await recomputeServerScore(serverId);
+}
+
+export async function leaveServer(serverId: string, userId: string): Promise<void> {
+  const { error } = await supabase
+    .from("community_server_members")
+    .delete()
+    .eq("server_id", serverId)
+    .eq("user_id", userId);
+  if (error) throw error;
+  await recomputeServerScore(serverId);
+}
+
+export async function isServerMember(serverId: string, userId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from("community_server_members")
+    .select("user_id")
+    .eq("server_id", serverId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  return Boolean(data);
+}
+
+export async function deleteServer(serverId: string): Promise<void> {
+  const { error } = await supabase.from("community_servers").delete().eq("id", serverId);
+  if (error) throw error;
 }
 
 export async function listServerRoles(serverId: string): Promise<CommunityServerRole[]> {

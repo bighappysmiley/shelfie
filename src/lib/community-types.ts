@@ -19,8 +19,9 @@ export interface CommunityServer {
   createdBy: string | null;
   createdAt: string;
   updatedAt: string;
-  /** Present when current user belongs to this server / library */
+  /** Present when current user belongs to this server */
   myRoleId?: string | null;
+  isMember?: boolean;
   canManage?: boolean;
 }
 
