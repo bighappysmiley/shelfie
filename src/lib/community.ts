@@ -863,22 +863,43 @@ export async function updateServerRole(
     mentionable?: boolean;
   },
 ): Promise<void> {
-  const row: Record<string, unknown> = {};
-  if (patch.name !== undefined) row.name = patch.name.trim();
-  if (patch.color !== undefined) row.color = patch.color;
-  if (patch.iconUrl !== undefined) row.icon_url = patch.iconUrl;
-  if (patch.position !== undefined) row.position = patch.position;
-  if (patch.canManageServer !== undefined) row.can_manage_server = patch.canManageServer;
-  if (patch.canManageChannels !== undefined) row.can_manage_channels = patch.canManageChannels;
-  if (patch.canModerate !== undefined) row.can_moderate = patch.canModerate;
-  if (patch.canKickMembers !== undefined) row.can_kick_members = patch.canKickMembers;
-  if (patch.canBanMembers !== undefined) row.can_ban_members = patch.canBanMembers;
-  if (patch.canManageMessages !== undefined) row.can_manage_messages = patch.canManageMessages;
-  if (patch.canInviteUsers !== undefined) row.can_invite_users = patch.canInviteUsers;
-  if (patch.hoist !== undefined) row.hoist = patch.hoist;
-  if (patch.mentionable !== undefined) row.mentionable = patch.mentionable;
-  const { error } = await supabase.from("community_server_roles").update(row).eq("id", roleId);
-  if (error) throw error;
+  const base: Record<string, unknown> = {};
+  const extended: Record<string, unknown> = {};
+  if (patch.name !== undefined) base.name = patch.name.trim();
+  if (patch.color !== undefined) base.color = patch.color;
+  if (patch.iconUrl !== undefined) base.icon_url = patch.iconUrl;
+  if (patch.position !== undefined) base.position = patch.position;
+  if (patch.canManageServer !== undefined) base.can_manage_server = patch.canManageServer;
+  if (patch.canManageChannels !== undefined) base.can_manage_channels = patch.canManageChannels;
+  if (patch.canModerate !== undefined) base.can_moderate = patch.canModerate;
+  if (patch.canKickMembers !== undefined) extended.can_kick_members = patch.canKickMembers;
+  if (patch.canBanMembers !== undefined) extended.can_ban_members = patch.canBanMembers;
+  if (patch.canManageMessages !== undefined) extended.can_manage_messages = patch.canManageMessages;
+  if (patch.canInviteUsers !== undefined) extended.can_invite_users = patch.canInviteUsers;
+  if (patch.hoist !== undefined) extended.hoist = patch.hoist;
+  if (patch.mentionable !== undefined) extended.mentionable = patch.mentionable;
+
+  const full = { ...base, ...extended };
+  const { error } = await supabase.from("community_server_roles").update(full).eq("id", roleId);
+  if (!error) return;
+
+  const msg = String(error.message ?? "");
+  const missingColumn =
+    msg.includes("can_kick_members") ||
+    msg.includes("can_ban_members") ||
+    msg.includes("can_manage_messages") ||
+    msg.includes("can_invite_users") ||
+    msg.includes("hoist") ||
+    msg.includes("mentionable") ||
+    (msg.includes("column") && msg.includes("does not exist"));
+
+  if (missingColumn && Object.keys(extended).length > 0) {
+    const { error: retry } = await supabase.from("community_server_roles").update(base).eq("id", roleId);
+    if (!retry) return;
+    throw retry;
+  }
+
+  throw error;
 }
 
 export async function deleteServerRole(roleId: string): Promise<void> {
