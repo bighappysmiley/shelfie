@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { AuthedImage } from "@/components/AuthedImage";
-import type { MentionMember } from "@/lib/community-mentions";
+import { IconCopy } from "@/components/Icons";
+import type { MentionMember, MentionRole } from "@/lib/community-mentions";
 import {
   formatDiscordTimestamp,
   parseCommunityMarkdown,
@@ -8,7 +9,23 @@ import {
   type MarkdownContext,
   type MarkdownInlineNode,
 } from "@/lib/community-markdown";
+import { roleColorTextStyle } from "@/lib/role-color";
 import type { CommunityServerEmoji, CommunityServerSticker } from "@/lib/community-types";
+
+function highlightText(text: string, query?: string) {
+  if (!query?.trim()) return text;
+  const q = query.trim();
+  const lower = text.toLowerCase();
+  const idx = lower.indexOf(q.toLowerCase());
+  if (idx < 0) return text;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark className="rounded bg-yellow-200/40 px-0.5 text-inherit dark:bg-yellow-500/30">{text.slice(idx, idx + q.length)}</mark>
+      {text.slice(idx + q.length)}
+    </>
+  );
+}
 
 function Spoiler({ children }: { children: React.ReactNode }) {
   const [revealed, setRevealed] = useState(false);
@@ -28,15 +45,23 @@ function InlineNodes({
   nodes,
   emojiByName,
   stickerByName,
+  searchQuery,
 }: {
   nodes: MarkdownInlineNode[];
   emojiByName: Map<string, CommunityServerEmoji>;
   stickerByName: Map<string, CommunityServerSticker>;
+  searchQuery?: string;
 }) {
   return (
     <>
       {nodes.map((node, i) => (
-        <InlineNode key={i} node={node} emojiByName={emojiByName} stickerByName={stickerByName} />
+        <InlineNode
+          key={i}
+          node={node}
+          emojiByName={emojiByName}
+          stickerByName={stickerByName}
+          searchQuery={searchQuery}
+        />
       ))}
     </>
   );
@@ -46,42 +71,44 @@ function InlineNode({
   node,
   emojiByName,
   stickerByName,
+  searchQuery,
 }: {
   node: MarkdownInlineNode;
   emojiByName: Map<string, CommunityServerEmoji>;
   stickerByName: Map<string, CommunityServerSticker>;
+  searchQuery?: string;
 }) {
   switch (node.type) {
     case "text":
-      return <>{node.value}</>;
+      return <>{highlightText(node.value, searchQuery)}</>;
     case "bold":
       return (
         <strong className="font-semibold">
-          <InlineNodes nodes={node.children} emojiByName={emojiByName} stickerByName={stickerByName} />
+          <InlineNodes nodes={node.children} emojiByName={emojiByName} stickerByName={stickerByName} searchQuery={searchQuery} />
         </strong>
       );
     case "italic":
       return (
         <em className="italic">
-          <InlineNodes nodes={node.children} emojiByName={emojiByName} stickerByName={stickerByName} />
+          <InlineNodes nodes={node.children} emojiByName={emojiByName} stickerByName={stickerByName} searchQuery={searchQuery} />
         </em>
       );
     case "underline":
       return (
         <span className="underline">
-          <InlineNodes nodes={node.children} emojiByName={emojiByName} stickerByName={stickerByName} />
+          <InlineNodes nodes={node.children} emojiByName={emojiByName} stickerByName={stickerByName} searchQuery={searchQuery} />
         </span>
       );
     case "strike":
       return (
         <span className="line-through">
-          <InlineNodes nodes={node.children} emojiByName={emojiByName} stickerByName={stickerByName} />
+          <InlineNodes nodes={node.children} emojiByName={emojiByName} stickerByName={stickerByName} searchQuery={searchQuery} />
         </span>
       );
     case "spoiler":
       return (
         <Spoiler>
-          <InlineNodes nodes={node.children} emojiByName={emojiByName} stickerByName={stickerByName} />
+          <InlineNodes nodes={node.children} emojiByName={emojiByName} stickerByName={stickerByName} searchQuery={searchQuery} />
         </Spoiler>
       );
     case "code":
@@ -100,20 +127,21 @@ function InlineNode({
       );
     case "mention":
       return (
-        <span
-          className={`community-mention rounded px-0.5 font-medium ${
-            node.known ? "" : "opacity-80"
-          }`}
-        >
+        <span className={`community-mention rounded px-0.5 font-medium ${node.known ? "" : "opacity-80"}`}>
           {node.label}
         </span>
       );
-    case "channel":
+    case "role-mention":
       return (
-        <span className="community-mention rounded px-0.5 font-medium">
-          #{node.name}
+        <span
+          className="community-mention rounded px-0.5 font-medium"
+          style={roleColorTextStyle(node.color)}
+        >
+          @{node.name}
         </span>
       );
+    case "channel":
+      return <span className="community-mention rounded px-0.5 font-medium">#{node.name}</span>;
     case "special-mention":
       return (
         <span className="community-mention community-mention--alert rounded px-0.5 font-medium">
@@ -163,14 +191,45 @@ function InlineNode({
   }
 }
 
+function CodeBlock({ value, language }: { value: string; language?: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="community-codeblock-wrap my-1 overflow-hidden rounded border border-[var(--community-border)]">
+      <div className="flex items-center justify-between bg-[var(--community-panel)] px-2 py-1">
+        <span className="text-[0.6875rem] font-semibold uppercase tracking-wide text-muted">
+          {language || "code"}
+        </span>
+        <button
+          type="button"
+          onClick={() => {
+            void navigator.clipboard.writeText(value).then(() => {
+              setCopied(true);
+              window.setTimeout(() => setCopied(false), 1500);
+            });
+          }}
+          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted hover:bg-[var(--community-hover)] hover:text-foreground"
+        >
+          <IconCopy size={12} />
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+      <pre className="overflow-x-auto bg-[var(--community-input)] p-2 font-mono text-[0.8125rem] leading-relaxed">
+        <code>{value}</code>
+      </pre>
+    </div>
+  );
+}
+
 function BlockNode({
   block,
   emojiByName,
   stickerByName,
+  searchQuery,
 }: {
   block: MarkdownBlockNode;
   emojiByName: Map<string, CommunityServerEmoji>;
   stickerByName: Map<string, CommunityServerSticker>;
+  searchQuery?: string;
 }) {
   switch (block.type) {
     case "spacer":
@@ -178,7 +237,7 @@ function BlockNode({
     case "paragraph":
       return (
         <p className="min-h-[1.375rem] whitespace-pre-wrap break-words">
-          <InlineNodes nodes={block.children} emojiByName={emojiByName} stickerByName={stickerByName} />
+          <InlineNodes nodes={block.children} emojiByName={emojiByName} stickerByName={stickerByName} searchQuery={searchQuery} />
         </p>
       );
     case "heading":
@@ -192,36 +251,42 @@ function BlockNode({
                 : "text-lg font-bold leading-snug"
           }
         >
-          <InlineNodes nodes={block.children} emojiByName={emojiByName} stickerByName={stickerByName} />
+          <InlineNodes nodes={block.children} emojiByName={emojiByName} stickerByName={stickerByName} searchQuery={searchQuery} />
         </p>
       );
     case "subtext":
       return (
         <p className="text-xs text-muted">
-          <InlineNodes nodes={block.children} emojiByName={emojiByName} stickerByName={stickerByName} />
+          <InlineNodes nodes={block.children} emojiByName={emojiByName} stickerByName={stickerByName} searchQuery={searchQuery} />
         </p>
       );
     case "blockquote":
       return (
         <blockquote className="community-blockquote my-1 border-l-4 border-[var(--community-border)] pl-3">
           {block.children.map((child, i) => (
-            <BlockNode key={i} block={child} emojiByName={emojiByName} stickerByName={stickerByName} />
+            <BlockNode key={i} block={child} emojiByName={emojiByName} stickerByName={stickerByName} searchQuery={searchQuery} />
           ))}
         </blockquote>
       );
     case "codeblock":
-      return (
-        <pre className="community-codeblock my-1 overflow-x-auto rounded bg-[var(--community-input)] p-2 font-mono text-[0.8125rem] leading-relaxed">
-          <code>{block.value}</code>
-        </pre>
-      );
+      return <CodeBlock value={block.value} language={block.language} />;
     case "image":
       return (
-        <AuthedImage
-          src={block.url}
-          alt=""
-          className="my-1 max-h-80 max-w-full rounded-lg object-contain"
-        />
+        <AuthedImage src={block.url} alt="" className="my-1 max-h-80 max-w-full rounded-lg object-contain" />
+      );
+    case "link-preview":
+      return (
+        <a
+          href={block.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="community-link-embed my-1 block max-w-md overflow-hidden rounded-lg border border-[var(--community-border)] bg-[var(--community-input)] hover:border-accent/40"
+        >
+          <div className="px-3 py-2">
+            <p className="truncate text-xs font-semibold uppercase tracking-wide text-muted">{block.hostname}</p>
+            <p className="mt-0.5 truncate text-sm text-link">{block.url}</p>
+          </div>
+        </a>
       );
     default:
       return null;
@@ -231,17 +296,21 @@ function BlockNode({
 export function CommunityMessageContent({
   body,
   mentionMembers = [],
+  mentionRoles = [],
   channels = [],
   serverEmoji = [],
   serverStickers = [],
+  searchQuery,
   className = "",
   compact = false,
 }: {
   body: string;
   mentionMembers?: MentionMember[];
+  mentionRoles?: MentionRole[];
   channels?: { name: string }[];
   serverEmoji?: CommunityServerEmoji[];
   serverStickers?: CommunityServerSticker[];
+  searchQuery?: string;
   className?: string;
   compact?: boolean;
 }) {
@@ -253,6 +322,7 @@ export function CommunityMessageContent({
     channelNames: new Set(channels.map((c) => c.name.toLowerCase())),
     emojiNames: new Set(serverEmoji.map((e) => e.name)),
     stickerNames: new Set(serverStickers.map((s) => s.name)),
+    roles: mentionRoles.map((r) => ({ name: r.name, color: r.color, mentionable: r.mentionable })),
   };
 
   const blocks = parseCommunityMarkdown(body, ctx);
@@ -263,7 +333,7 @@ export function CommunityMessageContent({
       .flatMap((b) => ("children" in b ? b.children : []));
     return (
       <span className={`truncate ${className}`}>
-        <InlineNodes nodes={flat} emojiByName={emojiByName} stickerByName={stickerByName} />
+        <InlineNodes nodes={flat} emojiByName={emojiByName} stickerByName={stickerByName} searchQuery={searchQuery} />
       </span>
     );
   }
@@ -271,7 +341,7 @@ export function CommunityMessageContent({
   return (
     <div className={`community-message-content space-y-0.5 text-base leading-[1.375rem] text-foreground ${className}`}>
       {blocks.map((block, i) => (
-        <BlockNode key={i} block={block} emojiByName={emojiByName} stickerByName={stickerByName} />
+        <BlockNode key={i} block={block} emojiByName={emojiByName} stickerByName={stickerByName} searchQuery={searchQuery} />
       ))}
     </div>
   );

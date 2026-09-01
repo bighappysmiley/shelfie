@@ -131,6 +131,18 @@ export function PopoverItem({
   );
 }
 
+export function UnreadDivider() {
+  return (
+    <li className="relative my-3 flex items-center px-4" aria-label="New messages">
+      <div className="h-px flex-1 bg-destructive/60" />
+      <span className="mx-3 shrink-0 text-xs font-bold uppercase tracking-wide text-destructive">
+        New
+      </span>
+      <div className="h-px flex-1 bg-destructive/60" />
+    </li>
+  );
+}
+
 export function formatMessageDateDivider(iso: string): string {
   const d = new Date(iso);
   const now = new Date();

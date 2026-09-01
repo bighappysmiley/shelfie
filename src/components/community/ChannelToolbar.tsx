@@ -39,6 +39,8 @@ export function ChannelToolbar({
   onToggleSearch,
   searchQuery = "",
   onSearchChange,
+  searchResultCount,
+  onSearchNext,
   membersOpen = false,
   onToggleMembers,
   memberCount = 0,
@@ -53,6 +55,8 @@ export function ChannelToolbar({
   onToggleSearch?: () => void;
   searchQuery?: string;
   onSearchChange?: (q: string) => void;
+  searchResultCount?: number;
+  onSearchNext?: () => void;
   membersOpen?: boolean;
   onToggleMembers?: () => void;
   memberCount?: number;
@@ -113,18 +117,32 @@ export function ChannelToolbar({
 
       {searchOpen && onSearchChange && (
         <div className="border-t border-[var(--community-border)] px-4 py-2">
-          <div className="relative">
-            <IconSearch
-              size={16}
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"
-            />
-            <input
-              value={searchQuery}
-              onChange={(e) => onSearchChange(e.target.value)}
-              placeholder={`Search #${group.name}`}
-              className="w-full rounded-md bg-[var(--community-input)] py-2 pl-9 pr-3 text-[0.875rem] outline-none ring-1 ring-[var(--community-border)] placeholder:text-muted/70 focus:ring-accent/40"
-              autoFocus
-            />
+          <div className="relative flex items-center gap-2">
+            <div className="relative min-w-0 flex-1">
+              <IconSearch
+                size={16}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"
+              />
+              <input
+                value={searchQuery}
+                onChange={(e) => onSearchChange(e.target.value)}
+                placeholder={`Search #${group.name}`}
+                className="w-full rounded-md bg-[var(--community-input)] py-2 pl-9 pr-3 text-[0.875rem] outline-none ring-1 ring-[var(--community-border)] placeholder:text-muted/70 focus:ring-accent/40"
+                autoFocus
+              />
+            </div>
+            {searchResultCount !== undefined && (
+              <span className="shrink-0 text-xs text-muted">{searchResultCount} found</span>
+            )}
+            {onSearchNext && (
+              <button
+                type="button"
+                onClick={onSearchNext}
+                className="shrink-0 rounded px-2 py-1 text-xs text-muted hover:bg-[var(--community-hover)] hover:text-foreground"
+              >
+                Next
+              </button>
+            )}
           </div>
         </div>
       )}

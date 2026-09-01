@@ -34,6 +34,7 @@ export function ChannelFormModal({
   const [categoryId, setCategoryId] = useState(
     channel?.categoryId || defaultCategoryId || categories[0]?.id || "",
   );
+  const [slowModeSeconds, setSlowModeSeconds] = useState(channel?.slowModeSeconds ?? 0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -54,6 +55,7 @@ export function ChannelFormModal({
           description,
           categoryId: categoryId || null,
           serverId,
+          slowModeSeconds,
         });
         await onSaved();
       } else {
@@ -103,6 +105,22 @@ export function ChannelFormModal({
         <TextField label="Topic" value={topic} onChange={(e) => setTopic(e.target.value)} />
         <TextArea label="Description" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
         <ChannelTypeSelect value={kind} onChange={setKind} />
+        <label className="block text-[0.8125rem] font-medium text-muted">
+          Slow mode
+          <select
+            value={slowModeSeconds}
+            onChange={(e) => setSlowModeSeconds(Number(e.target.value))}
+            className="mt-1 w-full rounded-[var(--radius-control)] bg-fill px-3 py-2 text-[0.9375rem]"
+          >
+            <option value={0}>Off</option>
+            <option value={5}>5 seconds</option>
+            <option value={10}>10 seconds</option>
+            <option value={15}>15 seconds</option>
+            <option value={30}>30 seconds</option>
+            <option value={60}>1 minute</option>
+            <option value={300}>5 minutes</option>
+          </select>
+        </label>
         <label className="block text-[0.8125rem] font-medium text-muted">
           Category
           <select

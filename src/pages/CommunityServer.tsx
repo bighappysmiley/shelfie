@@ -40,6 +40,7 @@ import {
   uploadCommunityImage,
   toggleMessageReaction,
   updateSuggestionStatus,
+  getChannelLastRead,
 } from "@/lib/community";
 import {
   SUGGESTION_STATUS_LABELS,
@@ -88,9 +89,13 @@ import { MemberListPanel } from "@/components/community/MemberListPanel";
 import {
   MessageDateDivider,
   TypingIndicator,
+  UnreadDivider,
   formatMessageDateDivider,
   messageDayKey,
 } from "@/components/community/discord-ui";
+import { EmojiPicker } from "@/components/community/EmojiPicker";
+import { KeyboardShortcutsModal } from "@/components/community/KeyboardShortcutsModal";
+import { ContextMenuItem, MessageContextMenu } from "@/components/community/MessageContextMenu";
 import { CommunityProfileModal } from "@/components/community/CommunityProfileModal";
 import { ChannelFormModal, CategoryFormModal } from "@/components/community-server-modals";
 import { AddServerModal } from "@/components/AddServerModal";
@@ -98,10 +103,15 @@ import { PinnedMessagesBar } from "@/components/community/PinnedMessagesBar";
 import { MentionAutocomplete } from "@/components/community/MentionAutocomplete";
 import {
   applyMention,
+  applyRoleMention,
   extractMentionQuery,
   filterMentionMembers,
+  filterMentionRoles,
   type MentionMember,
+  type MentionRole,
 } from "@/lib/community-mentions";
+import { getChannelDraft, setChannelDraft, draftPreview, getAllChannelDrafts } from "@/lib/community-drafts";
+import { useCommunityHotkeys } from "@/hooks/useCommunityHotkeys";
 import { listCommunityProfiles } from "@/lib/community-profile";
 import type { CommunityProfile } from "@/lib/community-types";
 
@@ -445,6 +455,7 @@ export function CommunityServerPage() {
               roleById={roleById}
               appOwnerUserIds={appOwnerUserIds}
               allChannels={channels}
+              serverRoles={serverRoles}
               onOpenProfile={openProfile}
               onMarkRead={user ? () => void markChannelRead(user.id, active.id) : undefined}
             />
@@ -681,6 +692,7 @@ function ChannelSidebar({
 }) {
   if (loading) return <p className="px-2 text-[0.8125rem] text-muted">Loading…</p>;
   const uncategorized = channelsByCategory.get(null) ?? [];
+  const channelDrafts = getAllChannelDrafts();
 
   return (
     <div className="space-y-3">
@@ -736,6 +748,11 @@ function ChannelSidebar({
                   <span className={`truncate ${unreadCounts?.get(ch.id) ? "font-semibold text-foreground" : ""}`}>
                     {ch.name}
                   </span>
+                  {channelDrafts?.get(ch.id) && ch.id !== activeId && (
+                    <span className="ml-auto truncate text-xs text-muted">
+                      {draftPreview(channelDrafts.get(ch.id)!, 18)}
+                    </span>
+                  )}
                   {unreadCounts?.get(ch.id) ? (
                     <span className="ml-auto h-2 w-2 shrink-0 rounded-full bg-foreground" />
                   ) : null}
@@ -812,6 +829,7 @@ function ChannelRoom({
   roleById = new Map<string, CommunityServerRole>(),
   appOwnerUserIds = new Set<string>(),
   allChannels = [],
+  serverRoles = [],
   onOpenProfile,
   onMarkRead,
 }: {
@@ -838,6 +856,7 @@ function ChannelRoom({
   roleById?: Map<string, CommunityServerRole>;
   appOwnerUserIds?: Set<string>;
   allChannels?: CommunityGroup[];
+  serverRoles?: CommunityServerRole[];
   onOpenProfile?: (target: { userId?: string; username?: string | null }) => void;
   onMarkRead?: () => void;
 }) {
@@ -859,6 +878,10 @@ function ChannelRoom({
   const [serverStickers, setServerStickers] = useState<CommunityServerSticker[]>([]);
   const [scrolledUp, setScrolledUp] = useState(false);
   const [highlightMessageId, setHighlightMessageId] = useState<string | null>(null);
+  const [lastReadAt, setLastReadAt] = useState<string | null>(null);
+  const [slowCooldown, setSlowCooldown] = useState(0);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [searchMatchIndex, setSearchMatchIndex] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Map<string, HTMLLIElement>>(new Map());
   const presenceRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -884,7 +907,49 @@ function ChannelRoom({
     [mentionQuery, mentionMembers],
   );
 
-  const channelNames = useMemo(() => allChannels.map((c) => ({ name: c.name })), [allChannels]);
+  const mentionRoles = useMemo<MentionRole[]>(
+    () =>
+      serverRoles.map((r) => ({
+        id: r.id,
+        name: r.name,
+        color: r.color,
+        mentionable: r.mentionable,
+      })),
+    [serverRoles],
+  );
+
+  const mentionRoleSuggestions = useMemo(
+    () => (mentionQuery === null ? [] : filterMentionRoles(mentionRoles, mentionQuery)),
+    [mentionQuery, mentionRoles],
+  );
+
+  const slowModeSeconds = group.slowModeSeconds ?? 0;
+
+  useEffect(() => {
+    setDraft(getChannelDraft(group.id));
+    setReplyTo(null);
+    void getChannelLastRead(userId, group.id).then(setLastReadAt);
+  }, [group.id, userId]);
+
+  useEffect(() => {
+    setChannelDraft(group.id, draft);
+  }, [group.id, draft]);
+
+  useEffect(() => {
+    if (slowCooldown <= 0) return;
+    const t = window.setInterval(() => setSlowCooldown((c) => Math.max(0, c - 1)), 1000);
+    return () => window.clearInterval(t);
+  }, [slowCooldown]);
+
+  useCommunityHotkeys({
+    onToggleSearch: () => setSearchOpen((v) => !v),
+    onCloseSearch: () => {
+      setSearchOpen(false);
+      setSearchQuery("");
+    },
+    onShowShortcuts: () => setShortcutsOpen(true),
+    searchOpen,
+  });
 
   const jumpToMessage = useCallback((messageId: string) => {
     setHighlightMessageId(messageId);
@@ -917,22 +982,29 @@ function ChannelRoom({
     }
     return counts;
   }, [messages]);
+  const channelNames = useMemo(() => allChannels.map((c) => ({ name: c.name })), [allChannels]);
+
   const visibleMessages = useMemo(() => {
-    let base: CommunityMessage[];
-    if (!isForum) base = messages;
-    else if (forumThreadId) {
-      base = messages.filter((m) => m.id === forumThreadId || m.replyToId === forumThreadId);
-    } else {
-      base = forumPosts;
+    if (!isForum) return messages;
+    if (forumThreadId) {
+      return messages.filter((m) => m.id === forumThreadId || m.replyToId === forumThreadId);
     }
+    return forumPosts;
+  }, [isForum, forumThreadId, messages, forumPosts]);
+
+  const searchMatches = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return base;
-    return base.filter(
+    if (!q) return visibleMessages;
+    return visibleMessages.filter(
       (m) =>
         m.body.toLowerCase().includes(q) ||
         (m.authorName?.toLowerCase().includes(q) ?? false),
     );
-  }, [isForum, forumThreadId, messages, forumPosts, searchQuery]);
+  }, [visibleMessages, searchQuery]);
+
+  useEffect(() => {
+    setSearchMatchIndex(0);
+  }, [searchQuery]);
 
   useEffect(() => {
     void listServerEmoji(serverId)
@@ -950,8 +1022,7 @@ function ChannelRoom({
     ]);
     setMessages(msgs);
     setPinned(pins);
-    onMarkRead?.();
-  }, [group.id, userId, onMarkRead]);
+  }, [group.id, userId]);
 
   useEffect(() => {
     void load().catch((err) =>
@@ -1066,7 +1137,7 @@ function ChannelRoom({
 
   const onSend = async (e: FormEvent) => {
     e.preventDefault();
-    if (!draft.trim() || !canPost) return;
+    if (!draft.trim() || !canPost || slowCooldown > 0) return;
     setSending(true);
     setError("");
     try {
@@ -1082,6 +1153,7 @@ function ChannelRoom({
       setDraft("");
       setReplyTo(null);
       setMentionQuery(null);
+      if (slowModeSeconds > 0) setSlowCooldown(slowModeSeconds);
       if (isForum && !forumThreadId) {
         // Stay on post list after creating a new forum post
       }
@@ -1105,6 +1177,16 @@ function ChannelRoom({
           onToggleSearch={() => setSearchOpen((v) => !v)}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
+          searchResultCount={searchQuery.trim() ? searchMatches.length : undefined}
+          onSearchNext={
+            searchMatches.length > 1
+              ? () => {
+                  const next = (searchMatchIndex + 1) % searchMatches.length;
+                  setSearchMatchIndex(next);
+                  jumpToMessage(searchMatches[next]!.id);
+                }
+              : undefined
+          }
           membersOpen={showServerMembers}
           onToggleMembers={onToggleServerMembers}
           memberCount={serverMemberCount}
@@ -1213,6 +1295,10 @@ function ChannelRoom({
               const el = e.currentTarget;
               const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 96;
               setScrolledUp(!atBottom);
+              if (atBottom) {
+                onMarkRead?.();
+                setLastReadAt(new Date().toISOString());
+              }
             }}
           >
             <ul className="space-y-1">
@@ -1257,13 +1343,21 @@ function ChannelRoom({
                       </button>
                     </li>
                   ))
-                : visibleMessages.flatMap((m, index) => {
-                const prev = index > 0 ? visibleMessages[index - 1] : null;
+                : (searchQuery.trim() ? searchMatches : visibleMessages).flatMap((m, index, list) => {
+                const prev = index > 0 ? list[index - 1] : null;
                 const grouped = shouldGroupMessages(prev, m);
                 const member = m.authorId ? memberByUserId.get(m.authorId) : undefined;
                 const role = member?.roleId ? roleById.get(member.roleId) : undefined;
                 const chatRoleIconUrl = getChatRoleIconUrl(role);
                 const items = [];
+                if (
+                  lastReadAt &&
+                  !list.slice(0, index).some((x) => x.createdAt > lastReadAt) &&
+                  m.createdAt > lastReadAt &&
+                  m.authorId !== userId
+                ) {
+                  items.push(<UnreadDivider key={`unread-${m.id}`} />);
+                }
                 if (!prev || messageDayKey(prev.createdAt) !== messageDayKey(m.createdAt)) {
                   items.push(
                     <MessageDateDivider
@@ -1283,9 +1377,11 @@ function ChannelRoom({
                   grouped={grouped}
                   highlighted={highlightMessageId === m.id}
                   mentionMembers={mentionMembers}
+                  mentionRoles={mentionRoles}
                   channels={channelNames}
                   serverEmoji={serverEmoji}
                   serverStickers={serverStickers}
+                  searchQuery={searchQuery.trim() || undefined}
                   authorProfile={m.authorId ? memberProfiles.get(m.authorId) : null}
                   isServerBooster={m.authorId ? serverBoosters.has(m.authorId) : false}
                   isAppOwnerAuthor={isAppOwnerUser(m.authorId, appOwnerUserIds)}
@@ -1340,18 +1436,24 @@ function ChannelRoom({
             </ul>
           </CommunityScrollBody>
 
-          {mentionSuggestions.length > 0 && (
+          {mentionSuggestions.length > 0 || mentionRoleSuggestions.length > 0 ? (
             <div className="px-4">
               <MentionAutocomplete
                 members={mentionSuggestions}
-                onPick={(member) => {
+                roles={mentionRoleSuggestions}
+                onPickMember={(member) => {
                   const next = applyMention(draft, draft.length, member);
+                  setDraft(next.text);
+                  setMentionQuery(null);
+                }}
+                onPickRole={(role) => {
+                  const next = applyRoleMention(draft, draft.length, role);
                   setDraft(next.text);
                   setMentionQuery(null);
                 }}
               />
             </div>
-          )}
+          ) : null}
 
           {error && (
             <div className="px-4">
@@ -1412,6 +1514,7 @@ function ChannelRoom({
               }
               onClearReply={() => setReplyTo(null)}
               hint={isForum && !forumThreadId ? "You're creating a new forum post." : undefined}
+              slowModeRemaining={slowCooldown}
             />
           ) : group.kind === "announcement" && (isMember || isAppOwner || canConfigure) ? (
             <div className="mx-4 mb-4 rounded-lg border border-dashed border-[var(--community-border)] px-4 py-3 text-center">
@@ -1429,6 +1532,8 @@ function ChannelRoom({
           )}
         </>
       )}
+
+      <KeyboardShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
     </div>
   );
 }
@@ -1439,9 +1544,11 @@ const MessageRow = forwardRef(function MessageRow(
     grouped = false,
     highlighted = false,
     mentionMembers,
+    mentionRoles = [],
     channels = [],
     serverEmoji = [],
     serverStickers = [],
+    searchQuery,
     authorProfile,
     isServerBooster = false,
     isAppOwnerAuthor = false,
@@ -1464,9 +1571,11 @@ const MessageRow = forwardRef(function MessageRow(
     grouped?: boolean;
     highlighted?: boolean;
     mentionMembers: MentionMember[];
+    mentionRoles?: MentionRole[];
     channels?: { name: string }[];
     serverEmoji?: CommunityServerEmoji[];
     serverStickers?: CommunityServerSticker[];
+    searchQuery?: string;
     authorProfile?: CommunityProfile | null;
     isServerBooster?: boolean;
     isAppOwnerAuthor?: boolean;
@@ -1490,9 +1599,13 @@ const MessageRow = forwardRef(function MessageRow(
   const [pickerOpen, setPickerOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
+  const reactBtnRef = useRef<HTMLButtonElement>(null);
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isDesktop = typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches;
 
   const openSheet = () => setSheetOpen(true);
+  const openMenu = (x: number, y: number) => setMenuPos({ x, y });
 
   const sheetActions = [
     { label: "React 👍", onClick: () => void onReact("👍") },
@@ -1539,7 +1652,8 @@ const MessageRow = forwardRef(function MessageRow(
       }}
       onContextMenu={(e) => {
         e.preventDefault();
-        openSheet();
+        if (isDesktop) openMenu(e.clientX, e.clientY);
+        else openSheet();
       }}
     >
       {grouped ? (
@@ -1598,6 +1712,7 @@ const MessageRow = forwardRef(function MessageRow(
             <CommunityMessageContent
               body={message.replyPreview.body}
               mentionMembers={mentionMembers}
+              mentionRoles={mentionRoles}
               channels={channels}
               serverEmoji={serverEmoji}
               serverStickers={serverStickers}
@@ -1614,9 +1729,11 @@ const MessageRow = forwardRef(function MessageRow(
         <CommunityMessageContent
           body={message.body}
           mentionMembers={mentionMembers}
+          mentionRoles={mentionRoles}
           channels={channels}
           serverEmoji={serverEmoji}
           serverStickers={serverStickers}
+          searchQuery={searchQuery}
         />
         {message.editedAt && <span className="text-[0.625rem] text-muted"> (edited)</span>}
 
@@ -1670,6 +1787,7 @@ const MessageRow = forwardRef(function MessageRow(
         <button
           type="button"
           onClick={() => setPickerOpen((v) => !v)}
+          ref={reactBtnRef}
           className="flex h-8 w-8 items-center justify-center rounded text-muted hover:bg-[var(--community-hover)]"
           aria-label="Add reaction"
         >
@@ -1694,22 +1812,30 @@ const MessageRow = forwardRef(function MessageRow(
       </div>
 
       {pickerOpen && (
-        <div className="absolute -top-10 right-2 z-10 flex gap-1 rounded border border-[var(--community-border)] bg-[var(--community-panel)] p-1.5 shadow-lg">
-          {QUICK_EMOJIS.map((emoji) => (
-            <button
-              key={emoji}
-              type="button"
-              onClick={() => {
-                void onReact(emoji);
-                setPickerOpen(false);
-              }}
-              className="rounded p-1 text-lg hover:bg-[var(--community-hover)]"
-            >
-              {emoji}
-            </button>
-          ))}
-        </div>
+        <EmojiPicker
+          open={pickerOpen}
+          onClose={() => setPickerOpen(false)}
+          anchorRef={reactBtnRef}
+          serverEmoji={serverEmoji}
+          onPick={(emoji) => void onReact(emoji)}
+          align="right"
+        />
       )}
+
+      <MessageContextMenu open={Boolean(menuPos)} x={menuPos?.x ?? 0} y={menuPos?.y ?? 0} onClose={() => setMenuPos(null)}>
+        {sheetActions.map((action) => (
+          <ContextMenuItem
+            key={action.label}
+            destructive={"destructive" in action && action.destructive}
+            onClick={() => {
+              action.onClick();
+              setMenuPos(null);
+            }}
+          >
+            {action.label}
+          </ContextMenuItem>
+        ))}
+      </MessageContextMenu>
 
       <CommunityActionSheet open={sheetOpen} onClose={() => setSheetOpen(false)} actions={sheetActions} />
 

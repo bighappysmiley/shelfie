@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "rea
 import { AuthedImage } from "@/components/AuthedImage";
 import { CommunityActionSheet } from "@/components/CommunityActionSheet";
 import { CommunityPopover, PopoverItem } from "@/components/community/discord-ui";
+import { AttachmentPreviewBar, type StagedAttachment } from "@/components/community/AttachmentPreviewBar";
+import { EmojiPicker } from "@/components/community/EmojiPicker";
 import { FormattingToolbar } from "@/components/community/FormattingToolbar";
 import { IconGift, IconPlus, IconSend, IconSmile, IconSticker, IconX } from "@/components/Icons";
 import type { CommunityServerEmoji, CommunityServerSticker } from "@/lib/community-types";
@@ -52,6 +54,7 @@ export function ChannelMessageComposer({
   replyPreview,
   onClearReply,
   hint,
+  slowModeRemaining = 0,
 }: {
   channelName: string;
   draft: string;
@@ -67,6 +70,7 @@ export function ChannelMessageComposer({
   replyPreview?: { authorName: string; body: string } | null;
   onClearReply?: () => void;
   hint?: string;
+  slowModeRemaining?: number;
 }) {
   const [plusOpen, setPlusOpen] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
@@ -78,6 +82,9 @@ export function ChannelMessageComposer({
   const fileRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const plusRef = useRef<HTMLButtonElement>(null);
+  const emojiBtnRef = useRef<HTMLButtonElement>(null);
+  const [staged, setStaged] = useState<StagedAttachment[]>([]);
+  const [dragOver, setDragOver] = useState(false);
 
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 768px)");
@@ -109,15 +116,20 @@ export function ChannelMessageComposer({
 
   const handleUpload = async (file: File) => {
     if (!onUploadImage) return;
+    const id = crypto.randomUUID();
+    const previewUrl = URL.createObjectURL(file);
+    setStaged((prev) => [...prev, { id, file, previewUrl, uploading: true }]);
     setUploading(true);
     try {
       await onUploadImage(file);
+      setStaged((prev) => prev.filter((a) => a.id !== id));
     } finally {
+      URL.revokeObjectURL(previewUrl);
       setUploading(false);
     }
   };
 
-  const canSend = draft.trim().length > 0 && !sending && !disabled;
+  const canSend = draft.trim().length > 0 && !sending && !disabled && slowModeRemaining <= 0;
 
   const plusActions = [
     ...(onUploadImage
@@ -139,7 +151,21 @@ export function ChannelMessageComposer({
   ];
 
   return (
-    <form onSubmit={onSend} className="shrink-0 px-4 pb-4 pt-2">
+    <form
+      onSubmit={onSend}
+      className={`shrink-0 px-4 pb-4 pt-2 ${dragOver ? "ring-2 ring-accent/30 rounded-lg" : ""}`}
+      onDragOver={(e) => {
+        e.preventDefault();
+        setDragOver(true);
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDragOver(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file?.type.startsWith("image/")) void handleUpload(file);
+      }}
+    >
       {replyPreview && (
         <div className="mb-2 flex items-center gap-2 rounded border-l-4 border-accent bg-[var(--community-input)] px-3 py-2">
           <div className="min-w-0 flex-1">
@@ -160,6 +186,23 @@ export function ChannelMessageComposer({
       {hint && <p className="mb-2 text-[0.75rem] text-muted">{hint}</p>}
 
       <FormattingToolbar textareaRef={textareaRef} onChange={onDraftChange} />
+
+      <AttachmentPreviewBar
+        attachments={staged}
+        onRemove={(id) => {
+          setStaged((prev) => {
+            const item = prev.find((a) => a.id === id);
+            if (item) URL.revokeObjectURL(item.previewUrl);
+            return prev.filter((a) => a.id !== id);
+          });
+        }}
+      />
+
+      {slowModeRemaining > 0 && (
+        <p className="mb-2 text-xs text-muted">
+          Slow mode is enabled. You can send again in {slowModeRemaining}s.
+        </p>
+      )}
 
       <div className="flex min-h-[2.75rem] items-end gap-2 rounded-lg bg-[var(--community-input)] px-3 py-2">
         <ComposerIconButton
@@ -229,6 +272,7 @@ export function ChannelMessageComposer({
 
           <ComposerIconButton
             label="Emoji"
+            buttonRef={emojiBtnRef}
             onClick={() => setEmojiOpen((v) => !v)}
             active={emojiOpen}
           >
@@ -260,31 +304,41 @@ export function ChannelMessageComposer({
         }}
       />
 
-      {emojiOpen && (
-        <div className="mt-2 rounded-lg border border-[var(--community-border)] bg-[var(--community-panel)] p-2 shadow-lg">
-          <p className="mb-2 px-1 text-[0.6875rem] font-semibold uppercase tracking-wider text-muted">
-            Emoji
-          </p>
-          <div className="flex flex-wrap gap-1">
-            {[...DEFAULT_EMOJIS, ...serverEmoji.map((e) => `:${e.name}:`)].map((item) => {
-              const custom = serverEmoji.find((e) => `:${e.name}:` === item);
-              return (
-                <button
-                  key={item}
-                  type="button"
-                  onClick={() => insertAtCursor(custom ? `:${custom.name}:` : item)}
-                  className="flex h-9 w-9 items-center justify-center rounded hover:bg-[var(--community-hover)]"
-                >
-                  {custom ? (
-                    <AuthedImage src={custom.imageUrl} alt="" className="h-6 w-6 object-contain" />
-                  ) : (
-                    <span className="text-xl">{item}</span>
-                  )}
-                </button>
-              );
-            })}
+      {isDesktop ? (
+        <EmojiPicker
+          open={emojiOpen}
+          onClose={() => setEmojiOpen(false)}
+          anchorRef={emojiBtnRef}
+          serverEmoji={serverEmoji}
+          onPick={(emoji) => insertAtCursor(emoji.startsWith(":") ? emoji : emoji)}
+        />
+      ) : (
+        emojiOpen && (
+          <div className="mt-2 rounded-lg border border-[var(--community-border)] bg-[var(--community-panel)] p-2 shadow-lg">
+            <p className="mb-2 px-1 text-[0.6875rem] font-semibold uppercase tracking-wider text-muted">
+              Emoji
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {[...DEFAULT_EMOJIS, ...serverEmoji.map((e) => `:${e.name}:`)].map((item) => {
+                const custom = serverEmoji.find((e) => `:${e.name}:` === item);
+                return (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => insertAtCursor(custom ? `:${custom.name}:` : item)}
+                    className="flex h-9 w-9 items-center justify-center rounded hover:bg-[var(--community-hover)]"
+                  >
+                    {custom ? (
+                      <AuthedImage src={custom.imageUrl} alt="" className="h-6 w-6 object-contain" />
+                    ) : (
+                      <span className="text-xl">{item}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )
       )}
 
       {stickerOpen && serverStickers.length > 0 && (

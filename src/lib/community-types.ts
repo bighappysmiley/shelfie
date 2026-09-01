@@ -145,6 +145,7 @@ export interface CommunityGroup {
   archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  slowModeSeconds?: number;
   myRole?: CommunityMemberRole | null;
   memberCount?: number;
 }

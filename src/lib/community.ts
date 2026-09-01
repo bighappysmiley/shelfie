@@ -117,6 +117,7 @@ type GroupRow = {
   archived_at: string | null;
   created_at: string;
   updated_at: string;
+  slow_mode_seconds?: number | null;
 };
 
 type MessageRow = {
@@ -262,6 +263,7 @@ function mapGroup(row: GroupRow, extra?: Partial<CommunityGroup>): CommunityGrou
     archivedAt: row.archived_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    slowModeSeconds: row.slow_mode_seconds ?? 0,
     ...extra,
   };
 }
@@ -1101,6 +1103,7 @@ export async function updateCommunityGroup(
     categoryId?: string | null;
     position?: number;
     serverId?: string;
+    slowModeSeconds?: number;
   },
 ): Promise<void> {
   const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -1110,6 +1113,7 @@ export async function updateCommunityGroup(
   if (patch.kind !== undefined) row.kind = patch.kind;
   if (patch.position !== undefined) row.position = patch.position;
   if (patch.categoryId !== undefined) row.category_id = patch.categoryId;
+  if (patch.slowModeSeconds !== undefined) row.slow_mode_seconds = patch.slowModeSeconds;
 
   const { error } = await supabase.from("community_groups").update(row).eq("id", groupId);
   if (error) throw error;
@@ -1648,6 +1652,16 @@ export async function markChannelRead(userId: string, groupId: string): Promise<
     last_read_at: new Date().toISOString(),
   });
   if (error) throw error;
+}
+
+export async function getChannelLastRead(userId: string, groupId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from("community_group_read_state")
+    .select("last_read_at")
+    .eq("user_id", userId)
+    .eq("group_id", groupId)
+    .maybeSingle();
+  return (data?.last_read_at as string | undefined) ?? null;
 }
 
 export async function listUnreadCounts(

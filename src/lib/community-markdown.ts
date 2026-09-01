@@ -11,6 +11,7 @@ export type MarkdownInlineNode =
   | { type: "link"; label: string; href: string }
   | { type: "autolink"; href: string }
   | { type: "mention"; handle: string; label: string; known: boolean }
+  | { type: "role-mention"; name: string; color: string }
   | { type: "channel"; name: string; known: boolean }
   | { type: "special-mention"; value: "@everyone" | "@here" }
   | { type: "emoji"; name: string }
@@ -24,6 +25,7 @@ export type MarkdownBlockNode =
   | { type: "heading"; level: 1 | 2 | 3; children: MarkdownInlineNode[] }
   | { type: "subtext"; children: MarkdownInlineNode[] }
   | { type: "image"; url: string }
+  | { type: "link-preview"; url: string; hostname: string }
   | { type: "spacer" };
 
 export type MarkdownContext = {
@@ -31,6 +33,7 @@ export type MarkdownContext = {
   channelNames?: Set<string>;
   emojiNames?: Set<string>;
   stickerNames?: Set<string>;
+  roles?: { name: string; color: string; mentionable: boolean }[];
 };
 
 const URL_RE =
@@ -194,6 +197,21 @@ function parseInline(text: string, ctx: MarkdownContext): MarkdownInlineNode[] {
     }
 
     if (ch === "@") {
+      const mentionableRoles = [...(ctx.roles ?? [])]
+        .filter((r) => r.mentionable)
+        .sort((a, b) => b.name.length - a.name.length);
+      for (const role of mentionableRoles) {
+        const token = `@${role.name}`;
+        if (text.slice(i, i + token.length).toLowerCase() === token.toLowerCase()) {
+          const after = text[i + token.length];
+          if (!after || /[\s,.!?]/.test(after)) {
+            nodes.push({ type: "role-mention", name: role.name, color: role.color });
+            i += token.length;
+            continue;
+          }
+        }
+      }
+
       const match = /^@([a-zA-Z0-9._-]{2,32}|everyone|here)/.exec(text.slice(i));
       if (match) {
         const token = match[0];
@@ -332,6 +350,18 @@ function parseTextBlocks(text: string, ctx: MarkdownContext): MarkdownBlockNode[
       blocks.push({ type: "image", url: line.trim() });
       i++;
       continue;
+    }
+
+    const urlOnly = /^(https?:\/\/[^\s]+)$/i.exec(line.trim());
+    if (urlOnly) {
+      try {
+        const hostname = new URL(urlOnly[1]!).hostname.replace(/^www\./, "");
+        blocks.push({ type: "link-preview", url: urlOnly[1]!, hostname });
+        i++;
+        continue;
+      } catch {
+        /* fall through */
+      }
     }
 
     blocks.push({ type: "paragraph", children: parseInline(line, ctx) });
