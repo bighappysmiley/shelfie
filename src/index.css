@@ -471,6 +471,31 @@ h1, h2, h3 {
   word-break: break-word;
 }
 
+.code-token--keyword {
+  color: var(--accent);
+}
+
+.code-token--string {
+  color: #7a9e88;
+}
+
+.code-token--comment {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.code-token--number {
+  color: #a87848;
+}
+
+.dark .code-token--string {
+  color: #9ec4ae;
+}
+
+.dark .code-token--number {
+  color: #c4a878;
+}
+
 .community-spoiler {
   background: var(--community-border);
   color: transparent;

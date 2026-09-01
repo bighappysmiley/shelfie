@@ -41,11 +41,14 @@ export function ChannelToolbar({
   onSearchChange,
   searchResultCount,
   onSearchNext,
+  onSearchPrev,
   membersOpen = false,
   onToggleMembers,
   memberCount = 0,
   onOpenSettings,
   canManage = false,
+  threadsOpen = false,
+  onToggleThreads,
 }: {
   group: CommunityGroup;
   pinnedCount?: number;
@@ -57,11 +60,14 @@ export function ChannelToolbar({
   onSearchChange?: (q: string) => void;
   searchResultCount?: number;
   onSearchNext?: () => void;
+  onSearchPrev?: () => void;
   membersOpen?: boolean;
   onToggleMembers?: () => void;
   memberCount?: number;
   onOpenSettings?: () => void;
   canManage?: boolean;
+  threadsOpen?: boolean;
+  onToggleThreads?: () => void;
 }) {
   return (
     <header className="shrink-0 border-b border-[var(--community-border)] shadow-[0_1px_0_0_var(--community-border)]">
@@ -76,8 +82,8 @@ export function ChannelToolbar({
         </div>
 
         <div className="flex shrink-0 items-center">
-          {group.kind === "text" && (
-            <ToolbarButton label="Threads">
+          {group.kind === "text" && onToggleThreads && (
+            <ToolbarButton label="Threads" onClick={onToggleThreads} active={threadsOpen}>
               <IconThreads size={18} />
             </ToolbarButton>
           )}
@@ -134,7 +140,16 @@ export function ChannelToolbar({
             {searchResultCount !== undefined && (
               <span className="shrink-0 text-xs text-muted">{searchResultCount} found</span>
             )}
-            {onSearchNext && (
+            {onSearchPrev && searchResultCount !== undefined && searchResultCount > 0 && (
+              <button
+                type="button"
+                onClick={onSearchPrev}
+                className="shrink-0 rounded px-2 py-1 text-xs text-muted hover:bg-[var(--community-hover)] hover:text-foreground"
+              >
+                Prev
+              </button>
+            )}
+            {onSearchNext && searchResultCount !== undefined && searchResultCount > 0 && (
               <button
                 type="button"
                 onClick={onSearchNext}

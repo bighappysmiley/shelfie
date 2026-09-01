@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { AuthedImage } from "@/components/AuthedImage";
 import { IconCopy } from "@/components/Icons";
+import { highlightCode } from "@/lib/code-highlight";
 import type { MentionMember, MentionRole } from "@/lib/community-mentions";
 import {
   formatDiscordTimestamp,
@@ -193,6 +194,7 @@ function InlineNode({
 
 function CodeBlock({ value, language }: { value: string; language?: string }) {
   const [copied, setCopied] = useState(false);
+  const tokens = highlightCode(value, language);
   return (
     <div className="community-codeblock-wrap my-1 overflow-hidden rounded border border-[var(--community-border)]">
       <div className="flex items-center justify-between bg-[var(--community-panel)] px-2 py-1">
@@ -214,7 +216,13 @@ function CodeBlock({ value, language }: { value: string; language?: string }) {
         </button>
       </div>
       <pre className="overflow-x-auto bg-[var(--community-input)] p-2 font-mono text-[0.8125rem] leading-relaxed">
-        <code>{value}</code>
+        <code>
+          {tokens.map((t, i) => (
+            <span key={i} className={`code-token code-token--${t.type}`}>
+              {t.value}
+            </span>
+          ))}
+        </code>
       </pre>
     </div>
   );

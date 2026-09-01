@@ -76,6 +76,9 @@ import { ChannelKindGlyph, channelKindBanner, canPostInChannelKind } from "@/com
 import { DiscordChannelIcon } from "@/components/community/DiscordIcons";
 import { ChannelMessageComposer } from "@/components/community/ChannelMessageComposer";
 import { ChannelToolbar } from "@/components/community/ChannelToolbar";
+import { ThreadsPanel } from "@/components/community/ThreadsPanel";
+import { VoiceConnectedBar } from "@/components/community/VoiceConnectedBar";
+import { ReactionTooltip } from "@/components/community/ReactionTooltip";
 import { ChannelWelcome } from "@/components/community/ChannelWelcome";
 import { ChatAuthorBadge } from "@/components/community/ChatAuthorBadge";
 import { CommunityAvatar } from "@/components/community/CommunityAvatar";
@@ -179,6 +182,10 @@ export function CommunityServerPage() {
   const [serverBoosters, setServerBoosters] = useState<Set<string>>(new Set());
   const [serverRoles, setServerRoles] = useState<CommunityServerRole[]>([]);
   const [appOwnerUserIds, setAppOwnerUserIds] = useState<Set<string>>(new Set());
+  const [voiceConnection, setVoiceConnection] = useState<{
+    channelId: string;
+    channelName: string;
+  } | null>(null);
 
   const openProfile = useCallback((target: { userId?: string; username?: string | null }) => {
     setProfileTarget(target);
@@ -460,6 +467,16 @@ export function CommunityServerPage() {
               serverRoles={serverRoles}
               onOpenProfile={openProfile}
               onMarkRead={user ? () => void markChannelRead(user.id, active.id) : undefined}
+              voiceConnection={voiceConnection}
+              onVoiceConnect={(channelId, channelName) =>
+                setVoiceConnection({ channelId, channelName })
+              }
+              onVoiceDisconnect={() => setVoiceConnection(null)}
+              onReturnToVoice={
+                voiceConnection
+                  ? () => navigate(`/community/s/${serverId}/${voiceConnection.channelId}`)
+                  : undefined
+              }
             />
           ) : (
             <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
@@ -834,6 +851,10 @@ function ChannelRoom({
   serverRoles = [],
   onOpenProfile,
   onMarkRead,
+  voiceConnection = null,
+  onVoiceConnect,
+  onVoiceDisconnect,
+  onReturnToVoice,
 }: {
   group: CommunityGroup;
   serverId: string;
@@ -861,6 +882,10 @@ function ChannelRoom({
   serverRoles?: CommunityServerRole[];
   onOpenProfile?: (target: { userId?: string; username?: string | null }) => void;
   onMarkRead?: () => void;
+  voiceConnection?: { channelId: string; channelName: string } | null;
+  onVoiceConnect?: (channelId: string, channelName: string) => void;
+  onVoiceDisconnect?: () => void;
+  onReturnToVoice?: () => void;
 }) {
   const [messages, setMessages] = useState<CommunityMessage[]>([]);
   const [pinned, setPinned] = useState<CommunityMessage[]>([]);
@@ -885,6 +910,8 @@ function ChannelRoom({
   const [slowCooldown, setSlowCooldown] = useState(0);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [searchMatchIndex, setSearchMatchIndex] = useState(0);
+  const [threadsPanelOpen, setThreadsPanelOpen] = useState(false);
+  const [threadRootId, setThreadRootId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Map<string, HTMLLIElement>>(new Map());
   const presenceRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -892,6 +919,17 @@ function ChannelRoom({
 
   const memberByUserId = useMemo(
     () => new Map(serverMembers.map((m) => [m.userId, m])),
+    [serverMembers],
+  );
+
+  const memberNames = useMemo(
+    () =>
+      new Map(
+        serverMembers.map((m) => [
+          m.userId,
+          m.displayName || m.communityUsername || "Member",
+        ]),
+      ),
     [serverMembers],
   );
 
@@ -988,12 +1026,41 @@ function ChannelRoom({
   const channelNames = useMemo(() => allChannels.map((c) => ({ name: c.name })), [allChannels]);
 
   const visibleMessages = useMemo(() => {
-    if (!isForum) return messages;
-    if (forumThreadId) {
-      return messages.filter((m) => m.id === forumThreadId || m.replyToId === forumThreadId);
+    if (isForum) {
+      if (forumThreadId) {
+        return messages.filter((m) => m.id === forumThreadId || m.replyToId === forumThreadId);
+      }
+      return forumPosts;
     }
-    return forumPosts;
-  }, [isForum, forumThreadId, messages, forumPosts]);
+    if (threadRootId) {
+      const root = messages.find((m) => m.id === threadRootId);
+      if (!root) return [];
+      return [
+        root,
+        ...messages.filter((m) => m.replyToId === threadRootId),
+      ].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    }
+    return messages.filter((m) => !m.replyToId);
+  }, [isForum, forumThreadId, messages, forumPosts, threadRootId]);
+
+  const threadSummaries = useMemo(() => {
+    if (isForum || isVoice) return [];
+    const summaries = new Map<string, { root: CommunityMessage; replyCount: number }>();
+    for (const m of messages) {
+      if (!m.replyToId) continue;
+      const root = messages.find((x) => x.id === m.replyToId);
+      if (!root || root.replyToId) continue;
+      const existing = summaries.get(m.replyToId);
+      if (existing) {
+        existing.replyCount += 1;
+      } else {
+        summaries.set(m.replyToId, { root, replyCount: 1 });
+      }
+    }
+    return [...summaries.values()].sort((a, b) =>
+      b.root.createdAt.localeCompare(a.root.createdAt),
+    );
+  }, [isForum, isVoice, messages]);
 
   const searchMatches = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -1091,6 +1158,8 @@ function ChannelRoom({
   useEffect(() => {
     setReplyTo(null);
     setForumThreadId(null);
+    setThreadRootId(null);
+    setThreadsPanelOpen(false);
     setJoinedVoice(false);
     setSearchOpen(false);
     setSearchQuery("");
@@ -1135,11 +1204,25 @@ function ChannelRoom({
     if (joinedVoice) {
       await channel.track({ name: authorLabel, inVoice: false });
       setJoinedVoice(false);
+      onVoiceDisconnect?.();
     } else {
       await channel.track({ name: authorLabel, inVoice: true });
       setJoinedVoice(true);
+      onVoiceConnect?.(group.id, group.name);
     }
   };
+
+  const handleSearchPrev = () => {
+    if (searchMatches.length === 0) return;
+    const prev = (searchMatchIndex - 1 + searchMatches.length) % searchMatches.length;
+    setSearchMatchIndex(prev);
+    jumpToMessage(searchMatches[prev]!.id);
+  };
+
+  const activeSearchMessageId =
+    searchQuery.trim() && searchMatches.length > 0
+      ? searchMatches[searchMatchIndex]?.id
+      : undefined;
 
   const onSend = async (e: FormEvent) => {
     e.preventDefault();
@@ -1154,7 +1237,9 @@ function ChannelRoom({
         body: draft,
         kind: "chat",
         authorName: authorLabel,
-        replyToId: isForum ? forumThreadId ?? replyTo?.id ?? null : replyTo?.id ?? null,
+        replyToId: isForum
+          ? forumThreadId ?? replyTo?.id ?? null
+          : threadRootId ?? replyTo?.id ?? null,
       });
       setDraft("");
       setReplyTo(null);
@@ -1184,6 +1269,11 @@ function ChannelRoom({
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           searchResultCount={searchQuery.trim() ? searchMatches.length : undefined}
+          onSearchPrev={
+            searchMatches.length > 0
+              ? handleSearchPrev
+              : undefined
+          }
           onSearchNext={
             searchMatches.length > 1
               ? () => {
@@ -1191,6 +1281,14 @@ function ChannelRoom({
                   setSearchMatchIndex(next);
                   jumpToMessage(searchMatches[next]!.id);
                 }
+              : searchMatches.length === 1
+                ? () => jumpToMessage(searchMatches[0]!.id)
+                : undefined
+          }
+          threadsOpen={threadsPanelOpen}
+          onToggleThreads={
+            group.kind === "text"
+              ? () => setThreadsPanelOpen((v) => !v)
               : undefined
           }
           membersOpen={showServerMembers}
@@ -1280,7 +1378,8 @@ function ChannelRoom({
           </CommunityScrollBody>
         </div>
       ) : (
-        <>
+        <div className="flex min-h-0 flex-1">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {isForum && forumThreadId && (
             <div className="shrink-0 border-b border-[var(--community-border)] px-4 py-2">
               <button
@@ -1292,6 +1391,20 @@ function ChannelRoom({
                 className="text-[0.8125rem] text-link"
               >
                 ← Back to posts
+              </button>
+            </div>
+          )}
+          {!isForum && threadRootId && (
+            <div className="shrink-0 border-b border-[var(--community-border)] px-4 py-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setThreadRootId(null);
+                  setReplyTo(null);
+                }}
+                className="text-[0.8125rem] text-link"
+              >
+                ← Back to channel
               </button>
             </div>
           )}
@@ -1388,6 +1501,9 @@ function ChannelRoom({
                   serverEmoji={serverEmoji}
                   serverStickers={serverStickers}
                   searchQuery={searchQuery.trim() || undefined}
+                  isSearchActive={m.id === activeSearchMessageId}
+                  memberProfiles={memberProfiles}
+                  memberNames={memberNames}
                   authorProfile={m.authorId ? memberProfiles.get(m.authorId) : null}
                   isServerBooster={m.authorId ? serverBoosters.has(m.authorId) : false}
                   isAppOwnerAuthor={isAppOwnerUser(m.authorId, appOwnerUserIds)}
@@ -1412,8 +1528,18 @@ function ChannelRoom({
                   onReply={() => {
                     if (isForum && forumThreadId) setReplyTo(m);
                     else if (isForum) setForumThreadId(m.id);
+                    else if (threadRootId) setReplyTo(m);
                     else setReplyTo(m);
                   }}
+                  onCreateThread={
+                    !isForum && !threadRootId && !m.replyToId && canPost
+                      ? () => {
+                          setThreadRootId(m.id);
+                          setThreadsPanelOpen(true);
+                          setReplyTo(null);
+                        }
+                      : undefined
+                  }
                   onEdit={async (body) => {
                     await updateGroupMessage(m.id, userId, body);
                     await load();
@@ -1503,9 +1629,11 @@ function ChannelRoom({
                   ? "Reply to thread"
                   : isForum
                     ? `Create a post in #${group.name}`
-                    : group.kind === "announcement"
-                      ? `Post an announcement in #${group.name}`
-                      : `Message #${group.name}`
+                    : threadRootId
+                      ? "Reply to thread"
+                      : group.kind === "announcement"
+                        ? `Post an announcement in #${group.name}`
+                        : `Message #${group.name}`
               }
               serverEmoji={serverEmoji}
               serverStickers={serverStickers}
@@ -1537,8 +1665,37 @@ function ChannelRoom({
               </Button>
             </div>
           )}
-        </>
+          </div>
+
+          {threadsPanelOpen && group.kind === "text" && (
+            <ThreadsPanel
+              threads={threadSummaries}
+              activeThreadId={threadRootId}
+              onSelect={(rootId) => {
+                setThreadRootId(rootId);
+                setReplyTo(null);
+              }}
+              onClose={() => setThreadsPanelOpen(false)}
+            />
+          )}
+        </div>
       )}
+
+      {voiceConnection &&
+        voiceConnection.channelId !== group.id &&
+        onReturnToVoice &&
+        onVoiceDisconnect && (
+          <VoiceConnectedBar
+            channelName={voiceConnection.channelName}
+            onReturn={onReturnToVoice}
+            onDisconnect={() => {
+              onVoiceDisconnect();
+              if (group.kind === "voice" && joinedVoice) {
+                void toggleVoice();
+              }
+            }}
+          />
+        )}
 
       <KeyboardShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
     </div>
@@ -1556,6 +1713,9 @@ const MessageRow = forwardRef(function MessageRow(
     serverEmoji = [],
     serverStickers = [],
     searchQuery,
+    isSearchActive = false,
+    memberProfiles,
+    memberNames,
     authorProfile,
     isServerBooster = false,
     isAppOwnerAuthor = false,
@@ -1567,6 +1727,7 @@ const MessageRow = forwardRef(function MessageRow(
     userId: _userId,
     onOpenProfile,
     onReply,
+    onCreateThread,
     onJumpToReply,
     onReact,
     onPin,
@@ -1583,6 +1744,9 @@ const MessageRow = forwardRef(function MessageRow(
     serverEmoji?: CommunityServerEmoji[];
     serverStickers?: CommunityServerSticker[];
     searchQuery?: string;
+    isSearchActive?: boolean;
+    memberProfiles?: Map<string, CommunityProfile>;
+    memberNames?: Map<string, string>;
     authorProfile?: CommunityProfile | null;
     isServerBooster?: boolean;
     isAppOwnerAuthor?: boolean;
@@ -1594,6 +1758,7 @@ const MessageRow = forwardRef(function MessageRow(
     userId: string;
     onOpenProfile?: () => void;
     onReply: () => void;
+    onCreateThread?: () => void;
     onJumpToReply?: () => void;
     onReact: (emoji: string) => Promise<void>;
     onPin?: () => Promise<void>;
@@ -1617,6 +1782,7 @@ const MessageRow = forwardRef(function MessageRow(
   const sheetActions = [
     { label: "React 👍", onClick: () => void onReact("👍") },
     { label: "Reply", onClick: onReply },
+    ...(onCreateThread ? [{ label: "Create thread", onClick: onCreateThread }] : []),
     {
       label: "Copy text",
       onClick: () => void navigator.clipboard.writeText(message.body),
@@ -1650,7 +1816,7 @@ const MessageRow = forwardRef(function MessageRow(
       ref={ref}
       className={`group relative flex gap-4 rounded-md px-4 hover:bg-[var(--community-message-hover)] ${
         grouped ? "community-message-grouped py-0.5" : "py-1"
-      } ${highlighted ? "community-message-highlight" : ""}`}
+      } ${highlighted || isSearchActive ? "community-message-highlight" : ""}`}
       onTouchStart={() => {
         longPressRef.current = setTimeout(openSheet, 500);
       }}
@@ -1751,12 +1917,18 @@ const MessageRow = forwardRef(function MessageRow(
                 key={r.emoji}
                 type="button"
                 onClick={() => void onReact(r.emoji)}
-                className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition ${
+                className={`group/reaction relative flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition ${
                   r.reactedByMe
                     ? "border-[var(--accent)] bg-[var(--accent-soft)]"
                     : "border-[var(--community-border)] bg-[var(--community-input)] hover:border-[var(--accent)]"
                 }`}
               >
+                <ReactionTooltip
+                  emoji={r.emoji}
+                  userIds={r.userIds ?? []}
+                  memberProfiles={memberProfiles}
+                  memberNames={memberNames}
+                />
                 <CommunityReactionEmoji emoji={r.emoji} serverEmoji={serverEmoji} />
                 <span className="text-muted">{r.count}</span>
               </button>

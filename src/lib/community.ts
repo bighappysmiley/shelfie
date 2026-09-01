@@ -1212,11 +1212,12 @@ export async function listGroupMessages(groupId: string, userId?: string): Promi
     if (rx) reactionRows.push(...(rx as typeof reactionRows));
   }
 
-  const reactionsByMessage = new Map<string, Map<string, { count: number; mine: boolean }>>();
+  const reactionsByMessage = new Map<string, Map<string, { count: number; mine: boolean; userIds: string[] }>>();
   for (const rx of reactionRows) {
     const map = reactionsByMessage.get(rx.message_id) ?? new Map();
-    const entry = map.get(rx.emoji) ?? { count: 0, mine: false };
+    const entry = map.get(rx.emoji) ?? { count: 0, mine: false, userIds: [] };
     entry.count += 1;
+    entry.userIds.push(rx.user_id);
     if (userId && rx.user_id === userId) entry.mine = true;
     map.set(rx.emoji, entry);
     reactionsByMessage.set(rx.message_id, map);
@@ -1230,6 +1231,7 @@ export async function listGroupMessages(groupId: string, userId?: string): Promi
           emoji,
           count: v.count,
           reactedByMe: v.mine,
+          userIds: v.userIds,
         }))
       : [];
     return mapMessage(row, {

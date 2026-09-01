@@ -162,6 +162,7 @@ export interface CommunityMessageReaction {
   emoji: string;
   count: number;
   reactedByMe: boolean;
+  userIds?: string[];
 }
 
 export interface CommunityMessage {

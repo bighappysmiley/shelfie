@@ -27,6 +27,13 @@ export function TimestampBuilderModal({
   const [when, setWhen] = useState(defaultLocal);
   const [style, setStyle] = useState<TimestampStyle>("f");
 
+  useEffect(() => {
+    if (open) {
+      setWhen(defaultLocal);
+      setStyle("f");
+    }
+  }, [open, defaultLocal]);
+
   const unix = dateToUnixSeconds(when);
   const preview = unix ? previewTimestamp(unix, style) : "Pick a date and time";
 

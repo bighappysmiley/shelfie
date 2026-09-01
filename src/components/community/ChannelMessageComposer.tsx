@@ -6,12 +6,17 @@ import { CommunityPopover, PopoverItem } from "@/components/community/discord-ui
 import { AttachmentPreviewBar, type StagedAttachment } from "@/components/community/AttachmentPreviewBar";
 import { EmojiPicker } from "@/components/community/EmojiPicker";
 import { TimestampBuilderModal } from "@/components/community/TimestampBuilderModal";
+import { SlashCommandMenu } from "@/components/community/SlashCommandMenu";
 import { IconApps, IconPlus, IconSend, IconSmile, IconSticker, IconX } from "@/components/Icons";
+import {
+  applySlashCommand,
+  extractSlashQuery,
+  filterSlashCommands,
+  type SlashCommand,
+} from "@/lib/community-slash-commands";
 import type { CommunityServerEmoji, CommunityServerSticker, CommunityServerWebhook } from "@/lib/community-types";
 
 const DEFAULT_EMOJIS = ["😀", "😂", "❤️", "👍", "🔥", "🎉", "👀", "📚", "✨", "🙌", "😮", "💯"];
-
-const SLASH_TIMESTAMP_RE = /(^|\s)\/timestamp$/;
 
 function ComposerIconButton({
   label,
@@ -93,6 +98,8 @@ export function ChannelMessageComposer({
   const emojiBtnRef = useRef<HTMLButtonElement>(null);
   const [staged, setStaged] = useState<StagedAttachment[]>([]);
   const [dragOver, setDragOver] = useState(false);
+  const [slashQuery, setSlashQuery] = useState<string | null>(null);
+  const [draftCursor, setDraftCursor] = useState(0);
 
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 768px)");
@@ -126,16 +133,26 @@ export function ChannelMessageComposer({
 
   const handleDraftChange = (value: string, cursor?: number) => {
     const pos = cursor ?? value.length;
-    const before = value.slice(0, pos);
-    if (SLASH_TIMESTAMP_RE.test(before)) {
-      const stripped = before.replace(/\/timestamp$/, "");
-      const next = stripped + value.slice(pos);
-      onDraftChange(next, stripped.length);
-      openTimestampBuilder();
-      return;
-    }
+    setDraftCursor(pos);
+    setSlashQuery(extractSlashQuery(value, pos));
     onDraftChange(value, cursor);
     onTypingChange?.(value.length > 0);
+  };
+
+  const slashSuggestions = useMemo(
+    () => (slashQuery === null ? [] : filterSlashCommands(slashQuery)),
+    [slashQuery],
+  );
+
+  const pickSlashCommand = (cmd: SlashCommand) => {
+    const result = applySlashCommand(draft, draftCursor, cmd);
+    if (result.action === "timestamp") {
+      onDraftChange(result.text, result.cursor);
+      openTimestampBuilder();
+    } else {
+      onDraftChange(result.text, result.cursor);
+    }
+    setSlashQuery(null);
   };
 
   const handleUpload = async (file: File) => {
@@ -249,6 +266,10 @@ export function ChannelMessageComposer({
         <p className="mb-2 text-xs text-muted">
           Slow mode is enabled. You can send again in {slowModeRemaining}s.
         </p>
+      )}
+
+      {slashSuggestions.length > 0 && (
+        <SlashCommandMenu commands={slashSuggestions} onPick={pickSlashCommand} />
       )}
 
       <div className="flex min-h-[2.75rem] items-end gap-2 rounded-lg bg-[var(--community-input)] px-3 py-2">
