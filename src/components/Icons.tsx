@@ -368,3 +368,32 @@ export function IconCopy(props: IconProps) {
     </Icon>
   );
 }
+
+export function IconApps(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3" y="3" width="7" height="7" rx="1.5" />
+      <rect x="14" y="3" width="7" height="7" rx="1.5" />
+      <rect x="3" y="14" width="7" height="7" rx="1.5" />
+      <rect x="14" y="14" width="7" height="7" rx="1.5" />
+    </Icon>
+  );
+}
+
+export function IconClock(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </Icon>
+  );
+}
+
+export function IconWebhook(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 3v3M6.5 6.5l2 2M17.5 6.5l-2 2M4 12h3M17 12h3M6.5 17.5l2-2M17.5 17.5l-2-2" />
+      <circle cx="12" cy="12" r="3" />
+    </Icon>
+  );
+}

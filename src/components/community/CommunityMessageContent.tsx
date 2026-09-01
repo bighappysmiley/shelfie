@@ -245,10 +245,10 @@ function BlockNode({
         <p
           className={
             block.level === 1
-              ? "text-2xl font-bold leading-tight"
+              ? "text-[1.5rem] font-bold leading-tight"
               : block.level === 2
-                ? "text-xl font-bold leading-snug"
-                : "text-lg font-bold leading-snug"
+                ? "text-center text-[1.125rem] font-semibold leading-snug"
+                : "text-base font-bold leading-snug"
           }
         >
           <InlineNodes nodes={block.children} emojiByName={emojiByName} stickerByName={stickerByName} searchQuery={searchQuery} />

@@ -414,6 +414,10 @@ export function formatDiscordTimestamp(unix: number, style: string): string {
         hour: "numeric",
         minute: "2-digit",
       });
+    case "Y":
+      return String(d.getFullYear());
+    case "Y":
+      return String(d.getFullYear());
     case "R": {
       const diffSec = Math.round((d.getTime() - Date.now()) / 1000);
       const abs = Math.abs(diffSec);

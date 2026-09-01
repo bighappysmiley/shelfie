@@ -41,10 +41,6 @@ export function MessageEditModal({
           className="w-full resize-y rounded-lg bg-[var(--community-input)] px-3 py-2 text-[0.9375rem] text-foreground outline-none ring-1 ring-[var(--community-border)] focus:ring-accent/40"
           placeholder="Edit your message…"
         />
-        <p className="text-xs text-muted">
-          Supports Discord markdown: **bold**, *italic*, __underline__, ~~strike~~, `code`, ||spoiler||,
-          ```blocks```, &gt; quotes, [links](url), :emoji:, &lt;t:unix:R&gt;
-        </p>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" size="sm" onClick={onClose}>
             Cancel

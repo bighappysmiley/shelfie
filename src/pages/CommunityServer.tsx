@@ -37,6 +37,7 @@ import {
   sendGroupMessage,
   listServerEmoji,
   listServerStickers,
+  listServerWebhooks,
   uploadCommunityImage,
   toggleMessageReaction,
   updateSuggestionStatus,
@@ -55,6 +56,7 @@ import {
   type CommunityServerEmoji,
   type CommunityServerRole,
   type CommunityServerSticker,
+  type CommunityServerWebhook,
   type SuggestionStatus,
 } from "@/lib/community-types";
 import { Button } from "@/components/Button";
@@ -876,6 +878,7 @@ function ChannelRoom({
   const [pinsExpanded, setPinsExpanded] = useState(true);
   const [serverEmoji, setServerEmoji] = useState<CommunityServerEmoji[]>([]);
   const [serverStickers, setServerStickers] = useState<CommunityServerSticker[]>([]);
+  const [serverWebhooks, setServerWebhooks] = useState<CommunityServerWebhook[]>([]);
   const [scrolledUp, setScrolledUp] = useState(false);
   const [highlightMessageId, setHighlightMessageId] = useState<string | null>(null);
   const [lastReadAt, setLastReadAt] = useState<string | null>(null);
@@ -1013,6 +1016,9 @@ function ChannelRoom({
     void listServerStickers(serverId)
       .then(setServerStickers)
       .catch(() => setServerStickers([]));
+    void listServerWebhooks(serverId)
+      .then(setServerWebhooks)
+      .catch(() => setServerWebhooks([]));
   }, [serverId]);
 
   const load = useCallback(async () => {
@@ -1503,6 +1509,7 @@ function ChannelRoom({
               }
               serverEmoji={serverEmoji}
               serverStickers={serverStickers}
+              serverWebhooks={serverWebhooks}
               onUploadImage={async (file) => {
                 const url = await uploadCommunityImage(file);
                 setDraft((prev) => `${prev}${prev ? "\n" : ""}${url}\n`);

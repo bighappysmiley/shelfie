@@ -1,14 +1,17 @@
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { AuthedImage } from "@/components/AuthedImage";
 import { CommunityActionSheet } from "@/components/CommunityActionSheet";
+import { AppsLauncher, type AppLauncherItem } from "@/components/community/AppsLauncher";
 import { CommunityPopover, PopoverItem } from "@/components/community/discord-ui";
 import { AttachmentPreviewBar, type StagedAttachment } from "@/components/community/AttachmentPreviewBar";
 import { EmojiPicker } from "@/components/community/EmojiPicker";
-import { FormattingToolbar } from "@/components/community/FormattingToolbar";
-import { IconGift, IconPlus, IconSend, IconSmile, IconSticker, IconX } from "@/components/Icons";
-import type { CommunityServerEmoji, CommunityServerSticker } from "@/lib/community-types";
+import { TimestampBuilderModal } from "@/components/community/TimestampBuilderModal";
+import { IconApps, IconPlus, IconSend, IconSmile, IconSticker, IconX } from "@/components/Icons";
+import type { CommunityServerEmoji, CommunityServerSticker, CommunityServerWebhook } from "@/lib/community-types";
 
 const DEFAULT_EMOJIS = ["😀", "😂", "❤️", "👍", "🔥", "🎉", "👀", "📚", "✨", "🙌", "😮", "💯"];
+
+const SLASH_TIMESTAMP_RE = /(^|\s)\/timestamp$/;
 
 function ComposerIconButton({
   label,
@@ -50,6 +53,7 @@ export function ChannelMessageComposer({
   placeholder,
   serverEmoji = [],
   serverStickers = [],
+  serverWebhooks = [],
   onUploadImage,
   replyPreview,
   onClearReply,
@@ -66,6 +70,7 @@ export function ChannelMessageComposer({
   placeholder?: string;
   serverEmoji?: CommunityServerEmoji[];
   serverStickers?: CommunityServerSticker[];
+  serverWebhooks?: CommunityServerWebhook[];
   onUploadImage?: (file: File) => Promise<void>;
   replyPreview?: { authorName: string; body: string } | null;
   onClearReply?: () => void;
@@ -73,8 +78,10 @@ export function ChannelMessageComposer({
   slowModeRemaining?: number;
 }) {
   const [plusOpen, setPlusOpen] = useState(false);
+  const [appsOpen, setAppsOpen] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [stickerOpen, setStickerOpen] = useState(false);
+  const [timestampOpen, setTimestampOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [isDesktop, setIsDesktop] = useState(() =>
     typeof window !== "undefined" ? window.matchMedia("(min-width: 768px)").matches : true,
@@ -82,6 +89,7 @@ export function ChannelMessageComposer({
   const fileRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const plusRef = useRef<HTMLButtonElement>(null);
+  const appsRef = useRef<HTMLButtonElement>(null);
   const emojiBtnRef = useRef<HTMLButtonElement>(null);
   const [staged, setStaged] = useState<StagedAttachment[]>([]);
   const [dragOver, setDragOver] = useState(false);
@@ -114,6 +122,22 @@ export function ChannelMessageComposer({
     });
   };
 
+  const openTimestampBuilder = useCallback(() => setTimestampOpen(true), []);
+
+  const handleDraftChange = (value: string, cursor?: number) => {
+    const pos = cursor ?? value.length;
+    const before = value.slice(0, pos);
+    if (SLASH_TIMESTAMP_RE.test(before)) {
+      const stripped = before.replace(/\/timestamp$/, "");
+      const next = stripped + value.slice(pos);
+      onDraftChange(next, stripped.length);
+      openTimestampBuilder();
+      return;
+    }
+    onDraftChange(value, cursor);
+    onTypingChange?.(value.length > 0);
+  };
+
   const handleUpload = async (file: File) => {
     if (!onUploadImage) return;
     const id = crypto.randomUUID();
@@ -131,6 +155,27 @@ export function ChannelMessageComposer({
 
   const canSend = draft.trim().length > 0 && !sending && !disabled && slowModeRemaining <= 0;
 
+  const appItems = useMemo<AppLauncherItem[]>(() => {
+    const items: AppLauncherItem[] = [
+      {
+        id: "timestamp",
+        name: "Timestamp",
+        description: "Insert a formatted date or time",
+        icon: "timestamp",
+        onClick: openTimestampBuilder,
+      },
+    ];
+    for (const hook of serverWebhooks.slice(0, 5)) {
+      items.push({
+        id: hook.id,
+        name: hook.name,
+        icon: "webhook",
+        onClick: () => insertAtCursor(`@${hook.name} `),
+      });
+    }
+    return items;
+  }, [serverWebhooks]);
+
   const plusActions = [
     ...(onUploadImage
       ? [
@@ -143,6 +188,10 @@ export function ChannelMessageComposer({
     {
       label: "Mention someone",
       onClick: () => insertAtCursor("@"),
+    },
+    {
+      label: "Insert timestamp",
+      onClick: openTimestampBuilder,
     },
     {
       label: "Add emoji",
@@ -185,8 +234,6 @@ export function ChannelMessageComposer({
 
       {hint && <p className="mb-2 text-[0.75rem] text-muted">{hint}</p>}
 
-      <FormattingToolbar textareaRef={textareaRef} onChange={onDraftChange} />
-
       <AttachmentPreviewBar
         attachments={staged}
         onRemove={(id) => {
@@ -223,41 +270,30 @@ export function ChannelMessageComposer({
           onChange={(e) => {
             const value = e.target.value;
             const cursor = e.target.selectionStart ?? value.length;
-            onDraftChange(value, cursor);
-            onTypingChange?.(value.length > 0);
+            handleDraftChange(value, cursor);
           }}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
+              if (draft.trim() === "/timestamp") {
+                openTimestampBuilder();
+                onDraftChange("");
+                return;
+              }
               if (canSend) void onSend(e);
-            }
-            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "b") {
-              e.preventDefault();
-              const el = textareaRef.current;
-              if (!el) return;
-              const start = el.selectionStart;
-              const end = el.selectionEnd;
-              const selected = draft.slice(start, end) || "text";
-              const next = `${draft.slice(0, start)}**${selected}**${draft.slice(end)}`;
-              onDraftChange(next);
-            }
-            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "i") {
-              e.preventDefault();
-              const el = textareaRef.current;
-              if (!el) return;
-              const start = el.selectionStart;
-              const end = el.selectionEnd;
-              const selected = draft.slice(start, end) || "text";
-              const next = `${draft.slice(0, start)}*${selected}*${draft.slice(end)}`;
-              onDraftChange(next);
             }
           }}
           className="max-h-[12.5rem] min-h-[1.375rem] flex-1 resize-none bg-transparent py-2 text-[0.9375rem] leading-snug text-foreground outline-none placeholder:text-muted/70"
         />
 
         <div className="flex shrink-0 items-center gap-0.5 self-end pb-0.5">
-          <ComposerIconButton label="Send a gift" onClick={() => insertAtCursor("🎁 ")}>
-            <IconGift size={20} />
+          <ComposerIconButton
+            label="Apps"
+            buttonRef={appsRef}
+            onClick={() => setAppsOpen((v) => !v)}
+            active={appsOpen}
+          >
+            <IconApps size={20} />
           </ComposerIconButton>
 
           {serverStickers.length > 0 && (
@@ -304,13 +340,26 @@ export function ChannelMessageComposer({
         }}
       />
 
+      <AppsLauncher
+        open={appsOpen}
+        onClose={() => setAppsOpen(false)}
+        anchorRef={appsRef}
+        items={appItems}
+      />
+
+      <TimestampBuilderModal
+        open={timestampOpen}
+        onClose={() => setTimestampOpen(false)}
+        onInsert={(token) => insertAtCursor(`${token} `)}
+      />
+
       {isDesktop ? (
         <EmojiPicker
           open={emojiOpen}
           onClose={() => setEmojiOpen(false)}
           anchorRef={emojiBtnRef}
           serverEmoji={serverEmoji}
-          onPick={(emoji) => insertAtCursor(emoji.startsWith(":") ? emoji : emoji)}
+          onPick={(emoji) => insertAtCursor(emoji.startsWith(":") ? `${emoji} ` : `${emoji} `)}
         />
       ) : (
         emojiOpen && (
@@ -325,7 +374,7 @@ export function ChannelMessageComposer({
                   <button
                     key={item}
                     type="button"
-                    onClick={() => insertAtCursor(custom ? `:${custom.name}:` : item)}
+                    onClick={() => insertAtCursor(custom ? `:${custom.name}: ` : `${item} `)}
                     className="flex h-9 w-9 items-center justify-center rounded hover:bg-[var(--community-hover)]"
                   >
                     {custom ? (
@@ -351,7 +400,7 @@ export function ChannelMessageComposer({
               <button
                 key={sticker.id}
                 type="button"
-                onClick={() => insertAtCursor(`:${sticker.name}:`)}
+                onClick={() => insertAtCursor(`:${sticker.name}: `)}
                 className="rounded-lg p-1 hover:bg-[var(--community-hover)]"
                 title={sticker.name}
               >
@@ -384,11 +433,6 @@ export function ChannelMessageComposer({
           actions={plusActions}
         />
       )}
-
-      <p className="mt-1.5 hidden text-[0.6875rem] text-muted md:block">
-        Markdown supported: **bold**, *italic*, __underline__, ~~strike~~, `code`, ||spoiler||, &gt; quotes,
-        ```blocks```, [text](url), :emoji:, &lt;t:unix:R&gt;
-      </p>
     </form>
   );
 }
