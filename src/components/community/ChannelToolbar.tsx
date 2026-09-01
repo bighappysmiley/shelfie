@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { DiscordChannelIcon } from "@/components/community/DiscordIcons";
+import { ChannelNotificationButton } from "@/components/community/ChannelNotificationPopover";
 import { ToolbarDivider } from "@/components/community/discord-ui";
-import { IconBell, IconPeople, IconPin, IconSearch, IconSettings, IconThreads } from "@/components/Icons";
+import { IconPeople, IconPin, IconSearch, IconSettings, IconThreads } from "@/components/Icons";
 import { KIND_LABELS, type CommunityGroup } from "@/lib/community-types";
 
 function ToolbarButton({
@@ -107,6 +108,7 @@ export function ChannelToolbar({
   canManage = false,
   threadsOpen = false,
   onToggleThreads,
+  userId,
 }: {
   group: CommunityGroup;
   variant?: "mobile" | "desktop";
@@ -127,6 +129,7 @@ export function ChannelToolbar({
   canManage?: boolean;
   threadsOpen?: boolean;
   onToggleThreads?: () => void;
+  userId?: string;
 }) {
   const isMobile = variant === "mobile";
 
@@ -137,10 +140,8 @@ export function ChannelToolbar({
           <IconThreads size={18} />
         </ToolbarButton>
       )}
-      {!isMobile && (
-        <ToolbarButton label="Notification settings">
-          <IconBell size={18} />
-        </ToolbarButton>
+      {userId && (
+        <ChannelNotificationButton userId={userId} channelId={group.id} />
       )}
       {pinnedCount > 0 && onTogglePins && (
         <ToolbarButton label="Pinned messages" onClick={onTogglePins} active={pinsOpen}>

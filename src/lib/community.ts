@@ -670,6 +670,22 @@ export async function pinOfficialServerToTop(serverId: string): Promise<void> {
   await reorderOfficialServers(orderedIds);
 }
 
+export async function getMyRulesAccepted(serverId: string, userId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("community_server_members")
+    .select("rules_accepted_at")
+    .eq("server_id", serverId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data?.rules_accepted_at as string | null) ?? null;
+}
+
+export async function acceptServerRules(serverId: string): Promise<void> {
+  const { error } = await supabase.rpc("accept_community_server_rules", { p_server_id: serverId });
+  if (error) throw new Error(rpcErrorMessage(error, "Could not accept rules"));
+}
+
 export type JoinOutcome = {
   status: "joined" | "already_member" | "requested";
   server: CommunityServer;

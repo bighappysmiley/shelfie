@@ -13,9 +13,11 @@ import { useLibrary } from "@/lib/library";
 import { supabase } from "@/lib/supabase";
 import {
   archiveCommunityGroup,
+  acceptServerRules,
   createCommunityCategory,
   deleteCommunityCategory,
   deleteGroupMessage,
+  getMyRulesAccepted,
   getServer,
   isServerMember,
   joinServer,
@@ -104,6 +106,8 @@ import { ContextMenuItem, MessageContextMenu } from "@/components/community/Mess
 import { CommunityProfileModal } from "@/components/community/CommunityProfileModal";
 import { ChannelFormModal, CategoryFormModal } from "@/components/community-server-modals";
 import { AddServerModal } from "@/components/AddServerModal";
+import { InvitePeopleModal } from "@/components/community/InvitePeopleModal";
+import { ServerRulesModal } from "@/components/community/ServerRulesModal";
 import { PinnedMessagesBar } from "@/components/community/PinnedMessagesBar";
 import { MentionAutocomplete } from "@/components/community/MentionAutocomplete";
 import {
@@ -171,6 +175,9 @@ export function CommunityServerPage() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [memberDrawerOpen, setMemberDrawerOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [rulesAcceptedAt, setRulesAcceptedAt] = useState<string | null>(null);
+  const [acceptingRules, setAcceptingRules] = useState(false);
   const [joinRequestStatus, setJoinRequestStatus] = useState<string | null>(null);
   const [channelSearch, setChannelSearch] = useState("");
   const [showMembers, setShowMembers] = useState(true);
@@ -233,8 +240,11 @@ export function CommunityServerPage() {
       if (member) {
         const boosts = await listServerBoosts(serverId);
         setServerBoosters(new Set(boosts.map((b) => b.userId)));
+        const accepted = await getMyRulesAccepted(serverId, user.id).catch(() => null);
+        setRulesAcceptedAt(accepted);
       } else {
         setServerBoosters(new Set());
+        setRulesAcceptedAt(null);
       }
       if (member && groups.length > 0) {
         const unread = await listUnreadCounts(
@@ -383,7 +393,7 @@ export function CommunityServerPage() {
                   ? () => setModal({ type: "create-channel", categoryId: categories[0]?.id ?? null })
                   : undefined
               }
-              onInvite={isMember ? () => navigate(`/community/s/${serverId}/settings`) : undefined}
+              onInvite={isMember ? () => setInviteOpen(true) : undefined}
             />
           )}
           {!isMember && server && (server.isPublic || server.isOfficial || server.joinMode === "invite") && (
@@ -607,6 +617,37 @@ export function CommunityServerPage() {
       />
 
       <AddServerModal open={addOpen} onClose={() => setAddOpen(false)} onDone={() => void refresh()} />
+
+      {server && (
+        <InvitePeopleModal
+          open={inviteOpen}
+          onClose={() => setInviteOpen(false)}
+          serverName={server.name}
+          inviteCode={server.inviteCode}
+        />
+      )}
+
+      {server && isMember && server.rules?.trim() && !rulesAcceptedAt && (
+        <ServerRulesModal
+          open
+          serverName={server.name}
+          rules={server.rules}
+          rulesChannelName={channels.find((c) => c.id === server.rulesChannelId)?.name}
+          busy={acceptingRules}
+          onAccept={async () => {
+            if (!serverId) return;
+            setAcceptingRules(true);
+            try {
+              await acceptServerRules(serverId);
+              setRulesAcceptedAt(new Date().toISOString());
+            } catch (err) {
+              setError(err instanceof Error ? err.message : "Could not accept rules");
+            } finally {
+              setAcceptingRules(false);
+            }
+          }}
+        />
+      )}
 
       {modal?.type === "create-channel" && user && (
         <ChannelFormModal
@@ -1320,6 +1361,7 @@ function ChannelRoom({
     memberCount: serverMemberCount,
     onOpenSettings,
     canManage: canConfigure || manage,
+    userId,
   };
 
   return (
