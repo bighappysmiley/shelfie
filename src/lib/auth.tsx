@@ -27,6 +27,7 @@ type AuthContextValue = {
   accessToken: string | null;
   isStaff: boolean;
   isAdmin: boolean;
+  isOwner: boolean;
   staffProfile: StaffMember | null;
   userProfile: UserProfile | null;
   pending2fa: boolean;
@@ -330,6 +331,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isStaff = Boolean(staffProfile);
   const isAdmin = staffProfile?.role === "admin";
+  const isOwner =
+    isAdmin &&
+    (staffProfile?.title?.toLowerCase() === "owner" ||
+      staffProfile?.email?.toLowerCase() === "hillelfrankel0@icloud.com");
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -339,6 +344,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       accessToken: session?.access_token ?? null,
       isStaff,
       isAdmin,
+      isOwner,
       staffProfile,
       userProfile,
       pending2fa,
@@ -358,6 +364,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       isStaff,
       isAdmin,
+      isOwner,
       staffProfile,
       userProfile,
       pending2fa,

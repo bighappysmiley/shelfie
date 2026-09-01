@@ -6,7 +6,7 @@ import { useSidebar } from "@/lib/sidebar";
 import { isDarkMode, setDarkMode } from "@/lib/theme";
 import { UserAvatar, userDisplayName } from "@/components/UserAvatar";
 import { ToggleRow } from "@/components/layout";
-import { IconBell, IconChat, IconUser, IconX } from "@/components/Icons";
+import { IconBell, IconChat, IconCommunity, IconUser, IconX } from "@/components/Icons";
 
 function SidebarButton({
   to,
@@ -139,6 +139,13 @@ export function AppSidebar() {
             label="Notifications"
             icon={IconBell}
             badge={pendingInvites.length}
+            onNavigate={closeAndGo}
+            tabIndex={tabIndex}
+          />
+          <SidebarButton
+            to="/community"
+            label="Community"
+            icon={IconCommunity}
             onNavigate={closeAndGo}
             tabIndex={tabIndex}
           />

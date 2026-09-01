@@ -116,6 +116,18 @@ export function HomePage() {
       </Group>
 
       <section className="mb-6">
+        <GroupHeader>Community</GroupHeader>
+        <Group>
+          <ListRow
+            title="Groups & suggestions"
+            subtitle="Chat with teammates and share ideas"
+            to="/community"
+            chevron
+          />
+        </Group>
+      </section>
+
+      <section className="mb-6">
         <GroupHeader>Add to catalog</GroupHeader>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <ButtonLink to="/add" variant="secondary" size="sm" className="w-full justify-center">

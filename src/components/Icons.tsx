@@ -21,6 +21,17 @@ function Icon({ size = 20, children, ...props }: IconProps & { children: ReactNo
   );
 }
 
+export function IconCommunity(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="9" cy="8" r="3" />
+      <circle cx="16.5" cy="9.5" r="2.5" />
+      <path d="M3 19c0-3 2.5-5 6-5s6 2 6 5" />
+      <path d="M14.5 19c0-2 1.2-3.5 3.2-4" />
+    </Icon>
+  );
+}
+
 export function IconHome(props: IconProps) {
   return (
     <Icon {...props}>

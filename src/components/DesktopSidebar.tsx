@@ -9,6 +9,7 @@ import { UserAvatar, userDisplayName } from "./UserAvatar";
 import {
   IconBell,
   IconChat,
+  IconCommunity,
   IconHome,
   IconLibrary,
   IconLoan,
@@ -26,6 +27,7 @@ const primaryNav = [
   { to: "/locations", label: "Locations", icon: IconShelf },
   { to: "/loaned", label: "Loans", icon: IconLoan },
   { to: "/borrowers", label: "Borrowers", icon: IconPeople },
+  { to: "/community", label: "Community", icon: IconCommunity },
   { to: "/stats", label: "Reports", icon: IconStats },
   { to: "/settings", label: "Library Settings", icon: IconSettings },
 ];
