@@ -21,6 +21,7 @@ import {
   updateCommunityProfile,
   uploadCommunityProfileImage,
 } from "@/lib/community-profile";
+import { NITRO_PERKS, PROFILE_RINGS, type ProfileRingId } from "@/lib/nitro";
 
 export function AccountPage() {
   const { user, signOut, userProfile, updateProfile } = useAuth();
@@ -44,6 +45,8 @@ export function AccountPage() {
   const [booksReadCount, setBooksReadCount] = useState(0);
   const [currentReadingTitle, setCurrentReadingTitle] = useState("");
   const [currentReadingAuthor, setCurrentReadingAuthor] = useState("");
+  const [nitroEnabled, setNitroEnabled] = useState(false);
+  const [profileRing, setProfileRing] = useState<ProfileRingId | "">("nitro");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const avatarInput = useRef<HTMLInputElement>(null);
@@ -73,6 +76,8 @@ export function AccountPage() {
         setBooksReadCount(p.booksReadCount);
         setCurrentReadingTitle(p.currentReadingTitle ?? "");
         setCurrentReadingAuthor(p.currentReadingAuthor ?? "");
+        setNitroEnabled(Boolean(p.nitroEnabled));
+        setProfileRing((p.profileRing as ProfileRingId) || "nitro");
       })
       .catch(() => {});
   }, [user]);
@@ -99,6 +104,8 @@ export function AccountPage() {
         booksReadCount,
         currentReadingTitle: currentReadingTitle.trim() || null,
         currentReadingAuthor: currentReadingAuthor.trim() || null,
+        nitroEnabled,
+        profileRing: nitroEnabled ? profileRing || "nitro" : null,
       });
       setProfileMsg("Settings saved");
     } catch (err) {
@@ -138,6 +145,8 @@ export function AccountPage() {
     displayName,
     communityUsername,
     avatarUrl,
+    nitroEnabled,
+    profileRing: nitroEnabled ? profileRing || "nitro" : null,
   };
 
   return (
@@ -156,7 +165,12 @@ export function AccountPage() {
               )}
               <div className="flex items-end gap-3 px-4 pb-4 pt-0">
                 <div className="-mt-8">
-                  <CommunityAvatar profile={previewProfile} size="lg" className="ring-4 ring-surface" />
+                  <CommunityAvatar
+                    profile={previewProfile}
+                    size="lg"
+                    className="ring-4 ring-surface"
+                    previewRing={nitroEnabled}
+                  />
                 </div>
                 <div className="flex flex-1 flex-wrap gap-2 pb-1">
                   <input
@@ -241,6 +255,61 @@ export function AccountPage() {
           <GroupFooter>
             Your community profile is visible to members on servers you share. The reading habit app
             will sync books read and current book here.
+          </GroupFooter>
+        </section>
+
+        <section>
+          <GroupHeader>Pine Nitro (test)</GroupHeader>
+          <Group>
+            <ToggleRow
+              label="Enable Pine Nitro"
+              hint="No subscription — toggle to test premium profile and role features"
+              checked={nitroEnabled}
+              onChange={setNitroEnabled}
+            />
+            {nitroEnabled && (
+              <div className="space-y-3 px-4 py-3 hairline-b">
+                <p className="text-[0.8125rem] font-medium text-muted">Animated profile ring</p>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {PROFILE_RINGS.map((ring) => (
+                    <button
+                      key={ring.id}
+                      type="button"
+                      onClick={() => setProfileRing(ring.id)}
+                      className={`flex flex-col items-center gap-2 rounded-xl border p-3 transition ${
+                        profileRing === ring.id
+                          ? "border-accent bg-accent/10"
+                          : "border-black/10 hover:bg-fill dark:border-white/10"
+                      }`}
+                    >
+                      <CommunityAvatar
+                        profile={{
+                          ...previewProfile,
+                          profileRing: ring.id,
+                          nitroEnabled: true,
+                        }}
+                        size="md"
+                        previewRing
+                      />
+                      <span className="text-[0.75rem] font-medium">{ring.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="px-4 py-3">
+              <p className="text-[0.8125rem] font-medium text-muted">Nitro perks (test)</p>
+              <ul className="mt-2 space-y-1">
+                {NITRO_PERKS.map((perk) => (
+                  <li key={perk} className="text-[0.875rem] text-foreground">
+                    <span className="text-accent">✦</span> {perk}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </Group>
+          <GroupFooter>
+            Boost a server to unlock perks for everyone at Level 2+, including holographic roles.
           </GroupFooter>
         </section>
 

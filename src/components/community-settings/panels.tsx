@@ -578,11 +578,13 @@ function RenameCategoryModal({
 export function RolesPanel({
   serverId,
   roles,
+  canUseHolo = true,
   onChanged,
   onError,
 }: {
   serverId: string;
   roles: CommunityServerRole[];
+  canUseHolo?: boolean;
   onChanged: () => Promise<void>;
   onError: (msg: string) => void;
 }) {
@@ -769,7 +771,7 @@ export function RolesPanel({
             required
           />
 
-          <RoleColorPicker value={editColor} onChange={setEditColor} />
+          <RoleColorPicker value={editColor} onChange={setEditColor} canUseHolo={canUseHolo} />
 
           <div className="space-y-2">
             <p className="text-[0.8125rem] font-medium text-muted">Display</p>
@@ -910,7 +912,15 @@ export function RolesPanel({
   );
 }
 
-export function RoleColorPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+export function RoleColorPicker({
+  value,
+  onChange,
+  canUseHolo = true,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  canUseHolo?: boolean;
+}) {
   const parsed = parseRoleColor(value);
   const [mode, setMode] = useState<RoleColorMode>(parsed.mode);
   const [solid, setSolid] = useState(parsed.mode === "solid" ? parsed.hex : "#8B5CF6");
@@ -954,13 +964,15 @@ export function RoleColorPicker({ value, onChange }: { value: string; onChange: 
           <button
             key={id}
             type="button"
+            disabled={id === "holo" && !canUseHolo}
             onClick={() => {
+              if (id === "holo" && !canUseHolo) return;
               setMode(id);
               pushEncoded(id, solid, stops);
             }}
             className={`rounded-full px-3 py-1 text-[0.8125rem] font-medium transition ${
               mode === id ? "bg-accent text-accent-contrast" : "bg-fill text-muted hover:text-foreground"
-            }`}
+            } ${id === "holo" && !canUseHolo ? "cursor-not-allowed opacity-50" : ""}`}
           >
             {label}
           </button>
@@ -968,7 +980,7 @@ export function RoleColorPicker({ value, onChange }: { value: string; onChange: 
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {ROLE_COLOR_PRESETS.map((preset) => (
+        {ROLE_COLOR_PRESETS.filter((p) => canUseHolo || p.value !== "holo").map((preset) => (
           <button
             key={preset.label}
             type="button"
@@ -1073,11 +1085,18 @@ export function RoleColorPicker({ value, onChange }: { value: string; onChange: 
         </p>
       )}
 
-      <div className="mt-4 rounded-xl border border-dashed border-accent/30 bg-accent/5 px-3 py-3">
-        <p className="text-[0.8125rem] font-semibold text-foreground">Pine Nitro</p>
-        <p className="mt-0.5 text-[0.75rem] text-muted">
-          Premium holographic styles and more — coming soon.
-        </p>
+      <div className="mt-4 rounded-xl border border-[#5865f2]/30 bg-gradient-to-r from-[#5865f2]/10 to-[#f47fff]/10 px-3 py-3">
+        <p className="text-[0.8125rem] font-semibold text-foreground">Pine Nitro &amp; Boosts</p>
+        {canUseHolo ? (
+          <p className="mt-0.5 text-[0.75rem] text-muted">
+            Holographic role colors unlocked via Nitro or Server Boost Level 2+.
+          </p>
+        ) : (
+          <p className="mt-0.5 text-[0.75rem] text-muted">
+            Unlock holographic colors with Pine Nitro (Account → Nitro test) or boost this server to
+            Level 2.
+          </p>
+        )}
       </div>
     </div>
   );

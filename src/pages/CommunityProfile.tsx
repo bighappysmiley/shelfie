@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ButtonLink } from "@/components/Button";
 import { CommunityDiscordShell, CommunityScrollBody } from "@/components/CommunityRail";
-import { CommunityAvatar } from "@/components/community/CommunityAvatar";
+import { CommunityAvatar, NitroBadge } from "@/components/community/CommunityAvatar";
 import { AuthedImage } from "@/components/AuthedImage";
 import { getCommunityProfileByUsername, communityProfileLabel } from "@/lib/community-profile";
 import type { CommunityProfile } from "@/lib/community-types";
@@ -58,9 +58,12 @@ export function CommunityProfilePage() {
             )}
             <div className="px-5 pb-6">
               <div className="-mt-10">
-                <CommunityAvatar profile={profile} size="xl" className="ring-4 ring-[var(--community-panel)]" />
+                <CommunityAvatar profile={profile} size="xl" previewRing={profile.nitroEnabled} />
               </div>
-              <h1 className="mt-3 text-[1.375rem] font-bold">{label}</h1>
+              <h1 className="mt-3 flex flex-wrap items-center gap-2 text-[1.375rem] font-bold">
+                {label}
+                {profile.nitroEnabled && <NitroBadge />}
+              </h1>
               {profile.communityUsername && (
                 <p className="text-[0.9375rem] text-muted">@{profile.communityUsername}</p>
               )}

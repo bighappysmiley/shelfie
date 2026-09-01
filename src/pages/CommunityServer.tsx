@@ -26,6 +26,7 @@ import {
   requestJoinServer,
   renameCommunityCategory,
   listServerMembers,
+  listServerBoosts,
   markChannelRead,
   listUnreadCounts,
   listPinnedMessages,
@@ -70,7 +71,7 @@ import { ChannelKindGlyph, channelKindBanner, canPostInChannelKind } from "@/com
 import { ChannelMessageComposer } from "@/components/community/ChannelMessageComposer";
 import { ChannelToolbar } from "@/components/community/ChannelToolbar";
 import { ChannelWelcome } from "@/components/community/ChannelWelcome";
-import { CommunityAvatar } from "@/components/community/CommunityAvatar";
+import { CommunityAvatar, NitroBadge } from "@/components/community/CommunityAvatar";
 import { CommunityProfileModal } from "@/components/community/CommunityProfileModal";
 import { ChannelFormModal, CategoryFormModal } from "@/components/community-server-modals";
 import { AddServerModal } from "@/components/AddServerModal";
@@ -136,6 +137,7 @@ export function CommunityServerPage() {
     username?: string | null;
   } | null>(null);
   const [memberProfiles, setMemberProfiles] = useState<Map<string, CommunityProfile>>(new Map());
+  const [serverBoosters, setServerBoosters] = useState<Set<string>>(new Set());
 
   const openProfile = useCallback((target: { userId?: string; username?: string | null }) => {
     setProfileTarget(target);
@@ -173,6 +175,12 @@ export function CommunityServerPage() {
         setMemberProfiles(profiles);
       } else {
         setMemberProfiles(new Map());
+      }
+      if (member) {
+        const boosts = await listServerBoosts(serverId);
+        setServerBoosters(new Set(boosts.map((b) => b.userId)));
+      } else {
+        setServerBoosters(new Set());
       }
       if (member && groups.length > 0) {
         const unread = await listUnreadCounts(
@@ -416,6 +424,7 @@ export function CommunityServerPage() {
               serverMemberCount={serverMembers.length}
               serverMembers={serverMembers}
               memberProfiles={memberProfiles}
+              serverBoosters={serverBoosters}
               onOpenProfile={openProfile}
               onMarkRead={user ? () => void markChannelRead(user.id, active.id) : undefined}
             />
@@ -456,6 +465,7 @@ export function CommunityServerPage() {
             <ServerMemberSidebar
               members={serverMembers}
               memberProfiles={memberProfiles}
+              serverBoosters={serverBoosters}
               onOpenProfile={openProfile}
             />
           )}
@@ -772,6 +782,7 @@ function ChannelRoom({
   serverMemberCount = 0,
   serverMembers = [],
   memberProfiles = new Map(),
+  serverBoosters = new Set<string>(),
   onOpenProfile,
   onMarkRead,
 }: {
@@ -794,6 +805,7 @@ function ChannelRoom({
   serverMemberCount?: number;
   serverMembers?: CommunityServerMember[];
   memberProfiles?: Map<string, CommunityProfile>;
+  serverBoosters?: Set<string>;
   onOpenProfile?: (target: { userId?: string; username?: string | null }) => void;
   onMarkRead?: () => void;
 }) {
@@ -1192,6 +1204,7 @@ function ChannelRoom({
                   message={m}
                   mentionMembers={mentionMembers}
                   authorProfile={m.authorId ? memberProfiles.get(m.authorId) : null}
+                  isServerBooster={m.authorId ? serverBoosters.has(m.authorId) : false}
                   isMine={m.authorId === userId}
                   canModerate={moderate}
                   canPin={moderate || manage}
@@ -1323,6 +1336,7 @@ const MessageRow = forwardRef(function MessageRow(
     message,
     mentionMembers,
     authorProfile,
+    isServerBooster = false,
     isMine,
     canModerate: canMod,
     canPin = false,
@@ -1338,6 +1352,7 @@ const MessageRow = forwardRef(function MessageRow(
     message: CommunityMessage;
     mentionMembers: MentionMember[];
     authorProfile?: CommunityProfile | null;
+    isServerBooster?: boolean;
     isMine: boolean;
     canModerate: boolean;
     canPin?: boolean;
@@ -1412,6 +1427,7 @@ const MessageRow = forwardRef(function MessageRow(
           profile={authorProfile}
           fallbackName={message.authorName}
           size="md"
+          isServerBooster={isServerBooster}
         />
       </button>
       <div className="min-w-0 flex-1">
@@ -1424,6 +1440,7 @@ const MessageRow = forwardRef(function MessageRow(
           >
             {isMine ? "You" : message.authorName || "Member"}
           </button>
+          {authorProfile?.nitroEnabled && <NitroBadge />}
           <span className="text-[0.6875rem] text-muted">{formatCommunityTime(message.createdAt)}</span>
           {isSuggestion && message.suggestionStatus && (
             <span className="text-[0.6875rem] text-muted">
@@ -1554,10 +1571,12 @@ const MessageRow = forwardRef(function MessageRow(
 function ServerMemberSidebar({
   members,
   memberProfiles,
+  serverBoosters,
   onOpenProfile,
 }: {
   members: CommunityServerMember[];
   memberProfiles?: Map<string, CommunityProfile>;
+  serverBoosters?: Set<string>;
   onOpenProfile?: (target: { userId?: string; username?: string | null }) => void;
 }) {
   const grouped = useMemo(() => {
@@ -1595,7 +1614,12 @@ function ServerMemberSidebar({
                   }
                   className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-[var(--community-hover)]"
                 >
-                  <CommunityAvatar profile={profile} fallbackName={label} size="sm" />
+                  <CommunityAvatar
+                    profile={profile}
+                    fallbackName={label}
+                    size="sm"
+                    isServerBooster={serverBoosters?.has(m.userId)}
+                  />
                   <span className="truncate text-[0.875rem]" style={colorStyle}>
                     {label}
                   </span>

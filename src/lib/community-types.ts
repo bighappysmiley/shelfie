@@ -21,6 +21,8 @@ export interface CommunityProfile {
   booksReadCount: number;
   currentReadingTitle: string | null;
   currentReadingAuthor: string | null;
+  nitroEnabled?: boolean;
+  profileRing?: string | null;
 }
 
 export interface CommunityServerEmoji {
@@ -81,6 +83,8 @@ export interface CommunityServer {
   rulesChannelId?: string | null;
   automodEnabled?: boolean;
   automodKeywords?: string[];
+  boostCount?: number;
+  boostLevel?: number;
 }
 
 export interface CommunityJoinRequest {

@@ -8,6 +8,7 @@ export type SettingsTab =
   | "emoji"
   | "stickers"
   | "widget"
+  | "boost"
   | "onboarding"
   | "verification"
   | "notifications"
@@ -32,6 +33,7 @@ export const SETTINGS_TAB_LABELS: Record<SettingsTab, string> = {
   emoji: "Emoji",
   stickers: "Stickers",
   widget: "Widget",
+  boost: "Server Boost",
   onboarding: "Onboarding",
   verification: "Verification",
   notifications: "Notifications",

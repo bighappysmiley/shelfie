@@ -39,6 +39,7 @@ import { AuthedImage } from "@/components/AuthedImage";
 import { CommunityDiscordShell, CommunityPanelHeader, CommunityScrollBody } from "@/components/CommunityRail";
 import { CommunitySettingsSheet } from "@/components/community-settings/CommunitySettingsSheet";
 import { AutomodTab } from "@/components/community-settings/AutomodTab";
+import { BoostTab } from "@/components/community-settings/BoostTab";
 import { EmojiTab } from "@/components/community-settings/EmojiTab";
 import { IntegrationsTab } from "@/components/community-settings/IntegrationsTab";
 import { StickersTab } from "@/components/community-settings/StickersTab";
@@ -59,6 +60,8 @@ import {
 import { SettingsNav } from "@/components/community-settings/SettingsNav";
 import type { SettingsNavGroup, SettingsTab } from "@/components/community-settings/types";
 import { parseSettingsTab } from "@/components/community-settings/types";
+import { getCommunityProfile } from "@/lib/community-profile";
+import { canUseHoloRoles } from "@/lib/nitro";
 
 export function CommunityServerSettingsPage() {
   const { serverId } = useParams<{ serverId: string }>();
@@ -103,6 +106,7 @@ export function CommunityServerSettingsPage() {
   const [rulesChannelId, setRulesChannelId] = useState("");
   const [automodEnabled, setAutomodEnabled] = useState(false);
   const [automodKeywords, setAutomodKeywords] = useState<string[]>([]);
+  const [userNitro, setUserNitro] = useState(false);
 
   const library = libraries.find((l) => l.id === server?.libraryId);
   const myRole = roles.find((r) => r.id === myRoleId);
@@ -138,6 +142,7 @@ export function CommunityServerSettingsPage() {
         items: [
           { id: "onboarding", label: "Onboarding" },
           { id: "widget", label: "Widget" },
+          { id: "boost", label: "Server Boost", badge: server?.boostCount },
         ],
       },
       {
@@ -162,7 +167,7 @@ export function CommunityServerSettingsPage() {
         items: [{ id: "danger", label: "Delete server" }],
       },
     ],
-    [members.length, joinRequests.length],
+    [members.length, joinRequests.length, server?.boostCount],
   );
 
   const selectTab = useCallback(
@@ -200,6 +205,11 @@ export function CommunityServerSettingsPage() {
     setAutomodKeywords(s.automodKeywords ?? []);
   }, []);
 
+  const canUseHolo = canUseHoloRoles({
+    nitroEnabled: userNitro,
+    boostLevel: server?.boostLevel ?? 0,
+  });
+
   const refresh = useCallback(async () => {
     if (!serverId || !user) return;
     setError("");
@@ -225,6 +235,10 @@ export function CommunityServerSettingsPage() {
       setChannels(groups);
       setJoinRequests(requests);
       setMyRoleId(roleId);
+      if (user) {
+        const profile = await getCommunityProfile(user.id);
+        setUserNitro(Boolean(profile?.nitroEnabled));
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load settings");
     } finally {
@@ -435,7 +449,13 @@ export function CommunityServerSettingsPage() {
           )}
 
           {tab === "roles" && (
-            <RolesPanel serverId={serverId} roles={roles} onChanged={refresh} onError={setError} />
+            <RolesPanel
+              serverId={serverId}
+              roles={roles}
+              canUseHolo={canUseHolo}
+              onChanged={refresh}
+              onError={setError}
+            />
           )}
 
           {tab === "channels" && (
@@ -498,6 +518,10 @@ export function CommunityServerSettingsPage() {
           )}
 
           {tab === "widget" && <WidgetTab serverId={serverId} serverName={server.name} />}
+
+          {tab === "boost" && user && (
+            <BoostTab server={server} userId={user.id} onChanged={refresh} onError={setError} />
+          )}
 
           {tab === "onboarding" && (
             <OnboardingTab

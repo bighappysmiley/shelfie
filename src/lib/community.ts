@@ -26,6 +26,7 @@ import type {
   VerificationLevel,
 } from "./community-types";
 import { normalizeGroupKind } from "./community-types";
+import { getBoostLevel } from "./nitro";
 import { bumpCommunityRail } from "./community-events";
 
 type ServerRow = {
@@ -55,6 +56,7 @@ type ServerRow = {
   rules_channel_id?: string | null;
   automod_enabled?: boolean | null;
   automod_keywords?: string[] | null;
+  boost_count?: number | null;
 };
 
 function generateInviteCode(): string {
@@ -171,6 +173,8 @@ function mapServer(row: ServerRow, extra?: Partial<CommunityServer>): CommunityS
     rulesChannelId: row.rules_channel_id ?? null,
     automodEnabled: Boolean(row.automod_enabled),
     automodKeywords: row.automod_keywords ?? [],
+    boostCount: row.boost_count ?? 0,
+    boostLevel: getBoostLevel(row.boost_count ?? 0),
     ...extra,
   };
 }
@@ -1935,6 +1939,92 @@ export async function createServerWebhook(input: {
     .single();
   if (error || !data) throw error ?? new Error("Could not create webhook");
   return mapWebhook(data as WebhookRow);
+}
+
+export interface CommunityServerBoost {
+  serverId: string;
+  userId: string;
+  boostedAt: string;
+  displayName?: string | null;
+  communityUsername?: string | null;
+}
+
+export async function listServerBoosts(serverId: string): Promise<CommunityServerBoost[]> {
+  const { data, error } = await supabase
+    .from("community_server_boosts")
+    .select("server_id, user_id, boosted_at")
+    .eq("server_id", serverId)
+    .order("boosted_at", { ascending: false });
+  if (error) throw error;
+
+  const rows = (data ?? []) as { server_id: string; user_id: string; boosted_at: string }[];
+  if (rows.length === 0) return [];
+
+  const userIds = rows.map((r) => r.user_id);
+  const { data: profiles } = await supabase
+    .from("user_profiles")
+    .select("user_id, display_name, community_display_name, community_username")
+    .in("user_id", userIds);
+
+  const nameByUser = new Map(
+    (profiles ?? []).map((p) => [
+      p.user_id as string,
+      (p.community_display_name as string | null) ||
+        (p.display_name as string | null) ||
+        (p.community_username as string | null),
+    ]),
+  );
+
+  return rows.map((r) => ({
+    serverId: r.server_id,
+    userId: r.user_id,
+    boostedAt: r.boosted_at,
+    displayName: nameByUser.get(r.user_id) ?? null,
+    communityUsername: (profiles ?? []).find((p) => p.user_id === r.user_id)?.community_username as
+      | string
+      | null,
+  }));
+}
+
+export async function isServerBooster(serverId: string, userId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from("community_server_boosts")
+    .select("user_id")
+    .eq("server_id", serverId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  return Boolean(data);
+}
+
+export async function boostServer(serverId: string, userId: string): Promise<void> {
+  const { error } = await supabase.from("community_server_boosts").insert({
+    server_id: serverId,
+    user_id: userId,
+  });
+  if (error) {
+    if (error.code === "23505") throw new Error("You already boosted this server.");
+    throw error;
+  }
+  await supabase.rpc("sync_server_boost_count", { p_server_id: serverId });
+}
+
+export async function unboostServer(serverId: string, userId: string): Promise<void> {
+  const { error } = await supabase
+    .from("community_server_boosts")
+    .delete()
+    .eq("server_id", serverId)
+    .eq("user_id", userId);
+  if (error) throw error;
+  await supabase.rpc("sync_server_boost_count", { p_server_id: serverId });
+}
+
+export async function listUserBoostedServers(userId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("community_server_boosts")
+    .select("server_id")
+    .eq("user_id", userId);
+  if (error) throw error;
+  return (data ?? []).map((r) => r.server_id as string);
 }
 
 export async function deleteServerWebhook(webhookId: string): Promise<void> {
