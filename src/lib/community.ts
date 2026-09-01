@@ -341,21 +341,8 @@ async function seedDefaultRoles(serverId: string): Promise<void> {
   }
 }
 
-async function seedDefaultCategories(serverId: string): Promise<void> {
-  const { data: existing } = await supabase
-    .from("community_categories")
-    .select("id, name")
-    .eq("server_id", serverId);
-  const rows = existing ?? [];
-  if (!rows.some((r) => r.name === "Text Channels")) {
-    await supabase.from("community_categories").insert({
-      name: "Text Channels",
-      position: 0,
-      is_official: false,
-      server_id: serverId,
-    });
-  }
-}
+/** Legacy seeded category names — never show or recreate these. */
+const LEGACY_DEFAULT_CATEGORY_NAMES = new Set(["text channels", "official"]);
 
 export async function recomputeServerScore(serverId: string): Promise<void> {
   const [{ count: members }, { data: groups }] = await Promise.all([
@@ -429,7 +416,6 @@ export async function createLibraryServer(input: {
 
   const server = data as ServerRow;
   await seedDefaultRoles(server.id);
-  await seedDefaultCategories(server.id);
 
   const { data: ownerRole } = await supabase
     .from("community_server_roles")
@@ -944,7 +930,9 @@ export async function listCommunityCategories(serverId: string): Promise<Communi
     .order("position", { ascending: true })
     .order("created_at", { ascending: true });
   if (error) throw error;
-  return ((data ?? []) as CategoryRow[]).map(mapCategory);
+  return ((data ?? []) as CategoryRow[])
+    .map(mapCategory)
+    .filter((c) => !LEGACY_DEFAULT_CATEGORY_NAMES.has(c.name.trim().toLowerCase()));
 }
 
 export async function createCommunityCategory(input: {
@@ -1032,19 +1020,16 @@ export async function createCommunityGroup(input: {
   categoryId?: string | null;
   userId: string;
 }): Promise<CommunityGroup> {
-  let categoryId = input.categoryId ?? null;
+  const categoryId = input.categoryId ?? null;
 
-  if (!categoryId) {
-    const cats = await listCommunityCategories(input.serverId);
-    categoryId = cats[0]?.id ?? null;
-  }
-
-  if (!categoryId) throw new Error("Create a category first, then add channels.");
-
-  const { data: siblings } = await supabase
+  let siblingsQuery = supabase
     .from("community_groups")
     .select("position")
-    .eq("category_id", categoryId)
+    .eq("server_id", input.serverId);
+  siblingsQuery = categoryId
+    ? siblingsQuery.eq("category_id", categoryId)
+    : siblingsQuery.is("category_id", null);
+  const { data: siblings } = await siblingsQuery
     .order("position", { ascending: false })
     .limit(1);
   const nextPos = ((siblings?.[0]?.position as number | undefined) ?? 0) + 1;

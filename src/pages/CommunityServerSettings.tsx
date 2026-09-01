@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { useLibrary } from "@/lib/library";
 import {
   deleteServer,
   getMyServerRoleId,
   getServer,
+  leaveServer,
   listCommunityCategories,
   listCommunityGroups,
   listPendingJoinRequests,
@@ -37,21 +38,29 @@ import { EmptyState, ToggleRow } from "@/components/layout";
 import { AuthedImage } from "@/components/AuthedImage";
 import { CommunityDiscordShell, CommunityPanelHeader, CommunityScrollBody } from "@/components/CommunityRail";
 import { CommunitySettingsSheet } from "@/components/community-settings/CommunitySettingsSheet";
+import { ComingSoonTab } from "@/components/community-settings/ComingSoonTab";
 import { InvitesTab } from "@/components/community-settings/InvitesTab";
 import { MembersTab } from "@/components/community-settings/MembersTab";
 import { ModerationTab } from "@/components/community-settings/ModerationTab";
+import {
+  NotificationsTab,
+  OnboardingTab,
+  VerificationTab,
+  WidgetTab,
+} from "@/components/community-settings/OnboardingTabs";
 import {
   ChannelsPanel,
   JoinRequestsPanel,
   RolesPanel,
 } from "@/components/community-settings/panels";
-import { SafetyTab } from "@/components/community-settings/SafetyTab";
 import { SettingsNav } from "@/components/community-settings/SettingsNav";
 import type { SettingsNavGroup, SettingsTab } from "@/components/community-settings/types";
+import { parseSettingsTab } from "@/components/community-settings/types";
 
 export function CommunityServerSettingsPage() {
   const { serverId } = useParams<{ serverId: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, isOwner } = useAuth();
   const { libraries } = useLibrary();
 
@@ -65,7 +74,7 @@ export function CommunityServerSettingsPage() {
   const [joinRequests, setJoinRequests] = useState<CommunityJoinRequest[]>([]);
   const [myRoleId, setMyRoleId] = useState<string | null>(null);
 
-  const [tab, setTab] = useState<SettingsTab>("overview");
+  const [tab, setTab] = useState<SettingsTab>(() => parseSettingsTab(searchParams.get("tab")));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
@@ -107,27 +116,41 @@ export function CommunityServerSettingsPage() {
         items: [
           { id: "members", label: "Members", badge: members.length },
           { id: "roles", label: "Roles" },
-          {
-            id: "requests",
-            label: "Join requests",
-            badge: joinRequests.length,
-          },
+          { id: "invites", label: "Invites" },
+          { id: "requests", label: "Join requests", badge: joinRequests.length },
         ],
       },
       {
         label: "Customization",
-        items: [{ id: "channels", label: "Channels" }],
+        items: [
+          { id: "channels", label: "Channels" },
+          { id: "emoji", label: "Emoji" },
+          { id: "stickers", label: "Stickers" },
+        ],
       },
       {
         label: "Engagement",
         items: [
-          { id: "invites", label: "Invites" },
-          { id: "safety", label: "Safety & rules" },
+          { id: "onboarding", label: "Onboarding" },
+          { id: "widget", label: "Widget" },
         ],
       },
       {
         label: "Moderation",
-        items: [{ id: "moderation", label: "Bans & audit" }],
+        items: [
+          { id: "verification", label: "Verification" },
+          { id: "notifications", label: "Notifications" },
+          { id: "moderation", label: "Bans & audit" },
+          { id: "automod", label: "AutoMod" },
+        ],
+      },
+      {
+        label: "Apps",
+        items: [{ id: "integrations", label: "Integrations" }],
+      },
+      {
+        label: "Account",
+        items: [{ id: "leave", label: "Leave server" }],
       },
       {
         label: "Danger zone",
@@ -136,6 +159,21 @@ export function CommunityServerSettingsPage() {
     ],
     [members.length, joinRequests.length],
   );
+
+  const selectTab = useCallback(
+    (next: SettingsTab) => {
+      setTab(next);
+      const params = new URLSearchParams(searchParams);
+      if (next === "overview") params.delete("tab");
+      else params.set("tab", next);
+      setSearchParams(params, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
+
+  useEffect(() => {
+    setTab(parseSettingsTab(searchParams.get("tab")));
+  }, [searchParams]);
 
   const applyServer = useCallback((s: CommunityServer) => {
     setServer(s);
@@ -250,9 +288,14 @@ export function CommunityServerSettingsPage() {
         title="Server settings"
         subtitle={server.name}
         trailing={
-          <Button variant="ghost" size="sm" onClick={() => navigate(`/community/s/${serverId}`)}>
-            Back
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" onClick={() => navigate("/home")}>
+              Home
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => navigate(`/community/s/${serverId}`)}>
+              Back
+            </Button>
+          </div>
         }
       />
       <CommunityScrollBody className="px-4 py-4">
@@ -266,8 +309,8 @@ export function CommunityServerSettingsPage() {
         open={settingsSheetOpen}
         onClose={() => setSettingsSheetOpen(false)}
         activeTab={tab}
-        tabs={navGroups.flatMap((g) => g.items.map((i) => i.id))}
-        onSelect={setTab}
+        groups={navGroups}
+        onSelect={selectTab}
       />
 
       {error && (
@@ -281,7 +324,7 @@ export function CommunityServerSettingsPage() {
 
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
         <div className="hidden lg:block">
-          <SettingsNav groups={navGroups} tab={tab} onChange={setTab} />
+          <SettingsNav groups={navGroups} tab={tab} onChange={selectTab} />
         </div>
 
         <div className="min-w-0 flex-1">
@@ -439,25 +482,35 @@ export function CommunityServerSettingsPage() {
             <JoinRequestsPanel requests={joinRequests} onChanged={refresh} onError={setError} />
           )}
 
-          {tab === "safety" && (
-            <SafetyTab
+          {tab === "emoji" && (
+            <ComingSoonTab
+              title="Custom emoji"
+              description="Upload custom emoji for this server, like Discord."
+            />
+          )}
+
+          {tab === "stickers" && (
+            <ComingSoonTab
+              title="Stickers"
+              description="Add sticker packs members can use in chat."
+            />
+          )}
+
+          {tab === "widget" && <WidgetTab serverId={serverId} serverName={server.name} />}
+
+          {tab === "onboarding" && (
+            <OnboardingTab
               server={server}
               channels={channels}
               rules={rules}
               welcomeMessage={welcomeMessage}
-              verificationLevel={verificationLevel}
-              explicitContentFilter={explicitContentFilter}
-              defaultNotifications={defaultNotifications}
-              systemChannelId={systemChannelId}
               rulesChannelId={rulesChannelId}
+              systemChannelId={systemChannelId}
               busy={busy}
               onRulesChange={setRules}
               onWelcomeChange={setWelcomeMessage}
-              onVerificationChange={setVerificationLevel}
-              onContentFilterChange={setExplicitContentFilter}
-              onNotificationsChange={setDefaultNotifications}
-              onSystemChannelChange={setSystemChannelId}
               onRulesChannelChange={setRulesChannelId}
+              onSystemChannelChange={setSystemChannelId}
               onSave={async () => {
                 setBusy(true);
                 setError("");
@@ -465,9 +518,6 @@ export function CommunityServerSettingsPage() {
                   await updateServer(serverId, {
                     rules,
                     welcomeMessage,
-                    verificationLevel,
-                    explicitContentFilter,
-                    defaultNotifications,
                     systemChannelId: systemChannelId || null,
                     rulesChannelId: rulesChannelId || null,
                   });
@@ -480,6 +530,97 @@ export function CommunityServerSettingsPage() {
               }}
             />
           )}
+
+          {tab === "verification" && (
+            <VerificationTab
+              verificationLevel={verificationLevel}
+              explicitContentFilter={explicitContentFilter}
+              busy={busy}
+              onVerificationChange={setVerificationLevel}
+              onContentFilterChange={setExplicitContentFilter}
+              onSave={async () => {
+                setBusy(true);
+                setError("");
+                try {
+                  await updateServer(serverId, {
+                    verificationLevel,
+                    explicitContentFilter,
+                  });
+                  await refresh();
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : "Could not save");
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            />
+          )}
+
+          {tab === "notifications" && (
+            <NotificationsTab
+              defaultNotifications={defaultNotifications}
+              busy={busy}
+              onNotificationsChange={setDefaultNotifications}
+              onSave={async () => {
+                setBusy(true);
+                setError("");
+                try {
+                  await updateServer(serverId, { defaultNotifications });
+                  await refresh();
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : "Could not save");
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            />
+          )}
+
+          {tab === "integrations" && (
+            <ComingSoonTab
+              title="Integrations"
+              description="Connect webhooks, bots, and third-party apps."
+            />
+          )}
+
+          {tab === "automod" && (
+            <ComingSoonTab
+              title="AutoMod"
+              description="Automatically moderate messages with keyword and spam filters."
+            />
+          )}
+
+          {tab === "leave" && (
+            <div className="max-w-lg">
+              <div className="rounded-[var(--radius-group)] border border-[var(--community-border)] bg-fill/40 p-4">
+                <p className="font-medium">Leave server</p>
+                <p className="mt-1 text-[0.8125rem] text-muted">
+                  You will lose access to channels and messages until you join again.
+                </p>
+                <Button
+                  className="mt-3"
+                  variant="danger"
+                  size="sm"
+                  disabled={busy}
+                  onClick={async () => {
+                    if (!user) return;
+                    if (!confirm(`Leave “${server.name}”?`)) return;
+                    setBusy(true);
+                    try {
+                      await leaveServer(serverId, user.id);
+                      navigate("/community");
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : "Could not leave");
+                      setBusy(false);
+                    }
+                  }}
+                >
+                  Leave server
+                </Button>
+              </div>
+            </div>
+          )}
+
 
           {tab === "moderation" && (
             <ModerationTab

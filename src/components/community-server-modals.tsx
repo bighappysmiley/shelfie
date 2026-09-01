@@ -43,10 +43,6 @@ export function ChannelFormModal({
       setError("Give the channel a name.");
       return;
     }
-    if (!categoryId) {
-      setError("Create a category first.");
-      return;
-    }
     setBusy(true);
     setError("");
     try {
@@ -96,7 +92,7 @@ export function ChannelFormModal({
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" disabled={busy || !name.trim() || !categoryId}>
+          <Button type="submit" disabled={busy || !name.trim()}>
             {busy ? "Saving…" : channel ? "Save" : "Create"}
           </Button>
         </div>
@@ -124,17 +120,13 @@ export function ChannelFormModal({
             value={categoryId}
             onChange={(e) => setCategoryId(e.target.value)}
             className="mt-1 w-full rounded-[var(--radius-control)] bg-fill px-3 py-2 text-[0.9375rem]"
-            required
           >
-            {categories.length === 0 ? (
-              <option value="">No categories — create one first</option>
-            ) : (
-              categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))
-            )}
+            <option value="">No category</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
           </select>
         </label>
         {error && <FormError message={error} />}

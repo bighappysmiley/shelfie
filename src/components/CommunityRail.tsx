@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/auth";
 import { listMyServers } from "@/lib/community";
 import type { CommunityServer } from "@/lib/community-types";
 import { AuthedImage } from "@/components/AuthedImage";
-import { IconCompass, IconList, IconPlus } from "@/components/Icons";
+import { IconCompass, IconHome, IconList, IconPlus } from "@/components/Icons";
 
 export type CommunityPane = "list" | "discover" | "server";
 
@@ -142,6 +142,12 @@ export function CommunityDiscordShell({
         aria-label="Servers"
         className="community-scroll hidden w-[4.5rem] shrink-0 flex-col items-stretch gap-0.5 overflow-y-auto bg-[var(--community-rail)] py-3 md:flex"
       >
+        <RailButton label="Pine Bookkeeping home" onClick={() => navigate("/home")}>
+          <IconHome size={22} />
+        </RailButton>
+
+        <div className="mx-auto my-1.5 h-0.5 w-8 rounded-full bg-white/10" />
+
         <RailButton label="Server list" active={pane === "list"} onClick={() => navigate("/community")}>
           <IconList size={22} />
         </RailButton>
@@ -182,41 +188,47 @@ export function CommunityDiscordShell({
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-none bg-[var(--community-panel)] md:rounded-tl-2xl md:shadow-inner">
         {children}
-        {(pane === "list" || pane === "discover") && (
-          <nav
-            aria-label="Community navigation"
-            className="flex shrink-0 border-t border-[var(--community-border)] bg-[var(--community-panel)] pb-[env(safe-area-inset-bottom,0px)] md:hidden"
+        <nav
+          aria-label="Community navigation"
+          className="flex shrink-0 border-t border-[var(--community-border)] bg-[var(--community-panel)] pb-[env(safe-area-inset-bottom,0px)] md:hidden"
+        >
+          <button
+            type="button"
+            onClick={() => navigate("/home")}
+            className="flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[0.625rem] font-medium text-muted"
           >
-            <button
-              type="button"
-              onClick={() => navigate("/community")}
-              className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[0.625rem] font-medium ${
-                pane === "list" ? "text-accent" : "text-muted"
-              }`}
-            >
-              <IconList size={20} />
-              Servers
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate("/community?tab=discover")}
-              className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[0.625rem] font-medium ${
-                pane === "discover" ? "text-accent" : "text-muted"
-              }`}
-            >
-              <IconCompass size={20} />
-              Discover
-            </button>
-            <button
-              type="button"
-              onClick={onAdd}
-              className="flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[0.625rem] font-medium text-muted"
-            >
-              <IconPlus size={20} />
-              Add
-            </button>
-          </nav>
-        )}
+            <IconHome size={20} />
+            Home
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate("/community")}
+            className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[0.625rem] font-medium ${
+              pane === "list" ? "text-accent" : "text-muted"
+            }`}
+          >
+            <IconList size={20} />
+            Servers
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate("/community?tab=discover")}
+            className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[0.625rem] font-medium ${
+              pane === "discover" ? "text-accent" : "text-muted"
+            }`}
+          >
+            <IconCompass size={20} />
+            Discover
+          </button>
+          <button
+            type="button"
+            onClick={onAdd}
+            className="flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[0.625rem] font-medium text-muted"
+          >
+            <IconPlus size={20} />
+            Add
+          </button>
+        </nav>
       </div>
     </div>
   );
