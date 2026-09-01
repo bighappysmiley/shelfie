@@ -139,6 +139,15 @@ export function IconList(props: IconProps) {
   );
 }
 
+export function IconCompass(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="m14.5 9.5-1.8 4.7-4.7 1.8 1.8-4.7 4.7-1.8z" />
+    </Icon>
+  );
+}
+
 export function IconSearch(props: IconProps) {
   return (
     <Icon {...props}>

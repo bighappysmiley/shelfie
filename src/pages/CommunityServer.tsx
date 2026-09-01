@@ -56,6 +56,8 @@ import { EmptyState, SegmentedControl } from "@/components/layout";
 import { AuthedImage } from "@/components/AuthedImage";
 import { IconChat, IconPlus, IconSettings, IconX } from "@/components/Icons";
 import { communityAuthorLabel, communityShortName } from "@/lib/community-identity";
+import { CommunityDiscordShell } from "@/components/CommunityRail";
+import { AddServerModal } from "@/components/AddServerModal";
 
 type Modal =
   | null
@@ -114,6 +116,7 @@ export function CommunityServerPage() {
   const [error, setError] = useState("");
   const [modal, setModal] = useState<Modal>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
 
   const library = libraries.find((l) => l.id === server?.libraryId);
   const canConfigure = Boolean(isOwner || library?.role === "owner" || server?.canManage);
@@ -208,30 +211,31 @@ export function CommunityServerPage() {
   }
 
   return (
-    <div className="-mx-4 -my-4 sm:-mx-5 sm:-my-5 lg:-mx-8 lg:-my-7">
-      <div className="flex min-h-[calc(100dvh-4.5rem)] overflow-hidden rounded-[var(--radius-group)] bg-surface shadow-sm ring-1 ring-black/[0.04] dark:ring-white/[0.06] lg:min-h-[calc(100dvh-3.5rem)]">
-        <aside className="hidden w-[15.25rem] shrink-0 flex-col border-r border-black/[0.06] bg-fill/50 dark:border-white/[0.08] md:flex">
-          <div className="flex h-12 items-center gap-2 border-b border-black/[0.06] px-3 dark:border-white/[0.08]">
-            <Link to="/community" className="text-[0.75rem] text-muted hover:text-foreground">
-              ←
-            </Link>
+    <CommunityDiscordShell
+      pane="server"
+      activeServerId={serverId}
+      onAdd={() => setAddOpen(true)}
+    >
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <aside className="hidden w-[15.25rem] shrink-0 flex-col border-r border-black/30 bg-[#2b2d31] md:flex">
+          <div className="flex h-12 items-center gap-2 border-b border-black/30 px-3">
             {server?.iconUrl ? (
               <AuthedImage src={server.iconUrl} className="h-7 w-7 rounded-lg object-cover" />
             ) : (
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/15 text-[0.625rem] font-bold text-accent">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/25 text-[0.625rem] font-bold text-accent">
                 {(server?.name || "?").slice(0, 2).toUpperCase()}
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[0.875rem] font-semibold">{server?.name || "Server"}</p>
+              <p className="truncate text-[0.875rem] font-semibold text-white">{server?.name || "Server"}</p>
               {server && (
-                <p className="truncate text-[0.625rem] text-muted">{formatPopularity(server)}</p>
+                <p className="truncate text-[0.625rem] text-white/45">{formatPopularity(server)}</p>
               )}
             </div>
             {canConfigure && (
               <Link
                 to={`/community/s/${serverId}/settings`}
-                className="rounded p-1.5 text-muted hover:bg-fill hover:text-foreground"
+                className="rounded p-1.5 text-white/45 hover:bg-white/10 hover:text-white"
                 title="Server settings"
               >
                 <IconSettings size={16} />
@@ -239,9 +243,9 @@ export function CommunityServerPage() {
             )}
           </div>
           {!isMember && server && (server.isPublic || server.isOfficial) && (
-            <div className="border-b border-black/[0.06] bg-accent/10 px-3 py-2 dark:border-white/[0.08]">
+            <div className="border-b border-black/30 bg-accent/15 px-3 py-2">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-[0.75rem] text-muted">Previewing — join to chat and appear in Joined.</p>
+                <p className="text-[0.75rem] text-white/55">Previewing — join to chat.</p>
                 <Button
                   size="sm"
                   disabled={joining || !user}
@@ -258,7 +262,7 @@ export function CommunityServerPage() {
                     }
                   }}
                 >
-                  {joining ? "…" : "Join server"}
+                  {joining ? "…" : "Join"}
                 </Button>
               </div>
             </div>
@@ -266,35 +270,30 @@ export function CommunityServerPage() {
           <div className="flex-1 overflow-y-auto px-2 py-3">{sidebar}</div>
         </aside>
 
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex items-center gap-2 border-b border-black/[0.06] px-3 py-2 md:hidden dark:border-white/[0.08]">
-            <Link to="/community" className="text-[0.8125rem] text-muted">
-              Servers
-            </Link>
+        <div className="flex min-w-0 flex-1 flex-col bg-[#313338] text-[#dbdee1] [&_.text-muted]:!text-[#949ba4] [&_.text-foreground]:!text-[#f2f3f5] [&_h2]:text-white">
+          <div className="flex items-center gap-2 border-b border-black/30 px-3 py-2 md:hidden">
             <button
               type="button"
               onClick={() => setMobileNavOpen((v) => !v)}
-              className="rounded-[var(--radius-control)] bg-fill px-2.5 py-1.5 text-[0.8125rem] font-medium"
+              className="rounded-lg bg-white/10 px-2.5 py-1.5 text-[0.8125rem] font-medium text-white"
             >
               Channels
             </button>
             {active && (
-              <p className="flex min-w-0 flex-1 items-center gap-1 truncate text-[0.9375rem] font-semibold">
-                <HashGlyph className="h-3.5 w-3.5 text-muted" />
+              <p className="flex min-w-0 flex-1 items-center gap-1 truncate text-[0.9375rem] font-semibold text-white">
+                <HashGlyph className="h-3.5 w-3.5 text-white/45" />
                 {active.name}
               </p>
             )}
             {canConfigure && (
-              <Link to={`/community/s/${serverId}/settings`} className="p-1.5 text-muted">
+              <Link to={`/community/s/${serverId}/settings`} className="p-1.5 text-white/45">
                 <IconSettings size={18} />
               </Link>
             )}
           </div>
 
           {mobileNavOpen && (
-            <div className="border-b border-black/[0.06] bg-fill/70 px-2 py-3 md:hidden dark:border-white/[0.08]">
-              {sidebar}
-            </div>
+            <div className="border-b border-black/30 bg-[#2b2d31] px-2 py-3 md:hidden">{sidebar}</div>
           )}
 
           {error && (
@@ -304,7 +303,7 @@ export function CommunityServerPage() {
           )}
 
           {loading ? (
-            <p className="p-6 text-muted">Loading server…</p>
+            <p className="p-6 text-white/50">Loading server…</p>
           ) : active && user && server ? (
             <ChannelRoom
               group={active}
@@ -344,6 +343,8 @@ export function CommunityServerPage() {
           )}
         </div>
       </div>
+
+      <AddServerModal open={addOpen} onClose={() => setAddOpen(false)} onDone={() => void refresh()} />
 
       {modal?.type === "create-channel" && user && (
         <ChannelFormModal
@@ -424,7 +425,7 @@ export function CommunityServerPage() {
           }
         />
       )}
-    </div>
+    </CommunityDiscordShell>
   );
 }
 
@@ -453,7 +454,7 @@ function ChannelSidebar({
   onCreateCategory: () => void;
   loading: boolean;
 }) {
-  if (loading) return <p className="px-2 text-[0.8125rem] text-muted">Loading…</p>;
+  if (loading) return <p className="px-2 text-[0.8125rem] text-white/45">Loading…</p>;
   const uncategorized = channelsByCategory.get(null) ?? [];
 
   return (
@@ -467,7 +468,7 @@ function ChannelSidebar({
               <button
                 type="button"
                 onClick={() => onToggle(cat.id)}
-                className="flex min-w-0 flex-1 items-center gap-1 rounded px-1 py-1 text-[0.6875rem] font-bold uppercase tracking-wider text-muted hover:text-foreground"
+                className="flex min-w-0 flex-1 items-center gap-1 rounded px-1 py-1 text-[0.6875rem] font-bold uppercase tracking-wider text-white/40 hover:text-white/80"
               >
                 <Chevron open={open} />
                 <span className="flex min-w-0 items-center gap-1 truncate">
@@ -481,7 +482,7 @@ function ChannelSidebar({
                     type="button"
                     title="Create channel"
                     onClick={() => onCreateChannel(cat.id, cat.isOfficial)}
-                    className="rounded p-0.5 text-muted hover:bg-fill-secondary hover:text-foreground"
+                    className="rounded p-0.5 text-white/40 hover:bg-white/10 hover:text-white"
                   >
                     <IconPlus size={14} />
                   </button>
@@ -490,7 +491,7 @@ function ChannelSidebar({
                       type="button"
                       title="Edit category"
                       onClick={() => onEditCategory(cat)}
-                      className="rounded p-0.5 text-muted hover:bg-fill-secondary hover:text-foreground"
+                      className="rounded p-0.5 text-white/40 hover:bg-white/10 hover:text-white"
                     >
                       <IconSettings size={14} />
                     </button>
@@ -506,8 +507,8 @@ function ChannelSidebar({
                   onClick={() => onSelect(ch.id)}
                   className={`mb-0.5 flex w-full items-center gap-1.5 rounded-[0.5rem] px-2 py-1.5 text-left text-[0.9375rem] transition ${
                     ch.id === activeId
-                      ? "bg-fill-secondary font-medium text-foreground"
-                      : "text-muted hover:bg-fill hover:text-foreground"
+                      ? "bg-white/10 font-medium text-white"
+                      : "text-white/55 hover:bg-white/[0.06] hover:text-white/90"
                   }`}
                 >
                   <HashGlyph className="h-4 w-4 shrink-0 opacity-70" />
@@ -525,7 +526,9 @@ function ChannelSidebar({
             type="button"
             onClick={() => onSelect(ch.id)}
             className={`mb-0.5 flex w-full items-center gap-1.5 rounded-[0.5rem] px-2 py-1.5 text-left text-[0.9375rem] ${
-              ch.id === activeId ? "bg-fill-secondary font-medium" : "text-muted hover:bg-fill"
+              ch.id === activeId
+                ? "bg-white/10 font-medium text-white"
+                : "text-white/55 hover:bg-white/[0.06]"
             }`}
           >
             <HashGlyph className="h-4 w-4 shrink-0 opacity-70" />
@@ -538,7 +541,7 @@ function ChannelSidebar({
           <button
             type="button"
             onClick={onCreateCategory}
-            className="flex w-full items-center gap-2 rounded-[0.5rem] px-2 py-1.5 text-[0.8125rem] text-muted hover:bg-fill hover:text-foreground"
+            className="flex w-full items-center gap-2 rounded-[0.5rem] px-2 py-1.5 text-[0.8125rem] text-white/45 hover:bg-white/[0.06] hover:text-white"
           >
             <IconPlus size={14} />
             Create category
@@ -548,7 +551,7 @@ function ChannelSidebar({
             onClick={() =>
               onCreateChannel(categories.find((c) => !c.isOfficial)?.id ?? null, false)
             }
-            className="flex w-full items-center gap-2 rounded-[0.5rem] px-2 py-1.5 text-[0.8125rem] text-muted hover:bg-fill hover:text-foreground"
+            className="flex w-full items-center gap-2 rounded-[0.5rem] px-2 py-1.5 text-[0.8125rem] text-white/45 hover:bg-white/[0.06] hover:text-white"
           >
             <IconChat size={14} />
             Create channel

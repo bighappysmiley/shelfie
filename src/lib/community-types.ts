@@ -12,6 +12,7 @@ export interface CommunityServer {
   isPublic: boolean;
   isOfficial: boolean;
   officialPosition: number | null;
+  inviteCode: string;
   memberCount: number;
   messageCount: number;
   activityScore: number;

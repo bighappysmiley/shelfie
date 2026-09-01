@@ -8,6 +8,7 @@ import {
   deleteServerRole,
   getServer,
   listServerRoles,
+  regenerateServerInviteCode,
   updateServer,
   updateServerRole,
   uploadCommunityImage,
@@ -39,8 +40,10 @@ export function CommunityServerSettingsPage() {
   const [iconUrl, setIconUrl] = useState<string | null>(null);
   const [isPublic, setIsPublic] = useState(false);
   const [isOfficial, setIsOfficial] = useState(false);
+  const [inviteCode, setInviteCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [regenBusy, setRegenBusy] = useState(false);
   const iconInput = useRef<HTMLInputElement>(null);
 
   const library = libraries.find((l) => l.id === server?.libraryId);
@@ -59,6 +62,7 @@ export function CommunityServerSettingsPage() {
       setIconUrl(s.iconUrl);
       setIsPublic(s.isPublic);
       setIsOfficial(s.isOfficial);
+      setInviteCode(s.inviteCode || "");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load settings");
     } finally {
@@ -214,6 +218,47 @@ export function CommunityServerSettingsPage() {
             rows={3}
             hint="Shown in Discover and Official lists"
           />
+
+          <div className="rounded-[var(--radius-group)] bg-fill px-4 py-3">
+            <p className="text-[0.8125rem] font-medium">Invite code</p>
+            <p className="mt-1 font-mono text-[1.125rem] tracking-wide">{inviteCode || "—"}</p>
+            <p className="mt-1 text-[0.75rem] text-muted">
+              Share this code so others can join from Community → + → Join a Server.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                disabled={!inviteCode}
+                onClick={() => {
+                  if (inviteCode) void navigator.clipboard.writeText(inviteCode);
+                }}
+              >
+                Copy
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={regenBusy}
+                onClick={async () => {
+                  setRegenBusy(true);
+                  setError("");
+                  try {
+                    const next = await regenerateServerInviteCode(serverId);
+                    setInviteCode(next);
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : "Could not regenerate");
+                  } finally {
+                    setRegenBusy(false);
+                  }
+                }}
+              >
+                {regenBusy ? "…" : "Regenerate"}
+              </Button>
+            </div>
+          </div>
 
           <Button type="submit" disabled={busy || !name.trim()}>
             {busy ? "Saving…" : "Save changes"}

@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { useLibrary } from "@/lib/library";
 import {
-  createLibraryServer,
   getServerForLibrary,
   joinServer,
   leaveServer,
@@ -14,10 +13,18 @@ import {
 } from "@/lib/community";
 import { formatPopularity, type CommunityServer } from "@/lib/community-types";
 import { Button } from "@/components/Button";
-import { TextField, TextArea, FormError } from "@/components/form";
-import { EmptyState, PageHeader, Banner, ToggleRow } from "@/components/layout";
-import { IconCommunity, IconPlus, IconSettings, IconSearch, IconX } from "@/components/Icons";
+import { FormError } from "@/components/form";
+import { EmptyState } from "@/components/layout";
+import {
+  IconPlus,
+  IconSearch,
+  IconSettings,
+  IconCommunity,
+  IconCompass,
+} from "@/components/Icons";
 import { AuthedImage } from "@/components/AuthedImage";
+import { CommunityDiscordShell, CommunityPanelHeader } from "@/components/CommunityRail";
+import { AddServerModal } from "@/components/AddServerModal";
 
 function ServerIcon({ server, size = "md" }: { server: CommunityServer; size?: "sm" | "md" | "lg" }) {
   const dims = size === "lg" ? "h-14 w-14 text-lg" : size === "sm" ? "h-9 w-9 text-xs" : "h-11 w-11 text-sm";
@@ -26,20 +33,20 @@ function ServerIcon({ server, size = "md" }: { server: CommunityServer; size?: "
       <AuthedImage
         src={server.iconUrl}
         alt=""
-        className={`${dims} shrink-0 rounded-2xl object-cover bg-fill`}
+        className={`${dims} shrink-0 rounded-2xl object-cover bg-[#1e1f22]`}
       />
     );
   }
   return (
     <div
-      className={`${dims} flex shrink-0 items-center justify-center rounded-2xl bg-accent/15 font-semibold text-accent`}
+      className={`${dims} flex shrink-0 items-center justify-center rounded-2xl bg-accent/25 font-semibold text-accent`}
     >
       {server.name.slice(0, 2).toUpperCase()}
     </div>
   );
 }
 
-function ServerCard({
+function ServerRow({
   server,
   trailing,
   onOpen,
@@ -49,34 +56,21 @@ function ServerCard({
   onOpen: () => void;
 }) {
   return (
-    <div className="flex w-full items-center gap-3 rounded-[var(--radius-group)] bg-surface px-3 py-3 shadow-sm ring-1 ring-black/[0.04] dark:ring-white/[0.06]">
+    <div className="flex w-full items-center gap-3 rounded-xl px-2 py-2.5 transition hover:bg-white/[0.04]">
       <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-3 text-left">
         <ServerIcon server={server} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="truncate font-semibold">{server.name}</p>
+            <p className="truncate font-semibold text-white">{server.name}</p>
             {server.isOfficial && (
-              <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[0.625rem] font-semibold uppercase tracking-wide text-accent">
+              <span className="rounded bg-accent/25 px-1.5 py-0.5 text-[0.625rem] font-semibold uppercase tracking-wide text-accent">
                 Official
               </span>
             )}
-            {server.isPublic && !server.isOfficial && (
-              <span className="rounded bg-fill px-1.5 py-0.5 text-[0.625rem] font-medium text-muted">
-                Public
-              </span>
-            )}
-            {server.isMember && (
-              <span className="rounded bg-fill px-1.5 py-0.5 text-[0.625rem] font-medium text-muted">
-                Joined
-              </span>
-            )}
           </div>
-          <p className="mt-0.5 truncate text-[0.8125rem] text-muted">
+          <p className="mt-0.5 truncate text-[0.8125rem] text-white/50">
             {server.description || formatPopularity(server)}
           </p>
-          {server.description && (
-            <p className="mt-0.5 text-[0.75rem] text-muted">{formatPopularity(server)}</p>
-          )}
         </div>
       </button>
       {trailing}
@@ -96,10 +90,13 @@ function filterServers(list: CommunityServer[], q: string) {
 
 export function CommunityPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const tab = searchParams.get("tab") === "discover" ? "discover" : "list";
+  const discoverSection = (searchParams.get("section") as "popular" | "official") || "popular";
+
   const { user, userProfile, isOwner } = useAuth();
   const { activeLibrary, libraries } = useLibrary();
 
-  const [tab, setTab] = useState<"discover" | "official" | "mine">("discover");
   const [publicServers, setPublicServers] = useState<CommunityServer[]>([]);
   const [officialServers, setOfficialServers] = useState<CommunityServer[]>([]);
   const [myServers, setMyServers] = useState<CommunityServer[]>([]);
@@ -109,7 +106,7 @@ export function CommunityPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [reorderMode, setReorderMode] = useState(false);
   const [query, setQuery] = useState("");
-  const [showCreate, setShowCreate] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!user) return;
@@ -184,7 +181,7 @@ export function CommunityPage() {
     const next = [...officialServers];
     const j = index + dir;
     if (j < 0 || j >= next.length) return;
-    [next[index], next[j]] = [next[j], next[index]];
+    [next[index], next[j]] = [next[j]!, next[index]!];
     setOfficialServers(next);
     try {
       await reorderOfficialServers(next.map((s) => s.id));
@@ -194,20 +191,15 @@ export function CommunityPage() {
     }
   };
 
-  const actionButtons = (s: CommunityServer, opts?: { showLeave?: boolean }) => (
-    <div className="flex shrink-0 flex-col gap-1 sm:flex-row sm:items-center" onClick={(e) => e.stopPropagation()}>
+  const joinBtn = (s: CommunityServer, opts?: { showLeave?: boolean }) => (
+    <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
       {s.isMember ? (
         <>
           <Button size="sm" onClick={() => openServer(s)}>
             Open
           </Button>
           {opts?.showLeave && (
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={busyId === s.id}
-              onClick={() => void handleLeave(s)}
-            >
+            <Button size="sm" variant="ghost" disabled={busyId === s.id} onClick={() => void handleLeave(s)}>
               Leave
             </Button>
           )}
@@ -221,362 +213,246 @@ export function CommunityPage() {
   );
 
   return (
-    <div>
-      <PageHeader
-        title="Community"
-        subtitle="Each library can create its own server. Nothing is added until you create or join one."
-        action={
-          activeLibrary?.role === "owner" ? (
-            libraryServerId ? (
-              <Button size="sm" variant="secondary" onClick={() => navigate(`/community/s/${libraryServerId}`)}>
-                Open my server
-              </Button>
+    <CommunityDiscordShell pane={tab === "discover" ? "discover" : "list"} onAdd={() => setAddOpen(true)}>
+      {tab === "discover" ? (
+        <>
+          <CommunityPanelHeader
+            title="Discover"
+            subtitle="Find public & Official servers"
+            trailing={<IconCompass size={18} className="text-white/40" />}
+          />
+          <div className="flex-1 overflow-y-auto px-3 py-3 text-white [&_h2]:text-white [&_.text-muted]:!text-white/50">
+            {user && !userProfile?.communityUsername && (
+              <div className="mb-3 rounded-xl bg-[#1e1f22] px-3 py-3 text-[0.8125rem] text-white/70">
+                Set your Community @username in{" "}
+                <Link to="/account" className="text-accent underline">
+                  Account
+                </Link>
+                .
+              </div>
+            )}
+
+            {error && (
+              <div className="mb-3">
+                <FormError message={error} />
+              </div>
+            )}
+
+            <label className="relative mb-3 block">
+              <IconSearch
+                size={16}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/40"
+              />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Explore communities…"
+                className="w-full rounded-lg bg-[#1e1f22] py-2.5 pl-9 pr-3 text-[0.9375rem] text-white outline-none ring-accent placeholder:text-white/35 focus:ring-2"
+              />
+            </label>
+
+            <div className="mb-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => navigate("/community?tab=discover&section=popular")}
+                className={`rounded-full px-3 py-1.5 text-[0.8125rem] font-medium transition ${
+                  discoverSection === "popular"
+                    ? "bg-white/15 text-white"
+                    : "bg-transparent text-white/50 hover:text-white"
+                }`}
+              >
+                Popular
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate("/community?tab=discover&section=official")}
+                className={`rounded-full px-3 py-1.5 text-[0.8125rem] font-medium transition ${
+                  discoverSection === "official"
+                    ? "bg-white/15 text-white"
+                    : "bg-transparent text-white/50 hover:text-white"
+                }`}
+              >
+                Official
+              </button>
+            </div>
+
+            {loading ? (
+              <p className="text-white/50">Loading…</p>
+            ) : discoverSection === "official" ? (
+              <div className="space-y-1">
+                <div className="mb-2 flex items-center justify-between gap-2 px-1">
+                  <p className="text-[0.75rem] uppercase tracking-wide text-white/40">
+                    Curated by Pine
+                  </p>
+                  {isOwner && officialServers.length > 0 && (
+                    <button
+                      type="button"
+                      className="text-[0.75rem] text-accent"
+                      onClick={() => setReorderMode((v) => !v)}
+                    >
+                      {reorderMode ? "Done" : "Reorder"}
+                    </button>
+                  )}
+                </div>
+                {filteredOfficial.length === 0 ? (
+                  <EmptyState
+                    title={query ? "No matches" : "No official servers"}
+                    description="Official servers appear here once marked by the Pine Owner."
+                  />
+                ) : (
+                  filteredOfficial.map((s, i) => (
+                    <ServerRow
+                      key={s.id}
+                      server={s}
+                      onOpen={() => openServer(s)}
+                      trailing={
+                        reorderMode && isOwner ? (
+                          <div className="flex flex-col gap-1" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              className="rounded px-2 py-0.5 text-xs text-white/50 hover:bg-white/10"
+                              disabled={i === 0}
+                              onClick={() => void moveOfficial(i, -1)}
+                            >
+                              ↑
+                            </button>
+                            <button
+                              type="button"
+                              className="rounded px-2 py-0.5 text-xs text-white/50 hover:bg-white/10"
+                              disabled={i === officialServers.length - 1}
+                              onClick={() => void moveOfficial(i, 1)}
+                            >
+                              ↓
+                            </button>
+                          </div>
+                        ) : (
+                          joinBtn(s)
+                        )
+                      }
+                    />
+                  ))
+                )}
+              </div>
             ) : (
-              <Button size="sm" onClick={() => setShowCreate(true)}>
-                <IconPlus size={16} />
-                Create server
-              </Button>
-            )
-          ) : undefined
-        }
-      />
-
-      {error && (
-        <div className="mb-4">
-          <FormError message={error} />
-        </div>
-      )}
-
-      {user && !userProfile?.communityUsername && (
-        <div className="mb-4">
-          <Banner>
-            <p className="font-medium">Set your Community identity</p>
-            <p className="mt-1 text-[0.875rem]">
-              Choose an @username and Community display name (separate from your library name) in{" "}
-              <Link to="/account" className="underline">
-                Account
-              </Link>
-              .
-            </p>
-          </Banner>
-        </div>
-      )}
-
-      <div className="mb-4">
-        <label className="relative block">
-          <IconSearch
-            size={16}
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"
-          />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search servers…"
-            className="w-full rounded-[var(--radius-control)] bg-fill py-2.5 pl-9 pr-3 text-[0.9375rem] outline-none ring-accent focus:ring-2"
-          />
-        </label>
-      </div>
-
-      <div className="mb-5 grid gap-2 sm:grid-cols-3">
-        <button
-          type="button"
-          onClick={() => setTab("official")}
-          className={`flex items-center gap-3 rounded-[var(--radius-group)] px-4 py-3 text-left ring-1 transition ${
-            tab === "official"
-              ? "bg-accent text-accent-contrast ring-accent"
-              : "bg-surface ring-black/[0.04] hover:bg-fill/50 dark:ring-white/[0.06]"
-          }`}
-        >
-          <div
-            className={`flex h-10 w-10 items-center justify-center rounded-xl ${
-              tab === "official" ? "bg-white/20" : "bg-accent/15 text-accent"
-            }`}
-          >
-            <IconCommunity size={20} />
-          </div>
-          <div>
-            <p className="font-semibold">Official</p>
-            <p className={`text-[0.75rem] ${tab === "official" ? "opacity-80" : "text-muted"}`}>
-              {officialServers.length} curated
-            </p>
-          </div>
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab("discover")}
-          className={`rounded-[var(--radius-group)] px-4 py-3 text-left ring-1 transition ${
-            tab === "discover"
-              ? "bg-fill-secondary ring-black/10 dark:ring-white/15"
-              : "bg-surface ring-black/[0.04] hover:bg-fill/50 dark:ring-white/[0.06]"
-          }`}
-        >
-          <p className="font-semibold">Discover</p>
-          <p className="text-[0.75rem] text-muted">Public · by popularity</p>
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab("mine")}
-          className={`rounded-[var(--radius-group)] px-4 py-3 text-left ring-1 transition ${
-            tab === "mine"
-              ? "bg-fill-secondary ring-black/10 dark:ring-white/15"
-              : "bg-surface ring-black/[0.04] hover:bg-fill/50 dark:ring-white/[0.06]"
-          }`}
-        >
-          <p className="font-semibold">Joined</p>
-          <p className="text-[0.75rem] text-muted">{myServers.length} servers</p>
-        </button>
-      </div>
-
-      {loading ? (
-        <p className="text-muted">Loading servers…</p>
-      ) : tab === "official" ? (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-[0.875rem] text-muted">
-              Official servers are chosen by the Pine Owner — nothing is listed until marked Official.
-            </p>
-            {isOwner && officialServers.length > 0 && (
-              <Button size="sm" variant="secondary" onClick={() => setReorderMode((v) => !v)}>
-                {reorderMode ? "Done" : "Reorder"}
-              </Button>
+              <div className="space-y-1">
+                <p className="mb-2 px-1 text-[0.75rem] uppercase tracking-wide text-white/40">
+                  Featured · by popularity
+                </p>
+                {filteredPublic.length === 0 ? (
+                  <EmptyState
+                    title={query ? "No matches" : "No public servers yet"}
+                    description="Create a server and turn on Public in settings to appear here."
+                    action={
+                      activeLibrary?.role === "owner" && !libraryServerId ? (
+                        <Button onClick={() => setAddOpen(true)}>Create your server</Button>
+                      ) : undefined
+                    }
+                  />
+                ) : (
+                  filteredPublic.map((s, i) => (
+                    <div key={s.id} className="relative pl-7">
+                      <span className="absolute left-1 top-4 flex h-5 w-5 items-center justify-center rounded-full bg-[#1e1f22] text-[0.625rem] font-bold text-white/45">
+                        {i + 1}
+                      </span>
+                      <ServerRow server={s} onOpen={() => openServer(s)} trailing={joinBtn(s)} />
+                    </div>
+                  ))
+                )}
+              </div>
             )}
           </div>
-          {filteredOfficial.length === 0 ? (
-            <EmptyState
-              title={query ? "No matches" : "No official servers"}
-              description={
-                isOwner
-                  ? "When a library creates a public server, open its settings and mark it Official. Then reorder here."
-                  : "Official servers will show up here once Pine curates them."
-              }
-            />
-          ) : (
-            filteredOfficial.map((s, i) => (
-              <ServerCard
-                key={s.id}
-                server={s}
-                onOpen={() => openServer(s)}
-                trailing={
-                  reorderMode && isOwner ? (
-                    <div className="flex flex-col gap-1" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        className="rounded px-2 py-0.5 text-xs text-muted hover:bg-fill"
-                        disabled={i === 0}
-                        onClick={() => void moveOfficial(i, -1)}
-                      >
-                        ↑
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded px-2 py-0.5 text-xs text-muted hover:bg-fill"
-                        disabled={i === officialServers.length - 1}
-                        onClick={() => void moveOfficial(i, 1)}
-                      >
-                        ↓
-                      </button>
-                    </div>
-                  ) : (
-                    actionButtons(s)
-                  )
-                }
+        </>
+      ) : (
+        <>
+          <CommunityPanelHeader
+            title="Your servers"
+            subtitle={`${myServers.length} joined`}
+            trailing={<IconCommunity size={18} className="text-white/40" />}
+          />
+          <div className="flex-1 overflow-y-auto px-3 py-3 text-white [&_h2]:text-white [&_.text-muted]:!text-white/50">
+            {user && !userProfile?.communityUsername && (
+              <div className="mb-3 rounded-xl bg-[#1e1f22] px-3 py-3 text-[0.8125rem] text-white/70">
+                Choose an @username for Community chat in{" "}
+                <Link to="/account" className="text-accent underline">
+                  Account
+                </Link>
+                .
+              </div>
+            )}
+
+            {error && (
+              <div className="mb-3">
+                <FormError message={error} />
+              </div>
+            )}
+
+            <label className="relative mb-3 block">
+              <IconSearch
+                size={16}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/40"
               />
-            ))
-          )}
-          {isOwner && (
-            <Banner>
-              <p className="text-[0.875rem]">
-                Tip: Discover a public server → Open → Settings → Official. No servers are auto-added.
-              </p>
-            </Banner>
-          )}
-        </div>
-      ) : tab === "mine" ? (
-        <div className="space-y-3">
-          {filteredMine.length === 0 ? (
-            <EmptyState
-              title={query ? "No matches" : "You haven’t joined any servers"}
-              description={
-                activeLibrary?.role === "owner" && !libraryServerId
-                  ? "Create a server for your library, or join a public one from Discover."
-                  : "Join a public or Official server from Discover — nothing is added automatically."
-              }
-              action={
-                activeLibrary?.role === "owner" && !libraryServerId ? (
-                  <Button onClick={() => setShowCreate(true)}>
-                    <IconPlus size={16} />
-                    Create server for {activeLibrary.name}
-                  </Button>
-                ) : (
-                  <Button variant="secondary" onClick={() => setTab("discover")}>
-                    Browse Discover
-                  </Button>
-                )
-              }
-            />
-          ) : (
-            filteredMine.map((s) => (
-              <ServerCard
-                key={s.id}
-                server={s}
-                onOpen={() => openServer(s)}
-                trailing={
-                  <div className="flex items-center gap-1">
-                    {s.canManage && (
-                      <Link
-                        to={`/community/s/${s.id}/settings`}
-                        className="rounded-lg p-2 text-muted hover:bg-fill hover:text-foreground"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <IconSettings size={18} />
-                      </Link>
-                    )}
-                    {actionButtons(s, { showLeave: !s.canManage })}
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Find a server…"
+                className="w-full rounded-lg bg-[#1e1f22] py-2.5 pl-9 pr-3 text-[0.9375rem] text-white outline-none ring-accent placeholder:text-white/35 focus:ring-2"
+              />
+            </label>
+
+            {loading ? (
+              <p className="text-white/50">Loading…</p>
+            ) : filteredMine.length === 0 ? (
+              <EmptyState
+                title={query ? "No matches" : "No servers yet"}
+                description="Tap + to create a server or enter an invite code — or open Discover."
+                action={
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <Button onClick={() => setAddOpen(true)}>
+                      <IconPlus size={16} />
+                      Add a Server
+                    </Button>
+                    <Button variant="secondary" onClick={() => navigate("/community?tab=discover")}>
+                      Discover
+                    </Button>
                   </div>
                 }
               />
-            ))
-          )}
-          {libraries.length > 1 && (
-            <p className="pt-2 text-[0.8125rem] text-muted">
-              Creating a server uses your active library ({activeLibrary?.name}). Switch libraries to
-              create another.
-            </p>
-          )}
-        </div>
-      ) : (
-        <div className="space-y-3">
-          <p className="text-[0.875rem] text-muted">
-            Public servers ranked by popularity (members, messages, and recent activity). Join
-            explicitly — browsing does not add you.
-          </p>
-          {filteredPublic.length === 0 ? (
-            <EmptyState
-              title={query ? "No matches" : "No public servers yet"}
-              description="Library owners can create a server and turn on Public in Server Settings."
-              action={
-                activeLibrary?.role === "owner" && !libraryServerId ? (
-                  <Button onClick={() => setShowCreate(true)}>Create your server</Button>
-                ) : undefined
-              }
-            />
-          ) : (
-            filteredPublic.map((s, i) => (
-              <div key={s.id} className="relative pl-4">
-                <span className="absolute left-0 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-fill text-[0.6875rem] font-bold text-muted">
-                  {i + 1}
-                </span>
-                <ServerCard server={s} onOpen={() => openServer(s)} trailing={actionButtons(s)} />
+            ) : (
+              <div className="space-y-1">
+                {filteredMine.map((s) => (
+                  <ServerRow
+                    key={s.id}
+                    server={s}
+                    onOpen={() => openServer(s)}
+                    trailing={
+                      <div className="flex items-center gap-1">
+                        {s.canManage && (
+                          <Link
+                            to={`/community/s/${s.id}/settings`}
+                            className="rounded-lg p-2 text-white/45 hover:bg-white/10 hover:text-white"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <IconSettings size={18} />
+                          </Link>
+                        )}
+                        {joinBtn(s, { showLeave: !s.canManage })}
+                      </div>
+                    }
+                  />
+                ))}
               </div>
-            ))
-          )}
-        </div>
-      )}
+            )}
 
-      {showCreate && user && activeLibrary && (
-        <CreateServerModal
-          libraryName={activeLibrary.name}
-          onClose={() => setShowCreate(false)}
-          onCreate={async (values) => {
-            const server = await createLibraryServer({
-              libraryId: activeLibrary.id,
-              name: values.name,
-              description: values.description,
-              isPublic: values.isPublic,
-              userId: user.id,
-              isLibraryOwner: activeLibrary.role === "owner",
-            });
-            setShowCreate(false);
-            await refresh();
-            navigate(`/community/s/${server.id}`);
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
-function CreateServerModal({
-  libraryName,
-  onClose,
-  onCreate,
-}: {
-  libraryName: string;
-  onClose: () => void;
-  onCreate: (values: { name: string; description: string; isPublic: boolean }) => Promise<void>;
-}) {
-  const [name, setName] = useState(libraryName);
-  const [description, setDescription] = useState("");
-  const [isPublic, setIsPublic] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) return;
-    setBusy(true);
-    setError("");
-    try {
-      await onCreate({ name: name.trim(), description: description.trim(), isPublic });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create");
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <form
-        onClick={(e) => e.stopPropagation()}
-        onSubmit={submit}
-        className="w-full max-w-md rounded-[1.25rem] bg-surface p-5 shadow-xl ring-1 ring-black/[0.06] dark:ring-white/[0.08]"
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-[1.125rem] font-semibold">Create server</h2>
-          <button type="button" onClick={onClose} className="text-muted">
-            <IconX size={18} />
-          </button>
-        </div>
-        <p className="mb-4 text-[0.875rem] text-muted">
-          For library <strong>{libraryName}</strong>. Starts empty — no Official listing unless you
-          (or Pine Owner) mark it later.
-        </p>
-        <div className="space-y-3">
-          <TextField
-            label="Server name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            autoFocus
-          />
-          <TextArea
-            label="Description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={2}
-            hint="Optional — shown in Discover"
-          />
-          <ToggleRow
-            label="Make public"
-            hint="Appear in Discover. You can change this anytime in settings."
-            checked={isPublic}
-            onChange={setIsPublic}
-          />
-        </div>
-        {error && (
-          <div className="mt-3">
-            <FormError message={error} />
+            {libraries.length > 1 && (
+              <p className="mt-4 px-1 text-[0.75rem] text-white/40">
+                Creating a server uses your active library ({activeLibrary?.name}).
+              </p>
+            )}
           </div>
-        )}
-        <div className="mt-4 flex justify-end gap-2">
-          <Button type="button" variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={busy || !name.trim()}>
-            {busy ? "Creating…" : "Create server"}
-          </Button>
-        </div>
-      </form>
-    </div>
+        </>
+      )}
+
+      <AddServerModal open={addOpen} onClose={() => setAddOpen(false)} onDone={() => void refresh()} />
+    </CommunityDiscordShell>
   );
 }

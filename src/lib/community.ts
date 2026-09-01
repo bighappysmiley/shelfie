@@ -23,6 +23,7 @@ type ServerRow = {
   is_public: boolean;
   is_official: boolean;
   official_position: number | null;
+  invite_code: string | null;
   member_count: number;
   message_count: number;
   activity_score: number | string;
@@ -31,6 +32,15 @@ type ServerRow = {
   created_at: string;
   updated_at: string;
 };
+
+function generateInviteCode(): string {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+  let out = "";
+  for (let i = 0; i < 8; i += 1) {
+    out += alphabet[Math.floor(Math.random() * alphabet.length)]!;
+  }
+  return out;
+}
 
 type RoleRow = {
   id: string;
@@ -93,6 +103,7 @@ function mapServer(row: ServerRow, extra?: Partial<CommunityServer>): CommunityS
     isPublic: row.is_public,
     isOfficial: row.is_official,
     officialPosition: row.official_position,
+    inviteCode: row.invite_code ?? "",
     memberCount: row.member_count ?? 0,
     messageCount: row.message_count ?? 0,
     activityScore: Number(row.activity_score ?? 0),
@@ -273,6 +284,7 @@ export async function createLibraryServer(input: {
       is_public: Boolean(input.isPublic),
       is_official: false,
       official_position: null,
+      invite_code: generateInviteCode(),
       created_by: input.userId,
     })
     .select("*")
@@ -459,6 +471,36 @@ export async function joinServer(serverId: string, userId: string): Promise<void
   });
   if (error) throw error;
   await recomputeServerScore(serverId);
+}
+
+export async function findServerByInviteCode(code: string): Promise<CommunityServer | null> {
+  const invite = code.trim();
+  if (!invite) return null;
+  const { data, error } = await supabase
+    .from("community_servers")
+    .select("*")
+    .ilike("invite_code", invite)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return mapServer(data as ServerRow);
+}
+
+export async function joinServerByInviteCode(userId: string, code: string): Promise<CommunityServer> {
+  const server = await findServerByInviteCode(code);
+  if (!server) throw new Error("Invalid invite code");
+  await joinServer(server.id, userId);
+  return { ...server, isMember: true, memberCount: Math.max(1, server.memberCount) };
+}
+
+export async function regenerateServerInviteCode(serverId: string): Promise<string> {
+  const code = generateInviteCode();
+  const { error } = await supabase
+    .from("community_servers")
+    .update({ invite_code: code, updated_at: new Date().toISOString() })
+    .eq("id", serverId);
+  if (error) throw error;
+  return code;
 }
 
 export async function leaveServer(serverId: string, userId: string): Promise<void> {
