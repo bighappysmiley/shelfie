@@ -22,6 +22,8 @@ export interface CommunityProfile {
   currentReadingTitle: string | null;
   currentReadingAuthor: string | null;
   nitroEnabled?: boolean;
+  /** Pine Pro subscription (test mode) */
+  proEnabled?: boolean;
   profileRing?: string | null;
 }
 

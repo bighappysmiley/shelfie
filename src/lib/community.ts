@@ -26,7 +26,7 @@ import type {
   VerificationLevel,
 } from "./community-types";
 import { normalizeGroupKind } from "./community-types";
-import { getBoostLevel } from "./nitro";
+import { getBoostLevel } from "./pro";
 import { bumpCommunityRail } from "./community-events";
 
 type ServerRow = {
@@ -1032,6 +1032,46 @@ export async function listCommunityGroups(
   );
 }
 
+export async function syncServerMembersToChannel(
+  serverId: string,
+  groupId: string,
+  creatorUserId: string,
+): Promise<void> {
+  const { data: members, error } = await supabase
+    .from("community_server_members")
+    .select("user_id")
+    .eq("server_id", serverId);
+  if (error) throw error;
+
+  const rows = (members ?? []).map((m) => ({
+    group_id: groupId,
+    user_id: m.user_id as string,
+    role: (m.user_id as string) === creatorUserId ? "admin" : "member",
+  }));
+
+  if (rows.length === 0) {
+    await supabase.from("community_group_members").insert({
+      group_id: groupId,
+      user_id: creatorUserId,
+      role: "admin",
+    });
+    return;
+  }
+
+  await supabase.from("community_group_members").upsert(rows, { onConflict: "group_id,user_id" });
+}
+
+export async function getServerRoleForMember(
+  serverId: string,
+  userId: string,
+  roles?: CommunityServerRole[],
+): Promise<CommunityServerRole | null> {
+  const roleId = await getMyServerRoleId(serverId, userId);
+  if (!roleId) return null;
+  const list = roles ?? (await listServerRoles(serverId));
+  return list.find((r) => r.id === roleId) ?? null;
+}
+
 export async function createCommunityGroup(input: {
   serverId: string;
   name: string;
@@ -1075,11 +1115,7 @@ export async function createCommunityGroup(input: {
   if (error || !data) throw error ?? new Error("Could not create channel");
 
   const group = data as GroupRow;
-  await supabase.from("community_group_members").insert({
-    group_id: group.id,
-    user_id: input.userId,
-    role: "admin",
-  });
+  await syncServerMembersToChannel(input.serverId, group.id, input.userId);
 
   await supabase.from("community_messages").insert({
     group_id: group.id,

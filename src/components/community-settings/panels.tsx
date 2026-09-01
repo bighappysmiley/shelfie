@@ -38,6 +38,7 @@ import { EmptyState, ToggleRow } from "@/components/layout";
 import { AuthedImage } from "@/components/AuthedImage";
 import { ChannelTypeSelect, ChannelKindGlyph } from "@/components/community/ChannelKind";
 import { IconPlus, IconSettings } from "@/components/Icons";
+import { PermissionOverridesEditor } from "@/components/community-settings/PermissionOverridesEditor";
 
 export function JoinRequestsPanel({
   requests,
@@ -120,6 +121,7 @@ export function ChannelsPanel({
   userId,
   categories,
   channels,
+  roles,
   onChanged,
   onError,
 }: {
@@ -127,6 +129,7 @@ export function ChannelsPanel({
   userId: string;
   categories: CommunityCategory[];
   channels: CommunityGroup[];
+  roles: CommunityServerRole[];
   onChanged: () => Promise<void>;
   onError: (msg: string) => void;
 }) {
@@ -136,6 +139,7 @@ export function ChannelsPanel({
     | null
     | { type: "channel"; channel?: CommunityGroup; categoryId: string | null }
     | { type: "rename-category"; category: CommunityCategory }
+    | { type: "category-permissions"; category: CommunityCategory }
   >(null);
 
   const orderedCategories = useMemo(
@@ -219,6 +223,14 @@ export function ChannelsPanel({
                   <IconPlus size={14} />
                   Channel
                 </Button>
+                <button
+                  type="button"
+                  className="rounded p-1.5 text-muted hover:bg-fill hover:text-foreground"
+                  title="Category permissions"
+                  onClick={() => setEditor({ type: "category-permissions", category: cat })}
+                >
+                  <span className="text-[0.6875rem] font-semibold">🔒</span>
+                </button>
                 <button
                   type="button"
                   className="rounded p-1.5 text-muted hover:bg-fill hover:text-foreground"
@@ -372,6 +384,7 @@ export function ChannelsPanel({
           serverId={serverId}
           userId={userId}
           categories={orderedCategories}
+          roles={roles}
           channel={editor.channel}
           defaultCategoryId={editor.categoryId}
           onClose={() => setEditor(null)}
@@ -379,6 +392,16 @@ export function ChannelsPanel({
             setEditor(null);
             await onChanged();
           }}
+          onError={onError}
+        />
+      )}
+
+      {editor?.type === "category-permissions" && (
+        <CategoryPermissionsModal
+          serverId={serverId}
+          category={editor.category}
+          roles={roles}
+          onClose={() => setEditor(null)}
           onError={onError}
         />
       )}
@@ -402,6 +425,7 @@ function ChannelEditorModal({
   serverId,
   userId,
   categories,
+  roles,
   channel,
   defaultCategoryId,
   onClose,
@@ -411,6 +435,7 @@ function ChannelEditorModal({
   serverId: string;
   userId: string;
   categories: CommunityCategory[];
+  roles: CommunityServerRole[];
   channel?: CommunityGroup;
   defaultCategoryId: string | null;
   onClose: () => void;
@@ -418,6 +443,7 @@ function ChannelEditorModal({
   onError: (msg: string) => void;
 }) {
   const editing = Boolean(channel);
+  const [tab, setTab] = useState<"general" | "permissions">("general");
   const [name, setName] = useState(channel?.name ?? "");
   const [topic, setTopic] = useState(channel?.topic ?? "");
   const [description, setDescription] = useState(channel?.description ?? "");
@@ -502,6 +528,32 @@ function ChannelEditorModal({
         </div>
       }
     >
+      {editing && (
+        <div className="mb-4 flex gap-1 rounded-lg bg-fill p-1">
+          {(["general", "permissions"] as const).map((id) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setTab(id)}
+              className={`flex-1 rounded-md px-3 py-1.5 text-[0.8125rem] font-medium capitalize ${
+                tab === id ? "bg-surface shadow-sm" : "text-muted"
+              }`}
+            >
+              {id}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {tab === "permissions" && editing && channel ? (
+        <PermissionOverridesEditor
+          serverId={serverId}
+          targetType="channel"
+          targetId={channel.id}
+          roles={roles}
+          onError={onError}
+        />
+      ) : (
       <div className="space-y-3">
         <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
         <TextField label="Topic" value={topic} onChange={(e) => setTopic(e.target.value)} hint="Shown under the channel name" />
@@ -524,6 +576,35 @@ function ChannelEditorModal({
           )}
         </SelectField>
       </div>
+      )}
+    </CommunityModal>
+  );
+}
+
+function CategoryPermissionsModal({
+  serverId,
+  category,
+  roles,
+  onClose,
+  onError,
+}: {
+  serverId: string;
+  category: CommunityCategory;
+  roles: CommunityServerRole[];
+  onClose: () => void;
+  onError: (msg: string) => void;
+}) {
+  return (
+    <CommunityModal open onClose={onClose} title={`${category.name} — permissions`} footer={
+      <Button type="button" onClick={onClose}>Done</Button>
+    }>
+      <PermissionOverridesEditor
+        serverId={serverId}
+        targetType="category"
+        targetId={category.id}
+        roles={roles}
+        onError={onError}
+      />
     </CommunityModal>
   );
 }
@@ -1086,15 +1167,14 @@ export function RoleColorPicker({
       )}
 
       <div className="mt-4 rounded-xl border border-[#5865f2]/30 bg-gradient-to-r from-[#5865f2]/10 to-[#f47fff]/10 px-3 py-3">
-        <p className="text-[0.8125rem] font-semibold text-foreground">Pine Nitro &amp; Boosts</p>
+        <p className="text-[0.8125rem] font-semibold text-foreground">Pine Pro &amp; Boosts</p>
         {canUseHolo ? (
           <p className="mt-0.5 text-[0.75rem] text-muted">
-            Holographic role colors unlocked via Nitro or Server Boost Level 2+.
+            Holographic role colors unlocked via Pine Pro or Server Boost Level 2+.
           </p>
         ) : (
           <p className="mt-0.5 text-[0.75rem] text-muted">
-            Unlock holographic colors with Pine Nitro (Account → Nitro test) or boost this server to
-            Level 2.
+            Unlock holographic colors with Pine Pro (Account → Pro) or boost this server to Level 2.
           </p>
         )}
       </div>

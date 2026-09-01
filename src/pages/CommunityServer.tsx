@@ -116,6 +116,7 @@ import {
   type MentionRole,
 } from "@/lib/community-mentions";
 import { getChannelDraft, setChannelDraft, draftPreview, getAllChannelDrafts } from "@/lib/community-drafts";
+import { loadResolvedChannelPermissions, type ResolvedChannelPermissions } from "@/lib/community-permissions";
 import { useCommunityHotkeys } from "@/hooks/useCommunityHotkeys";
 import { useIsDesktop } from "@/hooks/useIsDesktop";
 import { listCommunityProfiles } from "@/lib/community-profile";
@@ -614,6 +615,7 @@ export function CommunityServerPage() {
           defaultCategoryId={modal.categoryId}
           serverId={serverId}
           userId={user.id}
+          roles={serverRoles}
           onClose={() => setModal(null)}
           onSaved={async (g) => {
             await refresh();
@@ -630,6 +632,7 @@ export function CommunityServerPage() {
           channel={modal.channel}
           serverId={serverId}
           userId={user.id}
+          roles={serverRoles}
           onClose={() => setModal(null)}
           onSaved={async () => {
             await refresh();
@@ -913,6 +916,7 @@ function ChannelRoom({
   const [searchMatchIndex, setSearchMatchIndex] = useState(0);
   const [threadsPanelOpen, setThreadsPanelOpen] = useState(false);
   const [threadRootId, setThreadRootId] = useState<string | null>(null);
+  const [channelPerms, setChannelPerms] = useState<ResolvedChannelPermissions | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Map<string, HTMLLIElement>>(new Map());
   const presenceRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -999,16 +1003,45 @@ function ChannelRoom({
     window.setTimeout(() => setHighlightMessageId(null), 2000);
   }, []);
 
+  const myServerRole = useMemo(() => {
+    const member = serverMembers.find((m) => m.userId === userId);
+    return member?.roleId ? roleById.get(member.roleId) : undefined;
+  }, [serverMembers, userId, roleById]);
+
+  useEffect(() => {
+    void loadResolvedChannelPermissions(
+      serverId,
+      group.id,
+      group.categoryId,
+      myServerRole ?? null,
+      { isAppOwner, canConfigure },
+    ).then(setChannelPerms);
+  }, [serverId, group.id, group.categoryId, myServerRole, isAppOwner, canConfigure]);
+
   const myRole = group.myRole ?? (isAppOwner || canConfigure ? "admin" : isMember ? "member" : null);
-  const manage = canManageMembers(myRole, isAppOwner || canConfigure);
-  const moderate = canModerate(myRole, isAppOwner || canConfigure);
-  const canPost = canPostInChannelKind(group.kind, {
+  const manage = Boolean(
+    channelPerms?.manageChannel ||
+      myServerRole?.canManageChannels ||
+      myServerRole?.canManageServer ||
+      canManageMembers(myRole, isAppOwner || canConfigure),
+  );
+  const moderate = Boolean(
+    channelPerms?.manageMessages ||
+      myServerRole?.canModerate ||
+      myServerRole?.canManageMessages ||
+      myServerRole?.canManageServer ||
+      canModerate(myRole, isAppOwner || canConfigure),
+  );
+  const canPost = Boolean(
+    channelPerms?.sendMessages ?? true,
+  ) && canPostInChannelKind(group.kind, {
     isMember,
     canConfigure,
     canModerate: moderate,
     canManage: manage,
     isAppOwner: Boolean(isAppOwner),
   });
+  const canViewChannel = channelPerms?.view ?? true;
   const isVoice = group.kind === "voice";
   const isForum = group.kind === "forum";
   const kindBanner = channelKindBanner(group.kind);
@@ -1294,6 +1327,15 @@ function ChannelRoom({
       <ChannelToolbar variant="mobile" {...channelToolbarProps} />
       <ChannelToolbar variant="desktop" {...channelToolbarProps} />
 
+      {channelPerms && !canViewChannel ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
+          <p className="text-[1rem] font-semibold text-foreground">No access</p>
+          <p className="max-w-sm text-[0.875rem] text-muted">
+            Your role doesn&apos;t have permission to view #{group.name}.
+          </p>
+        </div>
+      ) : (
+        <>
       {pinned.length > 0 && pinsExpanded && (
         <PinnedMessagesBar
           pins={pinned}
@@ -1695,6 +1737,8 @@ function ChannelRoom({
         )}
 
       <KeyboardShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+        </>
+      )}
     </div>
   );
 }

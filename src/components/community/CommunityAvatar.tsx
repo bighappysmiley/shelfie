@@ -1,6 +1,6 @@
 import { AuthedImage } from "@/components/AuthedImage";
 import { communityProfileLabel } from "@/lib/community-profile";
-import { canShowProfileRing, profileRingClass } from "@/lib/nitro";
+import { canShowProfileRing, profileRingClass } from "@/lib/pro";
 import type { CommunityProfile } from "@/lib/community-types";
 
 const SIZE_CLASSES = {
@@ -26,6 +26,7 @@ type ProfilePick = Pick<
   | "displayName"
   | "communityUsername"
   | "nitroEnabled"
+  | "proEnabled"
   | "profileRing"
 >;
 
@@ -43,9 +44,7 @@ export function CommunityAvatar({
   size?: keyof typeof SIZE_CLASSES;
   className?: string;
   style?: React.CSSProperties;
-  /** Show animated ring when user boosted this server */
   isServerBooster?: boolean;
-  /** Force ring on for picker previews */
   previewRing?: boolean;
 }) {
   const label =
@@ -58,6 +57,7 @@ export function CommunityAvatar({
   const showRing =
     previewRing ||
     canShowProfileRing({
+      proEnabled: profile?.proEnabled,
       nitroEnabled: profile?.nitroEnabled,
       profileRing: profile?.profileRing,
       isServerBooster,
@@ -89,13 +89,16 @@ export function CommunityAvatar({
   );
 }
 
-export function NitroBadge({ className = "" }: { className?: string }) {
+export function ProBadge({ className = "" }: { className?: string }) {
   return (
     <span
-      className={`inline-flex items-center rounded px-1 py-0.5 text-[0.5625rem] font-bold uppercase tracking-wide profile-ring profile-ring--nitro ${className}`}
-      title="Pine Nitro"
+      className={`inline-flex items-center rounded px-1 py-0.5 text-[0.5625rem] font-bold uppercase tracking-wide profile-ring profile-ring--pro ${className}`}
+      title="Pine Pro"
     >
-      Nitro
+      Pro
     </span>
   );
 }
+
+/** @deprecated Use ProBadge */
+export const NitroBadge = ProBadge;
