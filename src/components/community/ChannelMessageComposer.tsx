@@ -14,6 +14,7 @@ import {
   type SlashCommand,
 } from "@/lib/community-slash-commands";
 import type { CommunityServerEmoji, CommunityServerSticker, CommunityServerWebhook } from "@/lib/community-types";
+import { isBlockedImageFile } from "@/lib/content-moderation";
 import { useIsDesktop } from "@/hooks/useIsDesktop";
 import { AttachmentPreviewBar, type StagedAttachment } from "@/components/community/AttachmentPreviewBar";
 
@@ -148,6 +149,11 @@ export function ChannelMessageComposer({
 
   const handleUpload = async (file: File) => {
     if (!onUploadImage) return;
+    const blocked = isBlockedImageFile(file);
+    if (blocked) {
+      window.alert(blocked);
+      return;
+    }
     const id = crypto.randomUUID();
     const previewUrl = URL.createObjectURL(file);
     setStaged((prev) => [...prev, { id, file, previewUrl, uploading: true }]);
@@ -343,7 +349,7 @@ export function ChannelMessageComposer({
       <input
         ref={fileRef}
         type="file"
-        accept="image/*"
+        accept="image/jpeg,image/png,image/webp,image/avif"
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0];

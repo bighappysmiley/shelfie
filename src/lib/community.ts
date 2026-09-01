@@ -28,6 +28,7 @@ import type {
 import { normalizeGroupKind } from "./community-types";
 import { getBoostLevel } from "./pro";
 import { bumpCommunityRail } from "./community-events";
+import { isBlockedImageFile, moderateImageContent, moderateTextContent } from "./content-moderation";
 
 function normalizeDescription(value: string | null | undefined): string | null {
   if (value == null) return null;
@@ -422,6 +423,8 @@ export async function createLibraryServer(input: {
     throw new Error("Only the library owner can create a server");
   }
 
+  assertModeratedTextFields([input.name, input.description]);
+
   const { data, error } = await supabase
     .from("community_servers")
     .insert({
@@ -607,6 +610,13 @@ export async function updateServer(
     automodKeywords?: string[];
   },
 ): Promise<void> {
+  assertModeratedTextFields([
+    patch.name,
+    patch.description,
+    patch.rules,
+    patch.welcomeMessage,
+  ]);
+
   const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (patch.name !== undefined) row.name = patch.name.trim();
   if (patch.description !== undefined) row.description = normalizeDescription(patch.description);
@@ -947,7 +957,13 @@ export async function deleteServerRole(roleId: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function uploadCommunityImage(file: File): Promise<string> {
+export async function uploadCommunityImage(file: File, options?: { moderate?: boolean }): Promise<string> {
+  const shouldModerate = options?.moderate !== false;
+  if (shouldModerate) {
+    const blocked = isBlockedImageFile(file);
+    if (blocked) throw new Error(blocked);
+  }
+
   const raw = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
@@ -955,6 +971,13 @@ export async function uploadCommunityImage(file: File): Promise<string> {
     reader.readAsDataURL(file);
   });
   const { dataUrl, mediaType } = await compressCover(raw, 256, 0.85);
+
+  if (shouldModerate) {
+    const verdict = await moderateImageContent(dataUrl, mediaType);
+    if (!verdict.safe) {
+      throw new Error(verdict.reason || "Image blocked: inappropriate content is not allowed.");
+    }
+  }
 
   const { data: session } = await supabase.auth.getSession();
   const token = session.session?.access_token;
@@ -1368,7 +1391,7 @@ export async function sendGroupMessage(input: {
   if (!trimmed) throw new Error("Message cannot be empty");
 
   if (!input.skipAutomod) {
-    await assertAutomodAllows(input.serverId, trimmed);
+    await assertContentAllowed(input.serverId, trimmed);
   }
 
   const { data, error } = await supabase
@@ -1687,9 +1710,29 @@ export async function updateGroupMessage(
   messageId: string,
   userId: string,
   body: string,
+  serverId?: string,
 ): Promise<void> {
   const trimmed = body.trim();
   if (!trimmed) throw new Error("Message cannot be empty");
+
+  let sid = serverId;
+  if (!sid) {
+    const { data: msg } = await supabase
+      .from("community_messages")
+      .select("group_id")
+      .eq("id", messageId)
+      .maybeSingle();
+    if (msg?.group_id) {
+      const { data: group } = await supabase
+        .from("community_groups")
+        .select("server_id")
+        .eq("id", msg.group_id as string)
+        .maybeSingle();
+      sid = (group?.server_id as string | undefined) ?? undefined;
+    }
+  }
+  if (sid) await assertContentAllowed(sid, trimmed);
+
   const { error } = await supabase
     .from("community_messages")
     .update({ body: trimmed, edited_at: new Date().toISOString() })
@@ -1848,20 +1891,27 @@ export async function listPinnedMessages(groupId: string): Promise<CommunityMess
     .map((row) => mapMessage(row as MessageRow));
 }
 
-async function assertAutomodAllows(serverId: string, body: string): Promise<void> {
+async function assertContentAllowed(serverId: string, body: string): Promise<void> {
   const { data, error } = await supabase
     .from("community_servers")
-    .select("automod_enabled, automod_keywords")
+    .select("automod_keywords")
     .eq("id", serverId)
     .maybeSingle();
-  if (error || !data?.automod_enabled) return;
+  if (error) throw error;
 
-  const keywords = (data.automod_keywords as string[] | null) ?? [];
-  const lower = body.toLowerCase();
-  for (const kw of keywords) {
-    const needle = kw.trim().toLowerCase();
-    if (needle && lower.includes(needle)) {
-      throw new Error(`Message blocked by AutoMod (matched “${needle}”).`);
+  const extraKeywords = (data?.automod_keywords as string[] | null) ?? [];
+  const result = moderateTextContent(body, extraKeywords);
+  if (!result.allowed) {
+    throw new Error(result.reason);
+  }
+}
+
+function assertModeratedTextFields(fields: Array<string | null | undefined>): void {
+  for (const field of fields) {
+    if (!field?.trim()) continue;
+    const result = moderateTextContent(field);
+    if (!result.allowed) {
+      throw new Error(result.reason);
     }
   }
 }

@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import { uploadCommunityImage } from "./community";
+import { moderateTextContent } from "./content-moderation";
 import type { CommunityProfile } from "./community-types";
 
 type ProfileRow = {
@@ -104,6 +105,13 @@ export async function updateCommunityProfile(
     profileRing?: string | null;
   },
 ): Promise<void> {
+  const moderated = moderateTextContent(
+    [patch.bio, patch.statusText].filter(Boolean).join(" "),
+  );
+  if (!moderated.allowed && (patch.bio !== undefined || patch.statusText !== undefined)) {
+    throw new Error(moderated.reason);
+  }
+
   const row: Record<string, unknown> = { user_id: userId, updated_at: new Date().toISOString() };
   if (patch.bio !== undefined) row.community_bio = patch.bio?.trim().slice(0, 500) || null;
   if (patch.avatarUrl !== undefined) row.community_avatar_url = patch.avatarUrl || null;

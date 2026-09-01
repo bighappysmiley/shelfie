@@ -1691,7 +1691,7 @@ function ChannelRoom({
                       : undefined
                   }
                   onEdit={async (body) => {
-                    await updateGroupMessage(m.id, userId, body);
+                    await updateGroupMessage(m.id, userId, body, serverId);
                     await load();
                   }}
                   onReact={async (emoji) => {
