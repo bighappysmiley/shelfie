@@ -18,11 +18,19 @@ type ProfileRow = {
   current_reading_author: string | null;
   nitro_enabled: boolean | null;
   pro_enabled?: boolean | null;
-  profile_ring: string | null;
+  profile_ring?: string | null;
 };
 
-const PROFILE_SELECT =
-  "user_id, display_name, community_username, community_display_name, community_bio, community_avatar_url, community_banner_url, community_status_emoji, community_status_text, books_read_count, current_reading_title, current_reading_author, nitro_enabled, pro_enabled, profile_ring";
+const PROFILE_SELECT_BASE =
+  "user_id, display_name, community_username, community_display_name, community_bio, community_avatar_url, community_banner_url, community_status_emoji, community_status_text, books_read_count, current_reading_title, current_reading_author";
+
+const PROFILE_SELECT_WITH_NITRO = `${PROFILE_SELECT_BASE}, nitro_enabled, profile_ring`;
+
+const PROFILE_SELECT_FULL = `${PROFILE_SELECT_WITH_NITRO}, pro_enabled`;
+
+function isMissingColumnError(error: { code?: string; message?: string }): boolean {
+  return error.code === "42703" || /column .+ does not exist/i.test(error.message ?? "");
+}
 
 function mapProfile(row: ProfileRow): CommunityProfile {
   return {
@@ -40,8 +48,28 @@ function mapProfile(row: ProfileRow): CommunityProfile {
     currentReadingAuthor: row.current_reading_author,
     nitroEnabled: Boolean(row.pro_enabled ?? row.nitro_enabled),
     proEnabled: Boolean(row.pro_enabled ?? row.nitro_enabled),
-    profileRing: row.profile_ring,
+    profileRing: row.profile_ring ?? null,
   };
+}
+
+async function selectProfileRows(
+  build: (select: string) => PromiseLike<{ data: unknown; error: { code?: string; message?: string } | null }>,
+): Promise<ProfileRow[]> {
+  const attempts = [PROFILE_SELECT_FULL, PROFILE_SELECT_WITH_NITRO, PROFILE_SELECT_BASE];
+  let lastError: { code?: string; message?: string } | null = null;
+
+  for (const select of attempts) {
+    const { data, error } = await build(select);
+    if (!error) {
+      if (!data) return [];
+      return Array.isArray(data) ? (data as ProfileRow[]) : [data as ProfileRow];
+    }
+    if (!isMissingColumnError(error)) throw error;
+    lastError = error;
+  }
+
+  if (lastError) throw lastError;
+  return [];
 }
 
 export function communityProfileLabel(profile: CommunityProfile | null | undefined): string {
@@ -54,26 +82,26 @@ export function communityProfileLabel(profile: CommunityProfile | null | undefin
 }
 
 export async function getCommunityProfile(userId: string): Promise<CommunityProfile | null> {
-  const { data, error } = await supabase
-    .from("user_profiles")
-    .select(PROFILE_SELECT)
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (error) throw error;
-  if (!data) return null;
-  return mapProfile(data as ProfileRow);
+  const rows = await selectProfileRows((select) =>
+    supabase.from("user_profiles").select(select).eq("user_id", userId).maybeSingle(),
+  );
+  const row = rows[0];
+  if (!row) return null;
+  return mapProfile(row);
 }
 
 export async function getCommunityProfileByUsername(username: string): Promise<CommunityProfile | null> {
   const handle = username.trim().replace(/^@+/, "").toLowerCase();
-  const { data, error } = await supabase
-    .from("user_profiles")
-    .select(PROFILE_SELECT)
-    .ilike("community_username", handle)
-    .maybeSingle();
-  if (error) throw error;
-  if (!data) return null;
-  return mapProfile(data as ProfileRow);
+  const rows = await selectProfileRows((select) =>
+    supabase
+      .from("user_profiles")
+      .select(select)
+      .ilike("community_username", handle)
+      .maybeSingle(),
+  );
+  const row = rows[0];
+  if (!row) return null;
+  return mapProfile(row);
 }
 
 export async function listCommunityProfiles(userIds: string[]): Promise<Map<string, CommunityProfile>> {
@@ -81,9 +109,10 @@ export async function listCommunityProfiles(userIds: string[]): Promise<Map<stri
   const map = new Map<string, CommunityProfile>();
   if (unique.length === 0) return map;
 
-  const { data, error } = await supabase.from("user_profiles").select(PROFILE_SELECT).in("user_id", unique);
-  if (error) throw error;
-  for (const row of (data ?? []) as ProfileRow[]) {
+  const rows = await selectProfileRows((select) =>
+    supabase.from("user_profiles").select(select).in("user_id", unique),
+  );
+  for (const row of rows) {
     map.set(row.user_id, mapProfile(row));
   }
   return map;
@@ -138,7 +167,16 @@ export async function updateCommunityProfile(
     row.profile_ring = ring || null;
   }
 
-  const { error } = await supabase.from("user_profiles").upsert(row);
+  let { error } = await supabase.from("user_profiles").upsert(row);
+  if (error && isMissingColumnError(error)) {
+    const legacyRow = { ...row };
+    delete legacyRow.pro_enabled;
+    if (legacyRow.profile_ring !== undefined) delete legacyRow.profile_ring;
+    if (patch.nitroEnabled !== undefined || patch.proEnabled !== undefined) {
+      legacyRow.nitro_enabled = patch.proEnabled ?? patch.nitroEnabled;
+    }
+    ({ error } = await supabase.from("user_profiles").upsert(legacyRow));
+  }
   if (error) throw error;
 }
 

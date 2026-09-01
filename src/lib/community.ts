@@ -687,7 +687,12 @@ export async function getMyRulesAccepted(serverId: string, userId: string): Prom
     .eq("server_id", serverId)
     .eq("user_id", userId)
     .maybeSingle();
-  if (error) throw error;
+  if (error) {
+    if (error.code === "42703" || /column .+ does not exist/i.test(error.message ?? "")) {
+      return null;
+    }
+    throw error;
+  }
   return (data?.rules_accepted_at as string | null) ?? null;
 }
 

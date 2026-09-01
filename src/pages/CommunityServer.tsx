@@ -1116,8 +1116,10 @@ function ChannelRoom({
 
   const myServerRole = useMemo(() => {
     const member = serverMembers.find((m) => m.userId === userId);
-    return member?.roleId ? roleById.get(member.roleId) : undefined;
-  }, [serverMembers, userId, roleById]);
+    if (!member) return undefined;
+    if (member.roleId) return roleById.get(member.roleId);
+    return serverRoles.find((r) => r.isEveryone);
+  }, [serverMembers, userId, roleById, serverRoles]);
 
   useEffect(() => {
     void loadResolvedChannelPermissions(
