@@ -3,11 +3,24 @@ export type CommunityMemberRole = "admin" | "moderator" | "member";
 export type CommunityMessageKind = "chat" | "suggestion" | "system";
 export type SuggestionStatus = "open" | "accepted" | "declined" | "implemented";
 
+export interface CommunityCategory {
+  id: string;
+  name: string;
+  position: number;
+  isOfficial: boolean;
+  createdAt: string;
+}
+
 export interface CommunityGroup {
   id: string;
   name: string;
   description: string | null;
+  topic: string | null;
   kind: CommunityGroupKind;
+  categoryId: string | null;
+  position: number;
+  isOfficial: boolean;
+  icon: string;
   createdBy: string;
   archivedAt: string | null;
   createdAt: string;
@@ -48,6 +61,12 @@ export const SUGGESTION_STATUS_LABELS: Record<SuggestionStatus, string> = {
   implemented: "Implemented",
 };
 
+export const KIND_LABELS: Record<CommunityGroupKind, string> = {
+  chat: "Chat",
+  suggestions: "Suggestions",
+  both: "Chat & suggestions",
+};
+
 export function canManageMembers(role?: CommunityMemberRole | null, isAppOwner = false) {
   return isAppOwner || role === "admin";
 }
@@ -66,5 +85,10 @@ export function formatCommunityTime(iso: string): string {
   if (sameDay) {
     return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
   }
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return d.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }

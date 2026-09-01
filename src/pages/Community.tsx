@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type FormEvent,
@@ -11,23 +12,30 @@ import { supabase } from "@/lib/supabase";
 import {
   addGroupMember,
   archiveCommunityGroup,
+  createCommunityCategory,
   createCommunityGroup,
+  deleteCommunityCategory,
   deleteGroupMessage,
+  listCommunityCategories,
   listCommunityGroups,
   listGroupMembers,
   listGroupMessages,
   listTeammateCandidates,
   removeGroupMember,
+  renameCommunityCategory,
   sendGroupMessage,
+  updateCommunityGroup,
   updateMemberRole,
   updateSuggestionStatus,
 } from "@/lib/community";
 import {
+  KIND_LABELS,
   MEMBER_ROLE_LABELS,
   SUGGESTION_STATUS_LABELS,
   canManageMembers,
   canModerate,
   formatCommunityTime,
+  type CommunityCategory,
   type CommunityGroup,
   type CommunityGroupKind,
   type CommunityMember,
@@ -38,33 +46,79 @@ import {
 } from "@/lib/community-types";
 import { Button } from "@/components/Button";
 import { TextField, TextArea, FormError } from "@/components/form";
-import {
-  EmptyState,
-  Group,
-  GroupHeader,
-  ListRow,
-  PageHeader,
-  SegmentedControl,
-} from "@/components/layout";
-import { IconPlus } from "@/components/Icons";
+import { EmptyState, SegmentedControl } from "@/components/layout";
+import { IconChat, IconPlus, IconSettings, IconX } from "@/components/Icons";
+
+type Modal =
+  | null
+  | { type: "create-channel"; categoryId: string | null; official: boolean }
+  | { type: "edit-channel"; channel: CommunityGroup }
+  | { type: "create-category" }
+  | { type: "edit-category"; category: CommunityCategory };
+
+function HashGlyph({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
+      <path
+        d="M10 4 8 20M16 4l-2 16M5 9h14M4 15h14"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function PinGlyph({ className = "h-3 w-3" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden>
+      <path d="M16 3a1 1 0 0 1 .8 1.6l-1.7 2.26 1.45 4.34a1 1 0 0 1-.33 1.1L13 14.7V20a1 1 0 1 1-2 0v-5.3l-3.22-2.4a1 1 0 0 1-.33-1.1l1.45-4.34L7.2 4.6A1 1 0 0 1 8 3h8Z" />
+    </svg>
+  );
+}
+
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      className={`h-3 w-3 shrink-0 transition-transform ${open ? "rotate-0" : "-rotate-90"}`}
+      fill="none"
+      aria-hidden
+    >
+      <path
+        d="M4.5 6.5 8 10l3.5-3.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
 
 export function CommunityPage() {
   const { groupId } = useParams();
   const navigate = useNavigate();
   const { user, userProfile, isOwner } = useAuth();
-  const canCreate = Boolean(isOwner);
+  const canConfigure = Boolean(isOwner);
 
-  const [groups, setGroups] = useState<CommunityGroup[]>([]);
+  const [categories, setCategories] = useState<CommunityCategory[]>([]);
+  const [channels, setChannels] = useState<CommunityGroup[]>([]);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [showCreate, setShowCreate] = useState(false);
+  const [modal, setModal] = useState<Modal>(null);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!user) return;
-    setLoading(true);
     setError("");
     try {
-      setGroups(await listCommunityGroups(user.id));
+      const [cats, groups] = await Promise.all([
+        listCommunityCategories(),
+        listCommunityGroups(user.id),
+      ]);
+      setCategories(cats);
+      setChannels(groups);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load community");
     } finally {
@@ -76,202 +130,394 @@ export function CommunityPage() {
     void refresh();
   }, [refresh]);
 
-  const active = groups.find((g) => g.id === groupId) ?? null;
+  const orderedCategories = useMemo(
+    () =>
+      [...categories].sort((a, b) => {
+        if (a.isOfficial !== b.isOfficial) return a.isOfficial ? -1 : 1;
+        return a.position - b.position || a.name.localeCompare(b.name);
+      }),
+    [categories],
+  );
+
+  const channelsByCategory = useMemo(() => {
+    const map = new Map<string | null, CommunityGroup[]>();
+    for (const ch of channels) {
+      const key = ch.categoryId;
+      const list = map.get(key) ?? [];
+      list.push(ch);
+      map.set(key, list);
+    }
+    for (const list of map.values()) {
+      list.sort((a, b) => a.position - b.position || a.name.localeCompare(b.name));
+    }
+    return map;
+  }, [channels]);
+
+  const active = channels.find((g) => g.id === groupId) ?? null;
 
   useEffect(() => {
-    if (!loading && groups.length > 0 && !groupId) {
-      navigate(`/community/${groups[0].id}`, { replace: true });
-    }
-  }, [loading, groups, groupId, navigate]);
+    if (loading || channels.length === 0 || groupId) return;
+    const first =
+      channels.find((c) => c.isOfficial) ??
+      channels.find((c) => orderedCategories[0] && c.categoryId === orderedCategories[0].id) ??
+      channels[0];
+    navigate(`/community/${first.id}`, { replace: true });
+  }, [loading, channels, groupId, navigate, orderedCategories]);
+
+  const sidebar = (
+    <ChannelSidebar
+      categories={orderedCategories}
+      channelsByCategory={channelsByCategory}
+      collapsed={collapsed}
+      onToggle={(id) => setCollapsed((prev) => ({ ...prev, [id]: !prev[id] }))}
+      activeId={groupId}
+      canConfigure={canConfigure}
+      onSelect={(id) => {
+        navigate(`/community/${id}`);
+        setMobileNavOpen(false);
+      }}
+      onCreateChannel={(categoryId, official) =>
+        setModal({ type: "create-channel", categoryId, official })
+      }
+      onEditCategory={(category) => setModal({ type: "edit-category", category })}
+      onCreateCategory={() => setModal({ type: "create-category" })}
+      loading={loading}
+    />
+  );
 
   return (
-    <div>
-      <PageHeader
-        title="Community"
-        subtitle="Groups for chatting and sharing suggestions"
-        action={
-          canCreate ? (
-            <Button size="sm" onClick={() => setShowCreate(true)}>
-              <IconPlus size={16} />
-              New group
-            </Button>
-          ) : undefined
-        }
-      />
+    <div className="-mx-4 -my-4 sm:-mx-5 sm:-my-5 lg:-mx-8 lg:-my-7">
+      <div className="flex min-h-[calc(100dvh-4.5rem)] overflow-hidden rounded-[var(--radius-group)] bg-surface shadow-sm ring-1 ring-black/[0.04] dark:ring-white/[0.06] lg:min-h-[calc(100dvh-3.5rem)]">
+        <aside className="hidden w-[15.25rem] shrink-0 flex-col border-r border-black/[0.06] bg-fill/50 dark:border-white/[0.08] md:flex">
+          <div className="flex h-12 items-center border-b border-black/[0.06] px-3 dark:border-white/[0.08]">
+            <p className="truncate text-[0.9375rem] font-semibold tracking-tight">Pine Community</p>
+          </div>
+          <div className="flex-1 overflow-y-auto px-2 py-3">{sidebar}</div>
+          {user && (
+            <div className="border-t border-black/[0.06] px-3 py-2.5 dark:border-white/[0.08]">
+              <p className="truncate text-[0.8125rem] font-medium">
+                {userProfile?.displayName || user.email}
+              </p>
+              <p className="text-[0.6875rem] text-muted">
+                {canConfigure ? "Owner" : "Member"}
+              </p>
+            </div>
+          )}
+        </aside>
 
-      {error && (
-        <div className="mb-4">
-          <FormError message={error} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex items-center gap-2 border-b border-black/[0.06] px-3 py-2 md:hidden dark:border-white/[0.08]">
+            <button
+              type="button"
+              onClick={() => setMobileNavOpen((v) => !v)}
+              className="rounded-[var(--radius-control)] bg-fill px-2.5 py-1.5 text-[0.8125rem] font-medium"
+            >
+              Channels
+            </button>
+            {active && (
+              <p className="flex min-w-0 flex-1 items-center gap-1 truncate text-[0.9375rem] font-semibold">
+                <HashGlyph className="h-3.5 w-3.5 text-muted" />
+                {active.name}
+              </p>
+            )}
+          </div>
+
+          {mobileNavOpen && (
+            <div className="border-b border-black/[0.06] bg-fill/70 px-2 py-3 md:hidden dark:border-white/[0.08]">
+              {sidebar}
+            </div>
+          )}
+
+          {error && (
+            <div className="px-4 pt-3">
+              <FormError message={error} />
+            </div>
+          )}
+
+          {loading ? (
+            <p className="p-6 text-muted">Loading community…</p>
+          ) : active && user ? (
+            <ChannelRoom
+              group={active}
+              userId={user.id}
+              displayName={userProfile?.displayName?.trim() || user.email || "Member"}
+              isAppOwner={canConfigure}
+              onOpenSettings={() => setModal({ type: "edit-channel", channel: active })}
+              onChanged={refresh}
+            />
+          ) : (
+            <div className="flex flex-1 items-center justify-center p-8">
+              <EmptyState
+                title="Welcome to Community"
+                description={
+                  canConfigure
+                    ? "Create Official channels in the pinned Official category, or organize Text Channels for your team."
+                    : "When channels are available, pick one from the sidebar."
+                }
+              />
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
-      {showCreate && canCreate && user && (
-        <CreateGroupPanel
+      {modal?.type === "create-channel" && user && (
+        <ChannelFormModal
+          title={modal.official ? "Create official channel" : "Create channel"}
+          categories={categories}
+          defaultCategoryId={modal.categoryId}
+          forceOfficial={modal.official}
+          isOwner={canConfigure}
           userId={user.id}
-          onClose={() => setShowCreate(false)}
-          onCreated={(g) => {
-            setGroups((prev) => [...prev, g]);
-            setShowCreate(false);
-            navigate(`/community/${g.id}`);
+          onClose={() => setModal(null)}
+          onSaved={async (g) => {
+            await refresh();
+            setModal(null);
+            if (g) navigate(`/community/${g.id}`);
           }}
         />
       )}
 
-      {loading ? (
-        <p className="text-muted">Loading community…</p>
-      ) : groups.length === 0 ? (
-        <EmptyState
-          title="No groups yet"
-          description={
-            canCreate
-              ? "Create a group for team chat or feature suggestions. Only the app Owner can create groups."
-              : "When the Owner creates a group and adds you, it will show up here."
+      {modal?.type === "edit-channel" && user && (
+        <ChannelFormModal
+          title="Channel settings"
+          categories={categories}
+          channel={modal.channel}
+          isOwner={canConfigure}
+          userId={user.id}
+          onClose={() => setModal(null)}
+          onSaved={async () => {
+            await refresh();
+            setModal(null);
+          }}
+          onArchive={
+            canConfigure
+              ? async () => {
+                  if (!confirm(`Archive #${modal.channel.name}? Members will lose access.`)) return;
+                  await archiveCommunityGroup(modal.channel.id);
+                  await refresh();
+                  setModal(null);
+                  navigate("/community");
+                }
+              : undefined
           }
         />
-      ) : (
-        <div className="grid gap-4 lg:grid-cols-[15.5rem_minmax(0,1fr)] lg:gap-6">
-          <div>
-            <GroupHeader>Groups</GroupHeader>
-            <Group>
-              {groups.map((g) => (
-                <ListRow
-                  key={g.id}
-                  title={g.name}
-                  subtitle={
-                    g.kind === "chat"
-                      ? "Chat"
-                      : g.kind === "suggestions"
-                        ? "Suggestions"
-                        : "Chat & suggestions"
-                  }
-                  trailing={g.memberCount ? String(g.memberCount) : undefined}
-                  to={`/community/${g.id}`}
-                  chevron
-                  className={g.id === groupId ? "bg-fill-secondary" : ""}
-                />
-              ))}
-            </Group>
-          </div>
+      )}
 
-          <div className="min-w-0">
-            {active && user ? (
-              <GroupRoom
-                group={active}
-                userId={user.id}
-                displayName={userProfile?.displayName?.trim() || user.email || "Member"}
-                isAppOwner={canCreate}
-                onChanged={refresh}
-              />
-            ) : (
-              <EmptyState
-                title="Select a group"
-                description="Choose a group from the list to open the conversation."
-              />
+      {modal?.type === "create-category" && user && (
+        <CategoryFormModal
+          title="Create category"
+          onClose={() => setModal(null)}
+          onSubmit={async (name) => {
+            await createCommunityCategory({ name, userId: user.id });
+            await refresh();
+            setModal(null);
+          }}
+        />
+      )}
+
+      {modal?.type === "edit-category" && (
+        <CategoryFormModal
+          title="Edit category"
+          initialName={modal.category.name}
+          onClose={() => setModal(null)}
+          onSubmit={async (name) => {
+            await renameCommunityCategory(modal.category.id, name);
+            await refresh();
+            setModal(null);
+          }}
+          onDelete={
+            !modal.category.isOfficial
+              ? async () => {
+                  if (
+                    !confirm(
+                      `Delete category “${modal.category.name}”? Channels become uncategorized.`,
+                    )
+                  ) {
+                    return;
+                  }
+                  await deleteCommunityCategory(modal.category.id);
+                  await refresh();
+                  setModal(null);
+                }
+              : undefined
+          }
+        />
+      )}
+    </div>
+  );
+}
+
+function ChannelSidebar({
+  categories,
+  channelsByCategory,
+  collapsed,
+  onToggle,
+  activeId,
+  canConfigure,
+  onSelect,
+  onCreateChannel,
+  onEditCategory,
+  onCreateCategory,
+  loading,
+}: {
+  categories: CommunityCategory[];
+  channelsByCategory: Map<string | null, CommunityGroup[]>;
+  collapsed: Record<string, boolean>;
+  onToggle: (id: string) => void;
+  activeId?: string;
+  canConfigure: boolean;
+  onSelect: (id: string) => void;
+  onCreateChannel: (categoryId: string | null, official: boolean) => void;
+  onEditCategory: (category: CommunityCategory) => void;
+  onCreateCategory: () => void;
+  loading: boolean;
+}) {
+  if (loading) {
+    return <p className="px-2 text-[0.8125rem] text-muted">Loading…</p>;
+  }
+
+  const uncategorized = channelsByCategory.get(null) ?? [];
+
+  return (
+    <div className="space-y-3">
+      {categories.map((cat) => {
+        const list = channelsByCategory.get(cat.id) ?? [];
+        const open = !collapsed[cat.id];
+        return (
+          <div key={cat.id}>
+            <div className="group flex items-center gap-0.5 px-1">
+              <button
+                type="button"
+                onClick={() => onToggle(cat.id)}
+                className="flex min-w-0 flex-1 items-center gap-1 rounded px-1 py-1 text-[0.6875rem] font-bold uppercase tracking-wider text-muted hover:text-foreground"
+              >
+                <Chevron open={open} />
+                <span className="flex min-w-0 items-center gap-1 truncate">
+                  {cat.isOfficial && <PinGlyph className="h-2.5 w-2.5 shrink-0" />}
+                  {cat.name}
+                </span>
+              </button>
+              {canConfigure && (
+                <div className="flex opacity-100 md:opacity-0 md:group-hover:opacity-100">
+                  <button
+                    type="button"
+                    title="Create channel"
+                    onClick={() => onCreateChannel(cat.id, cat.isOfficial)}
+                    className="rounded p-0.5 text-muted hover:bg-fill-secondary hover:text-foreground"
+                  >
+                    <IconPlus size={14} />
+                  </button>
+                  {!cat.isOfficial && (
+                    <button
+                      type="button"
+                      title="Edit category"
+                      onClick={() => onEditCategory(cat)}
+                      className="rounded p-0.5 text-muted hover:bg-fill-secondary hover:text-foreground"
+                    >
+                      <IconSettings size={14} />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+            {open &&
+              list.map((ch) => (
+                <button
+                  key={ch.id}
+                  type="button"
+                  onClick={() => onSelect(ch.id)}
+                  className={`mb-0.5 flex w-full items-center gap-1.5 rounded-[0.5rem] px-2 py-1.5 text-left text-[0.9375rem] transition ${
+                    ch.id === activeId
+                      ? "bg-fill-secondary font-medium text-foreground"
+                      : "text-muted hover:bg-fill hover:text-foreground"
+                  }`}
+                >
+                  <HashGlyph className="h-4 w-4 shrink-0 opacity-70" />
+                  <span className="truncate">{ch.name}</span>
+                  {ch.isOfficial && (
+                    <span className="ml-auto rounded bg-accent/15 px-1 py-0.5 text-[0.5625rem] font-semibold uppercase tracking-wide text-accent">
+                      Off
+                    </span>
+                  )}
+                </button>
+              ))}
+            {open && list.length === 0 && (
+              <p className="px-3 py-1 text-[0.75rem] text-muted">No channels yet</p>
             )}
           </div>
+        );
+      })}
+
+      {uncategorized.length > 0 && (
+        <div>
+          <p className="px-2 py-1 text-[0.6875rem] font-bold uppercase tracking-wider text-muted">
+            Channels
+          </p>
+          {uncategorized.map((ch) => (
+            <button
+              key={ch.id}
+              type="button"
+              onClick={() => onSelect(ch.id)}
+              className={`mb-0.5 flex w-full items-center gap-1.5 rounded-[0.5rem] px-2 py-1.5 text-left text-[0.9375rem] ${
+                ch.id === activeId ? "bg-fill-secondary font-medium" : "text-muted hover:bg-fill"
+              }`}
+            >
+              <HashGlyph className="h-4 w-4 shrink-0 opacity-70" />
+              <span className="truncate">{ch.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {canConfigure && (
+        <div className="space-y-0.5 pt-1">
+          <button
+            type="button"
+            onClick={onCreateCategory}
+            className="flex w-full items-center gap-2 rounded-[0.5rem] px-2 py-1.5 text-[0.8125rem] text-muted hover:bg-fill hover:text-foreground"
+          >
+            <IconPlus size={14} />
+            Create category
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              onCreateChannel(categories.find((c) => !c.isOfficial)?.id ?? null, false)
+            }
+            className="flex w-full items-center gap-2 rounded-[0.5rem] px-2 py-1.5 text-[0.8125rem] text-muted hover:bg-fill hover:text-foreground"
+          >
+            <IconChat size={14} />
+            Create channel
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              onCreateChannel(categories.find((c) => c.isOfficial)?.id ?? null, true)
+            }
+            className="flex w-full items-center gap-2 rounded-[0.5rem] px-2 py-1.5 text-[0.8125rem] text-accent hover:bg-fill"
+          >
+            <PinGlyph className="h-3.5 w-3.5" />
+            New official channel
+          </button>
         </div>
       )}
     </div>
   );
 }
 
-function CreateGroupPanel({
-  userId,
-  onClose,
-  onCreated,
-}: {
-  userId: string;
-  onClose: () => void;
-  onCreated: (g: CommunityGroup) => void;
-}) {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [kind, setKind] = useState<CommunityGroupKind>("both");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-
-  const onSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) {
-      setError("Give the group a name.");
-      return;
-    }
-    setBusy(true);
-    setError("");
-    try {
-      onCreated(
-        await createCommunityGroup({
-          name,
-          description,
-          kind,
-          userId,
-        }),
-      );
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create group");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="mb-5">
-      <GroupHeader>New community group</GroupHeader>
-      <Group>
-        <form onSubmit={onSubmit} className="space-y-3 p-4">
-          <TextField
-            label="Group name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Feature ideas, Family chat"
-            required
-            autoFocus
-          />
-          <TextArea
-            label="Description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="What is this group for?"
-            rows={2}
-          />
-          <div>
-            <p className="mb-2 text-[0.8125rem] font-medium text-muted">Type</p>
-            <SegmentedControl
-              value={kind}
-              onChange={setKind}
-              options={[
-                { value: "both", label: "Chat & suggestions" },
-                { value: "chat", label: "Chat only" },
-                { value: "suggestions", label: "Suggestions" },
-              ]}
-            />
-          </div>
-          {error && <FormError message={error} />}
-          <div className="flex gap-2 pt-1">
-            <Button type="submit" disabled={busy}>
-              {busy ? "Creating…" : "Create group"}
-            </Button>
-            <Button type="button" variant="ghost" onClick={onClose}>
-              Cancel
-            </Button>
-          </div>
-        </form>
-      </Group>
-    </div>
-  );
-}
-
-function GroupRoom({
+function ChannelRoom({
   group,
   userId,
   displayName,
   isAppOwner,
+  onOpenSettings,
   onChanged,
 }: {
   group: CommunityGroup;
   userId: string;
   displayName: string;
   isAppOwner: boolean;
+  onOpenSettings: () => void;
   onChanged: () => void;
 }) {
   const [tab, setTab] = useState<"room" | "members">("room");
@@ -283,11 +529,12 @@ function GroupRoom({
   const [error, setError] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const myRole = group.myRole ?? (isAppOwner ? "admin" : null);
+  const myRole = group.myRole ?? (isAppOwner ? "admin" : group.isOfficial ? "member" : null);
   const manage = canManageMembers(myRole, isAppOwner);
   const moderate = canModerate(myRole, isAppOwner);
   const allowsChat = group.kind === "chat" || group.kind === "both";
   const allowsSuggestions = group.kind === "suggestions" || group.kind === "both";
+  const canPost = Boolean(myRole) || group.isOfficial || isAppOwner;
 
   const load = useCallback(async () => {
     const [msgs, mems] = await Promise.all([
@@ -300,7 +547,7 @@ function GroupRoom({
 
   useEffect(() => {
     void load().catch((err) =>
-      setError(err instanceof Error ? err.message : "Failed to load group"),
+      setError(err instanceof Error ? err.message : "Failed to load channel"),
     );
   }, [load]);
 
@@ -331,18 +578,19 @@ function GroupRoom({
 
   useEffect(() => {
     setComposeKind(group.kind === "suggestions" ? "suggestion" : "chat");
-  }, [group.kind]);
+    setTab("room");
+  }, [group.id, group.kind]);
 
   const onSend = async (e: FormEvent) => {
     e.preventDefault();
-    if (!draft.trim()) return;
+    if (!draft.trim() || !canPost) return;
     setSending(true);
     setError("");
     try {
       const kind: CommunityMessageKind =
         composeKind === "suggestion" && allowsSuggestions ? "suggestion" : "chat";
       if (kind === "chat" && !allowsChat) {
-        setError("This group is suggestions-only.");
+        setError("This channel is suggestions-only.");
         return;
       }
       await sendGroupMessage({
@@ -362,12 +610,25 @@ function GroupRoom({
   };
 
   return (
-    <div className="flex min-h-[28rem] flex-col overflow-hidden rounded-[var(--radius-group)] bg-surface shadow-sm ring-1 ring-black/[0.04] dark:ring-white/[0.06]">
-      <div className="flex flex-wrap items-start justify-between gap-3 hairline-b px-4 py-3">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <header className="flex flex-wrap items-start justify-between gap-3 border-b border-black/[0.06] px-4 py-3 dark:border-white/[0.08]">
         <div className="min-w-0">
-          <h2 className="truncate text-[1.125rem] font-semibold">{group.name}</h2>
-          {group.description && (
-            <p className="mt-0.5 text-[0.875rem] text-muted">{group.description}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="flex items-center gap-1.5 truncate text-[1.0625rem] font-semibold">
+              <HashGlyph className="h-4 w-4 text-muted" />
+              {group.name}
+            </h2>
+            {group.isOfficial && (
+              <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[0.625rem] font-semibold uppercase tracking-wide text-accent">
+                Official
+              </span>
+            )}
+            <span className="text-[0.6875rem] text-muted">{KIND_LABELS[group.kind]}</span>
+          </div>
+          {(group.topic || group.description) && (
+            <p className="mt-0.5 truncate text-[0.8125rem] text-muted">
+              {group.topic || group.description}
+            </p>
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -375,25 +636,22 @@ function GroupRoom({
             value={tab}
             onChange={setTab}
             options={[
-              { value: "room", label: "Room" },
+              { value: "room", label: "Chat" },
               { value: "members", label: `Members (${members.length})` },
             ]}
           />
-          {isAppOwner && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={async () => {
-                if (!confirm("Archive this group? Members will lose access.")) return;
-                await archiveCommunityGroup(group.id);
-                onChanged();
-              }}
+          {(isAppOwner || manage) && (
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              className="rounded-[var(--radius-control)] p-2 text-muted hover:bg-fill hover:text-foreground"
+              title="Channel settings"
             >
-              Archive
-            </Button>
+              <IconSettings size={18} />
+            </button>
           )}
         </div>
-      </div>
+      </header>
 
       {tab === "members" ? (
         <MembersPanel
@@ -401,6 +659,7 @@ function GroupRoom({
           members={members}
           userId={userId}
           canManage={manage}
+          isOfficial={group.isOfficial}
           onChanged={async () => {
             await load();
             onChanged();
@@ -410,8 +669,14 @@ function GroupRoom({
         <>
           <ul className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
             {messages.length === 0 && (
-              <li className="py-8 text-center text-[0.9375rem] text-muted">
-                No messages yet. Start the conversation.
+              <li className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-fill">
+                  <HashGlyph className="h-6 w-6 text-muted" />
+                </div>
+                <p className="text-[1.0625rem] font-semibold">Welcome to #{group.name}</p>
+                <p className="mt-1 max-w-sm text-[0.875rem] text-muted">
+                  {group.topic || group.description || "This is the start of the channel."}
+                </p>
               </li>
             )}
             {messages.map((m) => (
@@ -433,8 +698,11 @@ function GroupRoom({
             <div ref={bottomRef} />
           </ul>
 
-          <form onSubmit={onSend} className="hairline-t p-3">
-            {allowsChat && allowsSuggestions && (
+          <form
+            onSubmit={onSend}
+            className="border-t border-black/[0.06] p-3 dark:border-white/[0.08]"
+          >
+            {allowsChat && allowsSuggestions && canPost && (
               <div className="mb-2">
                 <SegmentedControl
                   value={composeKind === "suggestion" ? "suggestion" : "chat"}
@@ -447,26 +715,34 @@ function GroupRoom({
               </div>
             )}
             {error && <FormError message={error} />}
-            <div className="flex gap-2">
-              <textarea
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                rows={2}
-                placeholder={
-                  composeKind === "suggestion" ? "Share a suggestion…" : "Write a message…"
-                }
-                className="min-h-[2.75rem] flex-1 resize-none rounded-[var(--radius-control)] bg-fill px-3 py-2 text-[1.0625rem] outline-none ring-accent focus:ring-2"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    void onSend(e);
+            {canPost ? (
+              <div className="flex gap-2">
+                <textarea
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  rows={2}
+                  placeholder={
+                    composeKind === "suggestion"
+                      ? `Suggest something in #${group.name}…`
+                      : `Message #${group.name}`
                   }
-                }}
-              />
-              <Button type="submit" disabled={sending || !draft.trim()}>
-                {sending ? "…" : "Send"}
-              </Button>
-            </div>
+                  className="min-h-[2.75rem] flex-1 resize-none rounded-[var(--radius-control)] bg-fill px-3 py-2 text-[1.0625rem] outline-none ring-accent focus:ring-2"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      void onSend(e);
+                    }
+                  }}
+                />
+                <Button type="submit" disabled={sending || !draft.trim()}>
+                  {sending ? "…" : "Send"}
+                </Button>
+              </div>
+            ) : (
+              <p className="rounded-[var(--radius-control)] border border-dashed border-black/10 px-4 py-3 text-center text-[0.875rem] text-muted dark:border-white/10">
+                You need access to post in this channel.
+              </p>
+            )}
           </form>
         </>
       )}
@@ -494,7 +770,7 @@ function MessageRow({
   const isSuggestion = message.kind === "suggestion";
 
   return (
-    <li className={`flex flex-col ${isMine ? "items-end" : "items-start"}`}>
+    <li className={`group flex flex-col ${isMine ? "items-end" : "items-start"}`}>
       <p className="mb-1 px-1 text-[0.75rem] text-muted">
         {isMine ? "You" : message.authorName || "Member"} · {formatCommunityTime(message.createdAt)}
         {isSuggestion && message.suggestionStatus && (
@@ -516,7 +792,7 @@ function MessageRow({
         <p className="whitespace-pre-wrap">{message.body}</p>
       </div>
       {(canMod || isMine) && (
-        <div className="mt-1 flex flex-wrap gap-2 px-1">
+        <div className="mt-1 flex flex-wrap gap-2 px-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
           {isSuggestion && canMod && message.suggestionStatus === "open" && (
             <>
               <button
@@ -556,12 +832,14 @@ function MembersPanel({
   members,
   userId,
   canManage,
+  isOfficial,
   onChanged,
 }: {
   groupId: string;
   members: CommunityMember[];
   userId: string;
   canManage: boolean;
+  isOfficial: boolean;
   onChanged: () => Promise<void>;
 }) {
   const [candidates, setCandidates] = useState<{ userId: string; displayName: string | null }[]>(
@@ -581,7 +859,12 @@ function MembersPanel({
   }, [userId, members]);
 
   return (
-    <div className="space-y-4 p-4">
+    <div className="space-y-4 overflow-y-auto p-4">
+      {isOfficial && (
+        <p className="rounded-[var(--radius-control)] bg-fill px-3 py-2 text-[0.8125rem] text-muted">
+          Official channels are open to everyone signed in. Listed members have explicit roles.
+        </p>
+      )}
       <ul className="space-y-2">
         {members.map((m) => (
           <li
@@ -684,11 +967,274 @@ function MembersPanel({
           {error && <FormError message={error} />}
         </div>
       )}
+    </div>
+  );
+}
 
-      <p className="text-[0.8125rem] text-muted">
-        <strong>Admin</strong> manages members · <strong>Moderator</strong> reviews suggestions ·{" "}
-        <strong>Member</strong> can chat and post ideas. Only the app Owner can create new groups.
-      </p>
+function ChannelFormModal({
+  title,
+  categories,
+  channel,
+  defaultCategoryId,
+  forceOfficial,
+  isOwner,
+  userId,
+  onClose,
+  onSaved,
+  onArchive,
+}: {
+  title: string;
+  categories: CommunityCategory[];
+  channel?: CommunityGroup;
+  defaultCategoryId?: string | null;
+  forceOfficial?: boolean;
+  isOwner: boolean;
+  userId: string;
+  onClose: () => void;
+  onSaved: (g?: CommunityGroup) => Promise<void>;
+  onArchive?: () => Promise<void>;
+}) {
+  const officialCat = categories.find((c) => c.isOfficial);
+  const [name, setName] = useState(channel?.name ?? "");
+  const [kind, setKind] = useState<CommunityGroupKind>(channel?.kind ?? "both");
+  const [topic, setTopic] = useState(channel?.topic ?? "");
+  const [description, setDescription] = useState(channel?.description ?? "");
+  const [isOfficial, setIsOfficial] = useState(Boolean(forceOfficial || channel?.isOfficial));
+  const [categoryId, setCategoryId] = useState(
+    channel?.categoryId ||
+      defaultCategoryId ||
+      (forceOfficial ? officialCat?.id : categories.find((c) => !c.isOfficial)?.id) ||
+      "",
+  );
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (isOfficial && officialCat?.id) setCategoryId(officialCat.id);
+  }, [isOfficial, officialCat?.id]);
+
+  const onSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      setError("Give the channel a name.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      if (channel) {
+        await updateCommunityGroup(channel.id, {
+          name,
+          kind,
+          topic,
+          description,
+          categoryId: categoryId || null,
+          isOfficial,
+        });
+        await onSaved();
+      } else {
+        const g = await createCommunityGroup({
+          name,
+          kind,
+          topic,
+          description,
+          categoryId: categoryId || null,
+          isOfficial,
+          userId,
+        });
+        await onSaved(g);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save");
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <form
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={onSubmit}
+        className="w-full max-w-md rounded-[1.25rem] bg-surface p-5 shadow-xl ring-1 ring-black/[0.06] dark:ring-white/[0.08]"
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-[1.125rem] font-semibold">{title}</h2>
+          <button type="button" onClick={onClose} className="text-muted hover:text-foreground">
+            <IconX size={18} />
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          <TextField
+            label="Channel name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="general"
+            required
+            autoFocus
+          />
+          <TextField
+            label="Topic"
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            placeholder="What’s this channel about?"
+          />
+          <TextArea
+            label="Description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={2}
+          />
+          <div>
+            <p className="mb-2 text-[0.8125rem] font-medium text-muted">Type</p>
+            <SegmentedControl
+              value={kind}
+              onChange={setKind}
+              options={[
+                { value: "both", label: "Chat & suggestions" },
+                { value: "chat", label: "Chat" },
+                { value: "suggestions", label: "Suggestions" },
+              ]}
+            />
+          </div>
+          <label className="block text-[0.8125rem] font-medium text-muted">
+            Category
+            <select
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
+              disabled={isOfficial}
+              className="mt-1 w-full rounded-[var(--radius-control)] bg-fill px-3 py-2 text-[0.9375rem] text-foreground outline-none ring-accent focus:ring-2 disabled:opacity-60"
+            >
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.isOfficial ? `📌 ${c.name}` : c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          {isOwner && (
+            <label className="flex items-start gap-2 rounded-[var(--radius-control)] bg-fill p-3 text-[0.875rem]">
+              <input
+                type="checkbox"
+                checked={isOfficial}
+                disabled={forceOfficial}
+                onChange={(e) => setIsOfficial(e.target.checked)}
+                className="mt-0.5"
+              />
+              <span>
+                <span className="font-medium">Official channel</span>
+                <span className="mt-0.5 block text-[0.75rem] text-muted">
+                  Pins under Official. Visible to everyone signed in.
+                </span>
+              </span>
+            </label>
+          )}
+        </div>
+
+        {error && (
+          <div className="mt-3">
+            <FormError message={error} />
+          </div>
+        )}
+
+        <div className="mt-4 flex items-center gap-2">
+          {onArchive && (
+            <button
+              type="button"
+              onClick={() => void onArchive()}
+              className="text-[0.875rem] text-destructive"
+            >
+              Archive
+            </button>
+          )}
+          <div className="flex-1" />
+          <Button type="button" variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={busy || !name.trim()}>
+            {busy ? "Saving…" : channel ? "Save" : "Create"}
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function CategoryFormModal({
+  title,
+  initialName = "",
+  onClose,
+  onSubmit,
+  onDelete,
+}: {
+  title: string;
+  initialName?: string;
+  onClose: () => void;
+  onSubmit: (name: string) => Promise<void>;
+  onDelete?: () => Promise<void>;
+}) {
+  const [name, setName] = useState(initialName);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setBusy(true);
+    setError("");
+    try {
+      await onSubmit(name.trim());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save");
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <form
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={submit}
+        className="w-full max-w-sm rounded-[1.25rem] bg-surface p-5 shadow-xl ring-1 ring-black/[0.06] dark:ring-white/[0.08]"
+      >
+        <h2 className="mb-4 text-[1.125rem] font-semibold">{title}</h2>
+        <TextField
+          label="Name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+          autoFocus
+        />
+        {error && (
+          <div className="mt-3">
+            <FormError message={error} />
+          </div>
+        )}
+        <div className="mt-4 flex items-center gap-2">
+          {onDelete && (
+            <button
+              type="button"
+              onClick={() => void onDelete()}
+              className="text-[0.875rem] text-destructive"
+            >
+              Delete
+            </button>
+          )}
+          <div className="flex-1" />
+          <Button type="button" variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={busy || !name.trim()}>
+            Save
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }
