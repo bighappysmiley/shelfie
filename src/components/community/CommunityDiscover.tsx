@@ -3,6 +3,19 @@ import { EmptyState } from "@/components/layout";
 import { DiscoverServerCard } from "@/components/community/DiscoverServerCard";
 import type { CommunityServer } from "@/lib/community-types";
 
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      className={`h-3.5 w-3.5 shrink-0 text-white/40 transition-transform ${open ? "rotate-0" : "-rotate-90"}`}
+      fill="none"
+      aria-hidden
+    >
+      <path d="M4.5 6.5 8 10l3.5-3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function CommunityDiscover({
   officialServers,
   publicServers,
@@ -23,6 +36,7 @@ export function CommunityDiscover({
   onMoveOfficial: (index: number, dir: -1 | 1) => void;
 }) {
   const [reorderMode, setReorderMode] = useState(false);
+  const [officialOpen, setOfficialOpen] = useState(true);
 
   if (loading) {
     return <p className="text-white/50">Loading communities…</p>;
@@ -35,14 +49,22 @@ export function CommunityDiscover({
     <div className="space-y-6">
       <section>
         <div className="mb-3 flex items-center justify-between gap-2 px-1">
-          <div>
-            <p className="text-[0.6875rem] font-bold uppercase tracking-wider text-white/40">Official</p>
-            <p className="text-[0.75rem] text-white/35">Curated by Pine</p>
-          </div>
-          {isOwner && officialServers.length > 1 && (
+          <button
+            type="button"
+            onClick={() => setOfficialOpen((v) => !v)}
+            aria-expanded={officialOpen}
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-lg py-1 text-left hover:bg-white/[0.04]"
+          >
+            <Chevron open={officialOpen} />
+            <div className="min-w-0">
+              <p className="text-[0.6875rem] font-bold uppercase tracking-wider text-white/40">Official</p>
+              <p className="text-[0.75rem] text-white/35">Curated by Pine</p>
+            </div>
+          </button>
+          {isOwner && officialServers.length > 1 && officialOpen && (
             <button
               type="button"
-              className="text-[0.75rem] text-accent"
+              className="shrink-0 text-[0.75rem] text-accent"
               onClick={() => setReorderMode((v) => !v)}
             >
               {reorderMode ? "Done" : "Reorder"}
@@ -50,6 +72,8 @@ export function CommunityDiscover({
           )}
         </div>
 
+        {officialOpen && (
+          <>
         {officialServers.length === 0 ? (
           <EmptyState
             title={query ? "No official matches" : "No official servers yet"}
@@ -127,6 +151,8 @@ export function CommunityDiscover({
               </div>
             )}
           </div>
+        )}
+          </>
         )}
       </section>
 
