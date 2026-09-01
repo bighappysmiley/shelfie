@@ -7,7 +7,7 @@ import {
   forwardRef,
   type FormEvent,
 } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { useLibrary } from "@/lib/library";
 import { supabase } from "@/lib/supabase";
@@ -108,6 +108,7 @@ import { ChannelFormModal, CategoryFormModal } from "@/components/community-serv
 import { AddServerModal } from "@/components/AddServerModal";
 import { InvitePeopleModal } from "@/components/community/InvitePeopleModal";
 import { ServerRulesModal } from "@/components/community/ServerRulesModal";
+import { ServerSearchModal } from "@/components/community/ServerSearchModal";
 import { PinnedMessagesBar } from "@/components/community/PinnedMessagesBar";
 import { MentionAutocomplete } from "@/components/community/MentionAutocomplete";
 import {
@@ -121,7 +122,9 @@ import {
 } from "@/lib/community-mentions";
 import { getChannelDraft, setChannelDraft, draftPreview, getAllChannelDrafts } from "@/lib/community-drafts";
 import { loadResolvedChannelPermissions, type ResolvedChannelPermissions } from "@/lib/community-permissions";
+import { getVoicePrefs, toggleVoiceDeafened, toggleVoiceMuted } from "@/lib/community-voice-prefs";
 import { useCommunityHotkeys } from "@/hooks/useCommunityHotkeys";
+import { useServerPresence } from "@/hooks/useServerPresence";
 import { useIsDesktop } from "@/hooks/useIsDesktop";
 import { listCommunityProfiles } from "@/lib/community-profile";
 import type { CommunityProfile } from "@/lib/community-types";
@@ -160,6 +163,7 @@ function Chevron({ open }: { open: boolean }) {
 export function CommunityServerPage() {
   const { serverId, channelId } = useParams<{ serverId: string; channelId?: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, userProfile, isOwner } = useAuth();
   const { libraries } = useLibrary();
 
@@ -178,6 +182,8 @@ export function CommunityServerPage() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [rulesAcceptedAt, setRulesAcceptedAt] = useState<string | null>(null);
   const [acceptingRules, setAcceptingRules] = useState(false);
+  const [serverSearchOpen, setServerSearchOpen] = useState(false);
+  const [voicePrefs, setVoicePrefs] = useState(getVoicePrefs);
   const [joinRequestStatus, setJoinRequestStatus] = useState<string | null>(null);
   const [channelSearch, setChannelSearch] = useState("");
   const [showMembers, setShowMembers] = useState(true);
@@ -307,6 +313,11 @@ export function CommunityServerPage() {
 
   const roleById = useMemo(() => new Map(serverRoles.map((r) => [r.id, r])), [serverRoles]);
   const myCommunityProfile = user ? memberProfiles.get(user.id) ?? null : null;
+  const onlineUserIds = useServerPresence(serverId, user?.id);
+  const channelNames = useMemo(() => new Map(channels.map((c) => [c.id, c.name])), [channels]);
+  const channelIds = useMemo(() => channels.map((c) => c.id), [channels]);
+  const navigateHighlightId =
+    (location.state as { highlightMessageId?: string } | null)?.highlightMessageId ?? null;
 
   useEffect(() => {
     if (loading || !serverId || channels.length === 0 || channelId) return;
@@ -315,6 +326,24 @@ export function CommunityServerPage() {
       channels[0];
     navigate(`/community/s/${serverId}/${first.id}`, { replace: true });
   }, [loading, channels, channelId, navigate, orderedCategories, serverId]);
+
+  useEffect(() => {
+    if (!isMember) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const typing =
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.isContentEditable;
+      if (typing) return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setServerSearchOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isMember]);
 
   const tryJoin = async () => {
     if (!user || !server || !serverId) return;
@@ -394,6 +423,7 @@ export function CommunityServerPage() {
                   : undefined
               }
               onInvite={isMember ? () => setInviteOpen(true) : undefined}
+              onSearch={isMember ? () => setServerSearchOpen(true) : undefined}
             />
           )}
           {!isMember && server && (server.isPublic || server.isOfficial || server.joinMode === "invite") && (
@@ -421,6 +451,10 @@ export function CommunityServerPage() {
             <CommunityUserPanel
               profile={myCommunityProfile}
               fallbackName={communityShortName(userProfile, user.email)}
+              muted={voicePrefs.muted}
+              deafened={voicePrefs.deafened}
+              onToggleMute={() => setVoicePrefs(toggleVoiceMuted())}
+              onToggleDeafen={() => setVoicePrefs(toggleVoiceDeafened())}
             />
           )}
         </aside>
@@ -489,6 +523,11 @@ export function CommunityServerPage() {
                   ? () => navigate(`/community/s/${serverId}/${voiceConnection.channelId}`)
                   : undefined
               }
+              voiceMuted={voicePrefs.muted}
+              voiceDeafened={voicePrefs.deafened}
+              onToggleVoiceMute={() => setVoicePrefs(toggleVoiceMuted())}
+              onToggleVoiceDeafen={() => setVoicePrefs(toggleVoiceDeafened())}
+              initialHighlightMessageId={navigateHighlightId}
             />
           ) : (
             <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
@@ -529,6 +568,7 @@ export function CommunityServerPage() {
               memberProfiles={memberProfiles}
               serverBoosters={serverBoosters}
               appOwnerUserIds={appOwnerUserIds}
+              onlineUserIds={onlineUserIds}
               onOpenProfile={openProfile}
             />
           )}
@@ -605,6 +645,7 @@ export function CommunityServerPage() {
         memberProfiles={memberProfiles}
         serverBoosters={serverBoosters}
         appOwnerUserIds={appOwnerUserIds}
+        onlineUserIds={onlineUserIds}
         onOpenProfile={openProfile}
       />
 
@@ -624,6 +665,19 @@ export function CommunityServerPage() {
           onClose={() => setInviteOpen(false)}
           serverName={server.name}
           inviteCode={server.inviteCode}
+        />
+      )}
+
+      {server && isMember && user && (
+        <ServerSearchModal
+          open={serverSearchOpen}
+          onClose={() => setServerSearchOpen(false)}
+          serverName={server.name}
+          channelIds={channelIds}
+          channelNames={channelNames}
+          onJumpTo={(chId, msgId) => {
+            navigate(`/community/s/${serverId}/${chId}`, { state: { highlightMessageId: msgId } });
+          }}
         />
       )}
 
@@ -900,6 +954,11 @@ function ChannelRoom({
   onVoiceConnect,
   onVoiceDisconnect,
   onReturnToVoice,
+  voiceMuted = false,
+  voiceDeafened = false,
+  onToggleVoiceMute,
+  onToggleVoiceDeafen,
+  initialHighlightMessageId,
 }: {
   group: CommunityGroup;
   serverId: string;
@@ -931,6 +990,11 @@ function ChannelRoom({
   onVoiceConnect?: (channelId: string, channelName: string) => void;
   onVoiceDisconnect?: () => void;
   onReturnToVoice?: () => void;
+  voiceMuted?: boolean;
+  voiceDeafened?: boolean;
+  onToggleVoiceMute?: () => void;
+  onToggleVoiceDeafen?: () => void;
+  initialHighlightMessageId?: string | null;
 }) {
   const [messages, setMessages] = useState<CommunityMessage[]>([]);
   const [pinned, setPinned] = useState<CommunityMessage[]>([]);
@@ -1043,6 +1107,12 @@ function ChannelRoom({
     messageRefs.current.get(messageId)?.scrollIntoView({ behavior: "smooth", block: "center" });
     window.setTimeout(() => setHighlightMessageId(null), 2000);
   }, []);
+
+  useEffect(() => {
+    if (!initialHighlightMessageId) return;
+    const timer = window.setTimeout(() => jumpToMessage(initialHighlightMessageId), 300);
+    return () => window.clearTimeout(timer);
+  }, [initialHighlightMessageId, jumpToMessage, group.id]);
 
   const myServerRole = useMemo(() => {
     const member = serverMembers.find((m) => m.userId === userId);
@@ -1768,6 +1838,10 @@ function ChannelRoom({
         onVoiceDisconnect && (
           <VoiceConnectedBar
             channelName={voiceConnection.channelName}
+            muted={voiceMuted}
+            deafened={voiceDeafened}
+            onToggleMute={onToggleVoiceMute}
+            onToggleDeafen={onToggleVoiceDeafen}
             onReturn={onReturnToVoice}
             onDisconnect={() => {
               onVoiceDisconnect();
@@ -2127,12 +2201,14 @@ function ServerMemberSidebar({
   memberProfiles,
   serverBoosters,
   appOwnerUserIds = new Set<string>(),
+  onlineUserIds = new Set<string>(),
   onOpenProfile,
 }: {
   members: CommunityServerMember[];
   memberProfiles?: Map<string, CommunityProfile>;
   serverBoosters?: Set<string>;
   appOwnerUserIds?: Set<string>;
+  onlineUserIds?: Set<string>;
   onOpenProfile?: (target: { userId?: string; username?: string | null }) => void;
 }) {
   return (
@@ -2142,6 +2218,7 @@ function ServerMemberSidebar({
         memberProfiles={memberProfiles}
         serverBoosters={serverBoosters}
         appOwnerUserIds={appOwnerUserIds}
+        onlineUserIds={onlineUserIds}
         onOpenProfile={onOpenProfile}
       />
     </aside>

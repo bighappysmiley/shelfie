@@ -1319,6 +1319,41 @@ export async function listGroupMessages(groupId: string, userId?: string): Promi
   });
 }
 
+export type ServerMessageSearchHit = {
+  message: CommunityMessage;
+  channelId: string;
+  channelName: string;
+};
+
+function escapeIlikePattern(value: string): string {
+  return value.replace(/[%_\\]/g, (char) => `\\${char}`);
+}
+
+export async function searchServerMessages(
+  channelIds: string[],
+  channelNames: Map<string, string>,
+  query: string,
+  limit = 50,
+): Promise<ServerMessageSearchHit[]> {
+  const q = query.trim();
+  if (!q || channelIds.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from("community_messages")
+    .select("*")
+    .in("group_id", channelIds)
+    .ilike("body", `%${escapeIlikePattern(q)}%`)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+
+  return ((data ?? []) as MessageRow[]).map((row) => ({
+    message: mapMessage(row),
+    channelId: row.group_id,
+    channelName: channelNames.get(row.group_id) ?? "channel",
+  }));
+}
+
 export async function sendGroupMessage(input: {
   groupId: string;
   serverId: string;

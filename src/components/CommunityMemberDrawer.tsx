@@ -9,6 +9,7 @@ export function CommunityMemberDrawer({
   memberProfiles,
   serverBoosters,
   appOwnerUserIds = new Set<string>(),
+  onlineUserIds = new Set<string>(),
   onOpenProfile,
 }: {
   open: boolean;
@@ -17,6 +18,7 @@ export function CommunityMemberDrawer({
   memberProfiles?: Map<string, CommunityProfile>;
   serverBoosters?: Set<string>;
   appOwnerUserIds?: Set<string>;
+  onlineUserIds?: Set<string>;
   onOpenProfile?: (target: { userId?: string; username?: string | null }) => void;
 }) {
   return (
@@ -32,6 +34,7 @@ export function CommunityMemberDrawer({
         memberProfiles={memberProfiles}
         serverBoosters={serverBoosters}
         appOwnerUserIds={appOwnerUserIds}
+        onlineUserIds={onlineUserIds}
         showSearch
         onOpenProfile={(target) => {
           onOpenProfile?.(target);

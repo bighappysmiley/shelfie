@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronDown, CommunityPopover, PopoverItem } from "@/components/community/discord-ui";
-import { IconPlus, IconSettings, IconUserPlus } from "@/components/Icons";
+import { IconPlus, IconSearch, IconSettings, IconUserPlus } from "@/components/Icons";
 
 export function ServerChannelHeader({
   serverName,
@@ -9,12 +9,14 @@ export function ServerChannelHeader({
   canConfigure,
   onCreateChannel,
   onInvite,
+  onSearch,
 }: {
   serverName: string;
   serverId: string;
   canConfigure: boolean;
   onCreateChannel?: () => void;
   onInvite?: () => void;
+  onSearch?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -32,6 +34,17 @@ export function ServerChannelHeader({
         <ChevronDown className={`h-4 w-4 shrink-0 text-muted transition ${open ? "rotate-180" : ""}`} />
       </button>
       <CommunityPopover open={open} onClose={() => setOpen(false)} anchorRef={btnRef}>
+        {onSearch && (
+          <PopoverItem
+            onClick={() => {
+              onSearch();
+              setOpen(false);
+            }}
+          >
+            <IconSearch size={16} className="inline mr-2" />
+            Search
+          </PopoverItem>
+        )}
         {onInvite && (
           <PopoverItem
             onClick={() => {

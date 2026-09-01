@@ -4,18 +4,28 @@ import { PresenceDot } from "@/components/community/discord-ui";
 import type { CommunityProfile } from "@/lib/community-types";
 import { communityProfileLabel } from "@/lib/community-profile";
 import { IconHeadphones, IconMic, IconSettings } from "@/components/Icons";
-import { useState } from "react";
 
 export function CommunityUserPanel({
   profile,
   fallbackName,
+  muted,
+  deafened,
+  onToggleMute,
+  onToggleDeafen,
 }: {
   profile?: CommunityProfile | null;
   fallbackName: string;
+  muted: boolean;
+  deafened: boolean;
+  onToggleMute: () => void;
+  onToggleDeafen: () => void;
 }) {
   const label = communityProfileLabel(profile) || fallbackName;
-  const [muted, setMuted] = useState(false);
-  const [deafened, setDeafened] = useState(false);
+  const statusLabel = deafened
+    ? "Deafened"
+    : muted
+      ? "Muted"
+      : profile?.statusText?.trim() || "Online";
 
   return (
     <div className="flex h-[3.25rem] shrink-0 items-center gap-1 bg-[var(--community-user-bar)] px-2">
@@ -25,31 +35,34 @@ export function CommunityUserPanel({
       >
         <span className="relative shrink-0">
           <CommunityAvatar profile={profile} fallbackName={fallbackName} size="sm" />
-          <PresenceDot status="online" />
+          <PresenceDot status={deafened ? "dnd" : muted ? "idle" : "online"} />
         </span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-foreground">{label}</p>
           <p className="truncate text-xs text-muted">
-            {profile?.statusEmoji && <span className="mr-0.5">{profile.statusEmoji}</span>}
-            {profile?.statusText?.trim() || "Online"}
+            {profile?.statusEmoji && !muted && !deafened && (
+              <span className="mr-0.5">{profile.statusEmoji}</span>
+            )}
+            {statusLabel}
           </p>
         </div>
       </Link>
       <div className="flex shrink-0 items-center">
         <button
           type="button"
-          onClick={() => setMuted((v) => !v)}
-          className={`rounded p-1.5 hover:bg-[var(--community-hover)] ${
-            muted ? "text-destructive" : "text-muted hover:text-foreground"
+          onClick={onToggleMute}
+          disabled={deafened}
+          className={`rounded p-1.5 hover:bg-[var(--community-hover)] disabled:opacity-40 ${
+            muted || deafened ? "text-destructive" : "text-muted hover:text-foreground"
           }`}
-          title={muted ? "Unmute" : "Mute"}
-          aria-label={muted ? "Unmute" : "Mute"}
+          title={muted || deafened ? "Unmute" : "Mute"}
+          aria-label={muted || deafened ? "Unmute" : "Mute"}
         >
           <IconMic size={18} />
         </button>
         <button
           type="button"
-          onClick={() => setDeafened((v) => !v)}
+          onClick={onToggleDeafen}
           className={`rounded p-1.5 hover:bg-[var(--community-hover)] ${
             deafened ? "text-destructive" : "text-muted hover:text-foreground"
           }`}
