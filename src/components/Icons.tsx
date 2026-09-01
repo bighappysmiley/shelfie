@@ -310,3 +310,52 @@ export function IconUserPlus(props: IconProps) {
     </Icon>
   );
 }
+
+export function IconBold(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M7 5h6a3.5 3.5 0 0 1 0 7H7V5zm0 7h7a3.5 3.5 0 0 1 0 7H7v-7z" />
+    </Icon>
+  );
+}
+
+export function IconItalic(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M19 5h-9M14 19H5M15 5 9 19" />
+    </Icon>
+  );
+}
+
+export function IconStrike(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M5 12h14M16 6.5C15.2 5.6 13.8 5 12 5c-2.8 0-5 1.7-5 4s2.2 4 5 4c1.8 0 3.2-.6 4-1.5M8 17.5c.8.9 2.2 1.5 4 1.5 2.8 0 5-1.7 5-4" />
+    </Icon>
+  );
+}
+
+export function IconSpoiler(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M7 12h10" />
+    </Icon>
+  );
+}
+
+export function IconCode(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m16 18 6-6-6-6M8 6 2 12l6 6" />
+    </Icon>
+  );
+}
+
+export function IconUnderline(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M7 5v6a5 5 0 0 0 10 0V5M5 19h14" />
+    </Icon>
+  );
+}

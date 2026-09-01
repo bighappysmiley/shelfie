@@ -456,6 +456,46 @@ h1, h2, h3 {
   color: var(--community-mention-text);
 }
 
+.community-discord-shell .community-mention--alert {
+  background: rgba(168, 72, 64, 0.15);
+  color: var(--destructive);
+}
+
+.community-inline-code {
+  background: var(--community-input);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.community-codeblock code {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.community-spoiler {
+  background: var(--community-border);
+  color: transparent;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.community-spoiler:hover {
+  background: color-mix(in srgb, var(--community-border) 70%, var(--foreground));
+}
+
+.community-spoiler--revealed {
+  background: var(--community-channel-hover);
+  color: inherit;
+  cursor: text;
+}
+
+.community-blockquote {
+  color: var(--muted);
+}
+
+.community-message-content p:empty {
+  min-height: 0;
+}
+
 .community-discord-shell .community-message-actions {
   background: var(--community-toolbar-bg);
   border-color: var(--community-border);

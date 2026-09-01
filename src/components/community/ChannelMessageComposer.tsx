@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "rea
 import { AuthedImage } from "@/components/AuthedImage";
 import { CommunityActionSheet } from "@/components/CommunityActionSheet";
 import { CommunityPopover, PopoverItem } from "@/components/community/discord-ui";
+import { FormattingToolbar } from "@/components/community/FormattingToolbar";
 import { IconGift, IconPlus, IconSend, IconSmile, IconSticker, IconX } from "@/components/Icons";
 import type { CommunityServerEmoji, CommunityServerSticker } from "@/lib/community-types";
 
@@ -158,6 +159,8 @@ export function ChannelMessageComposer({
 
       {hint && <p className="mb-2 text-[0.75rem] text-muted">{hint}</p>}
 
+      <FormattingToolbar textareaRef={textareaRef} onChange={onDraftChange} />
+
       <div className="flex min-h-[2.75rem] items-end gap-2 rounded-lg bg-[var(--community-input)] px-3 py-2">
         <ComposerIconButton
           label="More actions"
@@ -184,6 +187,26 @@ export function ChannelMessageComposer({
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               if (canSend) void onSend(e);
+            }
+            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "b") {
+              e.preventDefault();
+              const el = textareaRef.current;
+              if (!el) return;
+              const start = el.selectionStart;
+              const end = el.selectionEnd;
+              const selected = draft.slice(start, end) || "text";
+              const next = `${draft.slice(0, start)}**${selected}**${draft.slice(end)}`;
+              onDraftChange(next);
+            }
+            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "i") {
+              e.preventDefault();
+              const el = textareaRef.current;
+              if (!el) return;
+              const start = el.selectionStart;
+              const end = el.selectionEnd;
+              const selected = draft.slice(start, end) || "text";
+              const next = `${draft.slice(0, start)}*${selected}*${draft.slice(end)}`;
+              onDraftChange(next);
             }
           }}
           className="max-h-[12.5rem] min-h-[1.375rem] flex-1 resize-none bg-transparent py-2 text-[0.9375rem] leading-snug text-foreground outline-none placeholder:text-muted/70"
@@ -307,6 +330,11 @@ export function ChannelMessageComposer({
           actions={plusActions}
         />
       )}
+
+      <p className="mt-1.5 hidden text-[0.6875rem] text-muted md:block">
+        Markdown supported: **bold**, *italic*, __underline__, ~~strike~~, `code`, ||spoiler||, &gt; quotes,
+        ```blocks```, [text](url), :emoji:, &lt;t:unix:R&gt;
+      </p>
     </form>
   );
 }

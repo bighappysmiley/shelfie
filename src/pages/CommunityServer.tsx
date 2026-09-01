@@ -76,6 +76,12 @@ import { ChannelToolbar } from "@/components/community/ChannelToolbar";
 import { ChannelWelcome } from "@/components/community/ChannelWelcome";
 import { ChatAuthorBadge } from "@/components/community/ChatAuthorBadge";
 import { CommunityAvatar } from "@/components/community/CommunityAvatar";
+import {
+  CommunityMessageContent,
+  CommunityReactionEmoji,
+} from "@/components/community/CommunityMessageContent";
+import { MessageEditModal } from "@/components/community/MessageEditModal";
+import { MessageTimestamp } from "@/components/community/MessageTimestamp";
 import { CommunityUserPanel } from "@/components/community/CommunityUserPanel";
 import { ServerChannelHeader } from "@/components/community/ServerChannelHeader";
 import { MemberListPanel } from "@/components/community/MemberListPanel";
@@ -94,7 +100,6 @@ import {
   applyMention,
   extractMentionQuery,
   filterMentionMembers,
-  renderMessageWithMentions,
   type MentionMember,
 } from "@/lib/community-mentions";
 import { listCommunityProfiles } from "@/lib/community-profile";
@@ -439,6 +444,7 @@ export function CommunityServerPage() {
               serverBoosters={serverBoosters}
               roleById={roleById}
               appOwnerUserIds={appOwnerUserIds}
+              allChannels={channels}
               onOpenProfile={openProfile}
               onMarkRead={user ? () => void markChannelRead(user.id, active.id) : undefined}
             />
@@ -805,6 +811,7 @@ function ChannelRoom({
   serverBoosters = new Set<string>(),
   roleById = new Map<string, CommunityServerRole>(),
   appOwnerUserIds = new Set<string>(),
+  allChannels = [],
   onOpenProfile,
   onMarkRead,
 }: {
@@ -830,6 +837,7 @@ function ChannelRoom({
   serverBoosters?: Set<string>;
   roleById?: Map<string, CommunityServerRole>;
   appOwnerUserIds?: Set<string>;
+  allChannels?: CommunityGroup[];
   onOpenProfile?: (target: { userId?: string; username?: string | null }) => void;
   onMarkRead?: () => void;
 }) {
@@ -875,6 +883,14 @@ function ChannelRoom({
     () => (mentionQuery === null ? [] : filterMentionMembers(mentionMembers, mentionQuery)),
     [mentionQuery, mentionMembers],
   );
+
+  const channelNames = useMemo(() => allChannels.map((c) => ({ name: c.name })), [allChannels]);
+
+  const jumpToMessage = useCallback((messageId: string) => {
+    setHighlightMessageId(messageId);
+    messageRefs.current.get(messageId)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    window.setTimeout(() => setHighlightMessageId(null), 2000);
+  }, []);
 
   const myRole = group.myRole ?? (isAppOwner || canConfigure ? "admin" : isMember ? "member" : null);
   const manage = canManageMembers(myRole, isAppOwner || canConfigure);
@@ -1100,11 +1116,11 @@ function ChannelRoom({
         <PinnedMessagesBar
           pins={pinned}
           canManage={moderate || manage}
-          onJump={(messageId) => {
-            setHighlightMessageId(messageId);
-            messageRefs.current.get(messageId)?.scrollIntoView({ behavior: "smooth", block: "center" });
-            window.setTimeout(() => setHighlightMessageId(null), 2000);
-          }}
+          mentionMembers={mentionMembers}
+          channels={channelNames}
+          serverEmoji={serverEmoji}
+          serverStickers={serverStickers}
+          onJump={jumpToMessage}
           onUnpin={async (messageId) => {
             await unpinMessage(group.id, messageId);
             await load();
@@ -1224,7 +1240,15 @@ function ChannelRoom({
                         onClick={() => setForumThreadId(m.id)}
                       >
                         <p className="text-[0.8125rem] font-semibold">{m.authorName || "Member"}</p>
-                        <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-[0.9375rem]">{m.body}</p>
+                        <div className="mt-1 line-clamp-3">
+                          <CommunityMessageContent
+                            body={m.body}
+                            mentionMembers={mentionMembers}
+                            channels={channelNames}
+                            serverEmoji={serverEmoji}
+                            serverStickers={serverStickers}
+                          />
+                        </div>
                         <p className="mt-2 text-[0.75rem] text-muted">
                           {replyCountByPost.get(m.id) ?? 0} repl
                           {(replyCountByPost.get(m.id) ?? 0) === 1 ? "y" : "ies"} ·{" "}
@@ -1259,6 +1283,9 @@ function ChannelRoom({
                   grouped={grouped}
                   highlighted={highlightMessageId === m.id}
                   mentionMembers={mentionMembers}
+                  channels={channelNames}
+                  serverEmoji={serverEmoji}
+                  serverStickers={serverStickers}
                   authorProfile={m.authorId ? memberProfiles.get(m.authorId) : null}
                   isServerBooster={m.authorId ? serverBoosters.has(m.authorId) : false}
                   isAppOwnerAuthor={isAppOwnerUser(m.authorId, appOwnerUserIds)}
@@ -1276,6 +1303,9 @@ function ChannelRoom({
                             username: member?.communityUsername,
                           })
                       : undefined
+                  }
+                  onJumpToReply={
+                    m.replyToId ? () => jumpToMessage(m.replyToId!) : undefined
                   }
                   onReply={() => {
                     if (isForum && forumThreadId) setReplyTo(m);
@@ -1409,6 +1439,9 @@ const MessageRow = forwardRef(function MessageRow(
     grouped = false,
     highlighted = false,
     mentionMembers,
+    channels = [],
+    serverEmoji = [],
+    serverStickers = [],
     authorProfile,
     isServerBooster = false,
     isAppOwnerAuthor = false,
@@ -1420,6 +1453,7 @@ const MessageRow = forwardRef(function MessageRow(
     userId: _userId,
     onOpenProfile,
     onReply,
+    onJumpToReply,
     onReact,
     onPin,
     onEdit,
@@ -1430,6 +1464,9 @@ const MessageRow = forwardRef(function MessageRow(
     grouped?: boolean;
     highlighted?: boolean;
     mentionMembers: MentionMember[];
+    channels?: { name: string }[];
+    serverEmoji?: CommunityServerEmoji[];
+    serverStickers?: CommunityServerSticker[];
     authorProfile?: CommunityProfile | null;
     isServerBooster?: boolean;
     isAppOwnerAuthor?: boolean;
@@ -1441,6 +1478,7 @@ const MessageRow = forwardRef(function MessageRow(
     userId: string;
     onOpenProfile?: () => void;
     onReply: () => void;
+    onJumpToReply?: () => void;
     onReact: (emoji: string) => Promise<void>;
     onPin?: () => Promise<void>;
     onEdit?: (body: string) => Promise<void>;
@@ -1451,6 +1489,7 @@ const MessageRow = forwardRef(function MessageRow(
 ) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const openSheet = () => setSheetOpen(true);
@@ -1462,14 +1501,15 @@ const MessageRow = forwardRef(function MessageRow(
       label: "Copy text",
       onClick: () => void navigator.clipboard.writeText(message.body),
     },
+    {
+      label: "Copy message ID",
+      onClick: () => void navigator.clipboard.writeText(message.id),
+    },
     ...(isMine && onEdit && message.kind === "chat"
       ? [
           {
             label: "Edit message",
-            onClick: () => {
-              const next = prompt("Edit message", message.body);
-              if (next?.trim()) void onEdit(next.trim());
-            },
+            onClick: () => setEditOpen(true),
           },
         ]
       : []),
@@ -1504,8 +1544,8 @@ const MessageRow = forwardRef(function MessageRow(
     >
       {grouped ? (
         <div className="community-message-avatar-spacer flex shrink-0 items-start justify-end pt-0.5">
-          <span className="community-message-timestamp-hover text-[0.625rem] leading-none text-muted">
-            {formatCommunityTime(message.createdAt)}
+          <span className="community-message-timestamp-hover">
+            <MessageTimestamp iso={message.createdAt} grouped />
           </span>
         </div>
       ) : (
@@ -1536,7 +1576,7 @@ const MessageRow = forwardRef(function MessageRow(
               {isMine ? "You" : message.authorName || "Member"}
             </button>
             <ChatAuthorBadge isAppOwner={isAppOwnerAuthor} roleIconUrl={roleIconUrl} />
-            <span className="text-[0.6875rem] text-muted">{formatCommunityTime(message.createdAt)}</span>
+            <MessageTimestamp iso={message.createdAt} />
             {isSuggestion && message.suggestionStatus && (
               <span className="text-[0.6875rem] text-muted">
                 · {SUGGESTION_STATUS_LABELS[message.suggestionStatus]}
@@ -1546,10 +1586,24 @@ const MessageRow = forwardRef(function MessageRow(
         )}
 
         {message.replyPreview && (
-          <div className="mb-1 flex items-center gap-1 border-l-4 border-accent pl-3 text-sm text-muted">
-            <span className="font-medium text-link">{message.replyPreview.authorName || "Member"}</span>
-            <span className="truncate">{message.replyPreview.body}</span>
-          </div>
+          <button
+            type="button"
+            onClick={onJumpToReply}
+            disabled={!onJumpToReply}
+            className="mb-1 flex w-full max-w-md items-center gap-1 border-l-4 border-accent pl-3 text-left text-sm text-muted hover:bg-[var(--community-hover)] disabled:cursor-default disabled:hover:bg-transparent"
+          >
+            <span className="shrink-0 font-medium text-link">
+              {message.replyPreview.authorName || "Member"}
+            </span>
+            <CommunityMessageContent
+              body={message.replyPreview.body}
+              mentionMembers={mentionMembers}
+              channels={channels}
+              serverEmoji={serverEmoji}
+              serverStickers={serverStickers}
+              compact
+            />
+          </button>
         )}
 
         {isSuggestion && (
@@ -1557,18 +1611,14 @@ const MessageRow = forwardRef(function MessageRow(
             Suggestion
           </p>
         )}
-        <p className="whitespace-pre-wrap break-words text-base leading-[1.375rem] text-foreground">
-          {renderMessageWithMentions(message.body, mentionMembers).map((part, i) =>
-            part.type === "mention" ? (
-              <span key={i} className="community-mention rounded px-0.5 font-medium">
-                {part.value}
-              </span>
-            ) : (
-              <span key={i}>{part.value}</span>
-            ),
-          )}
-          {message.editedAt && <span className="text-[0.625rem] text-muted"> (edited)</span>}
-        </p>
+        <CommunityMessageContent
+          body={message.body}
+          mentionMembers={mentionMembers}
+          channels={channels}
+          serverEmoji={serverEmoji}
+          serverStickers={serverStickers}
+        />
+        {message.editedAt && <span className="text-[0.625rem] text-muted"> (edited)</span>}
 
         {message.reactions.length > 0 && (
           <div className="mt-1 flex flex-wrap gap-1">
@@ -1583,7 +1633,7 @@ const MessageRow = forwardRef(function MessageRow(
                     : "border-[var(--community-border)] bg-[var(--community-input)] hover:border-[var(--accent)]"
                 }`}
               >
-                <span>{r.emoji}</span>
+                <CommunityReactionEmoji emoji={r.emoji} serverEmoji={serverEmoji} />
                 <span className="text-muted">{r.count}</span>
               </button>
             ))}
@@ -1662,6 +1712,15 @@ const MessageRow = forwardRef(function MessageRow(
       )}
 
       <CommunityActionSheet open={sheetOpen} onClose={() => setSheetOpen(false)} actions={sheetActions} />
+
+      {onEdit && (
+        <MessageEditModal
+          open={editOpen}
+          initialBody={message.body}
+          onClose={() => setEditOpen(false)}
+          onSave={(body) => onEdit(body)}
+        />
+      )}
     </li>
   );
 });

@@ -1,19 +1,30 @@
 import { useState } from "react";
-import type { CommunityMessage } from "@/lib/community-types";
+import type { CommunityMessage, CommunityServerEmoji, CommunityServerSticker } from "@/lib/community-types";
+import type { MentionMember } from "@/lib/community-mentions";
+import { plainTextFromMarkdown } from "@/lib/community-markdown";
 import { CommunityModal } from "@/components/CommunityModal";
+import { CommunityMessageContent } from "@/components/community/CommunityMessageContent";
+import { MessageTimestamp } from "@/components/community/MessageTimestamp";
 import { Button } from "@/components/Button";
-import { formatCommunityTime } from "@/lib/community-types";
 
 export function PinnedMessagesBar({
   pins,
   canManage,
   onJump,
   onUnpin,
+  mentionMembers = [],
+  channels = [],
+  serverEmoji = [],
+  serverStickers = [],
 }: {
   pins: CommunityMessage[];
   canManage: boolean;
   onJump: (messageId: string) => void;
   onUnpin: (messageId: string) => Promise<void>;
+  mentionMembers?: MentionMember[];
+  channels?: { name: string }[];
+  serverEmoji?: CommunityServerEmoji[];
+  serverStickers?: CommunityServerSticker[];
 }) {
   const [open, setOpen] = useState(false);
   if (pins.length === 0) return null;
@@ -32,7 +43,7 @@ export function PinnedMessagesBar({
         </p>
         <p className="truncate text-[0.8125rem] text-muted">
           {preview.authorName ? `${preview.authorName}: ` : ""}
-          {preview.body}
+          {plainTextFromMarkdown(preview.body)}
         </p>
       </button>
 
@@ -47,11 +58,19 @@ export function PinnedMessagesBar({
                 <div className="min-w-0">
                   <p className="text-[0.8125rem] font-semibold">
                     {pin.authorName || "Member"}
-                    <span className="ml-2 text-[0.6875rem] font-normal text-muted">
-                      {formatCommunityTime(pin.createdAt)}
+                    <span className="ml-2 font-normal">
+                      <MessageTimestamp iso={pin.createdAt} />
                     </span>
                   </p>
-                  <p className="mt-1 whitespace-pre-wrap break-words text-[0.875rem]">{pin.body}</p>
+                  <div className="mt-1">
+                    <CommunityMessageContent
+                      body={pin.body}
+                      mentionMembers={mentionMembers}
+                      channels={channels}
+                      serverEmoji={serverEmoji}
+                      serverStickers={serverStickers}
+                    />
+                  </div>
                 </div>
               </div>
               <div className="mt-2 flex gap-2">
