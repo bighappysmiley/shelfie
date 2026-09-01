@@ -2,8 +2,7 @@ import { useState, type FormEvent } from "react";
 import { createCommunityGroup, updateCommunityGroup } from "@/lib/community";
 import type { CommunityCategory, CommunityGroup, CommunityGroupKind } from "@/lib/community-types";
 import { Button } from "@/components/Button";
-import { TextField, TextArea, FormError } from "@/components/form";
-import { SegmentedControl } from "@/components/layout";
+import { TextField, TextArea, FormError, SelectField } from "@/components/form";
 import { CommunityModal } from "@/components/CommunityModal";
 
 export function ChannelFormModal({
@@ -28,7 +27,7 @@ export function ChannelFormModal({
   onArchive?: () => Promise<void>;
 }) {
   const [name, setName] = useState(channel?.name ?? "");
-  const [kind, setKind] = useState<CommunityGroupKind>(channel?.kind ?? "both");
+  const [kind, setKind] = useState<CommunityGroupKind>(channel?.kind ?? "text");
   const [topic, setTopic] = useState(channel?.topic ?? "");
   const [description, setDescription] = useState(channel?.description ?? "");
   const [categoryId, setCategoryId] = useState(
@@ -102,18 +101,15 @@ export function ChannelFormModal({
         <TextField label="Channel name" value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
         <TextField label="Topic" value={topic} onChange={(e) => setTopic(e.target.value)} />
         <TextArea label="Description" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
-        <div>
-          <p className="mb-2 text-[0.8125rem] font-medium text-muted">Type</p>
-          <SegmentedControl
-            value={kind}
-            onChange={setKind}
-            options={[
-              { value: "both", label: "Chat & suggestions" },
-              { value: "chat", label: "Chat" },
-              { value: "suggestions", label: "Suggestions" },
-            ]}
-          />
-        </div>
+        <SelectField
+          label="Channel type"
+          value={kind}
+          onChange={(e) => setKind(e.target.value as CommunityGroupKind)}
+          hint="Use Forum for threaded discussions; bots can extend channels later."
+        >
+          <option value="text">Text channel</option>
+          <option value="forum">Forum channel</option>
+        </SelectField>
         <label className="block text-[0.8125rem] font-medium text-muted">
           Category
           <select

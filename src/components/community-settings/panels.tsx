@@ -374,7 +374,7 @@ function ChannelEditorModal({
   const [name, setName] = useState(channel?.name ?? "");
   const [topic, setTopic] = useState(channel?.topic ?? "");
   const [description, setDescription] = useState(channel?.description ?? "");
-  const [kind, setKind] = useState<CommunityGroupKind>(channel?.kind ?? "chat");
+  const [kind, setKind] = useState<CommunityGroupKind>(channel?.kind ?? "text");
   const [categoryId, setCategoryId] = useState(channel?.categoryId ?? defaultCategoryId ?? categories[0]?.id ?? "");
   const [busy, setBusy] = useState(false);
 
@@ -459,10 +459,14 @@ function ChannelEditorModal({
         <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
         <TextField label="Topic" value={topic} onChange={(e) => setTopic(e.target.value)} hint="Shown under the channel name" />
         <TextArea label="Description" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
-        <SelectField label="Type" value={kind} onChange={(e) => setKind(e.target.value as CommunityGroupKind)}>
-          <option value="chat">Chat</option>
-          <option value="suggestions">Suggestions</option>
-          <option value="both">Chat & suggestions</option>
+        <SelectField
+          label="Channel type"
+          value={kind}
+          onChange={(e) => setKind(e.target.value as CommunityGroupKind)}
+          hint="Forum channels support threaded posts (full UI coming soon)."
+        >
+          <option value="text">Text channel</option>
+          <option value="forum">Forum channel</option>
         </SelectField>
         <SelectField
           label="Category"

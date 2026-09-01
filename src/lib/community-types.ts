@@ -1,4 +1,4 @@
-export type CommunityGroupKind = "chat" | "suggestions" | "both";
+export type CommunityGroupKind = "text" | "forum" | "voice" | "announcement";
 export type CommunityMemberRole = "admin" | "moderator" | "member";
 export type CommunityMessageKind = "chat" | "suggestion" | "system";
 export type SuggestionStatus = "open" | "accepted" | "declined" | "implemented";
@@ -176,10 +176,28 @@ export const SUGGESTION_STATUS_LABELS: Record<SuggestionStatus, string> = {
 };
 
 export const KIND_LABELS: Record<CommunityGroupKind, string> = {
-  chat: "Chat",
-  suggestions: "Suggestions",
-  both: "Chat & suggestions",
+  text: "Text",
+  forum: "Forum",
+  voice: "Voice",
+  announcement: "Announcement",
 };
+
+/** Map legacy channel kinds from older Pine builds to Discord-style kinds. */
+export function normalizeGroupKind(kind: string): CommunityGroupKind {
+  switch (kind) {
+    case "text":
+    case "forum":
+    case "voice":
+    case "announcement":
+      return kind;
+    case "suggestions":
+      return "forum";
+    case "chat":
+    case "both":
+    default:
+      return "text";
+  }
+}
 
 export function canManageMembers(role?: CommunityMemberRole | null, isAppOwner = false) {
   return isAppOwner || role === "admin";

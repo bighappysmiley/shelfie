@@ -22,6 +22,7 @@ import type {
   SuggestionStatus,
   VerificationLevel,
 } from "./community-types";
+import { normalizeGroupKind } from "./community-types";
 import { bumpCommunityRail } from "./community-events";
 
 type ServerRow = {
@@ -241,7 +242,7 @@ function mapGroup(row: GroupRow, extra?: Partial<CommunityGroup>): CommunityGrou
     name: row.name,
     description: row.description,
     topic: row.topic,
-    kind: row.kind,
+    kind: normalizeGroupKind(row.kind),
     categoryId: row.category_id,
     position: row.position ?? 0,
     isOfficial: Boolean(row.is_official),
@@ -1016,11 +1017,12 @@ export async function createCommunityGroup(input: {
   name: string;
   description?: string;
   topic?: string;
-  kind: CommunityGroupKind;
+  kind?: CommunityGroupKind;
   categoryId?: string | null;
   userId: string;
 }): Promise<CommunityGroup> {
   const categoryId = input.categoryId ?? null;
+  const kind = input.kind ?? "text";
 
   let siblingsQuery = supabase
     .from("community_groups")
@@ -1040,7 +1042,7 @@ export async function createCommunityGroup(input: {
       name: input.name.trim(),
       description: input.description?.trim() || null,
       topic: input.topic?.trim() || null,
-      kind: input.kind,
+      kind,
       category_id: categoryId,
       server_id: input.serverId,
       is_official: false,

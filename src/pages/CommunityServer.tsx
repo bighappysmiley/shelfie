@@ -51,7 +51,6 @@ import {
   type CommunityMember,
   type CommunityMemberRole,
   type CommunityMessage,
-  type CommunityMessageKind,
   type CommunityServer,
   type CommunityServerMember,
   type SuggestionStatus,
@@ -91,6 +90,22 @@ function HashGlyph({ className = "h-4 w-4" }: { className?: string }) {
       />
     </svg>
   );
+}
+
+function ChannelKindGlyph({ kind, className = "h-4 w-4" }: { kind: CommunityGroup["kind"]; className?: string }) {
+  if (kind === "forum") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
+        <path
+          d="M4 6.5A2.5 2.5 0 0 1 6.5 4H18a2 2 0 0 1 2 2v7.5a2.5 2.5 0 0 1-2.5 2.5H9l-3.5 3v-3H6.5A2.5 2.5 0 0 1 4 16V6.5Z"
+          stroke="currentColor"
+          strokeWidth="1.75"
+        />
+        <path d="M8 9h8M8 12h5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  return <HashGlyph className={className} />;
 }
 
 function Chevron({ open }: { open: boolean }) {
@@ -664,7 +679,7 @@ function ChannelSidebar({
                       : "text-white/55 hover:bg-white/[0.06] hover:text-white/90"
                   }`}
                 >
-                  <HashGlyph className="h-4 w-4 shrink-0 opacity-70" />
+                  <ChannelKindGlyph kind={ch.kind} className="h-4 w-4 shrink-0 opacity-70" />
                   <span className={`truncate ${unreadCounts?.get(ch.id) ? "font-semibold text-white" : ""}`}>
                     {ch.name}
                   </span>
@@ -689,7 +704,7 @@ function ChannelSidebar({
                 : "text-white/55 hover:bg-white/[0.06]"
             }`}
           >
-            <HashGlyph className="h-4 w-4 shrink-0 opacity-70" />
+            <ChannelKindGlyph kind={ch.kind} className="h-4 w-4 shrink-0 opacity-70" />
             <span className="truncate">{ch.name}</span>
           </button>
         ))}
@@ -764,7 +779,6 @@ function ChannelRoom({
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [draft, setDraft] = useState("");
   const [replyTo, setReplyTo] = useState<CommunityMessage | null>(null);
-  const [composeKind, setComposeKind] = useState<CommunityMessageKind>("chat");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -772,9 +786,8 @@ function ChannelRoom({
   const myRole = group.myRole ?? (isAppOwner || canConfigure ? "admin" : isMember ? "member" : null);
   const manage = canManageMembers(myRole, isAppOwner || canConfigure);
   const moderate = canModerate(myRole, isAppOwner || canConfigure);
-  const allowsChat = group.kind === "chat" || group.kind === "both";
-  const allowsSuggestions = group.kind === "suggestions" || group.kind === "both";
   const canPost = isMember || isAppOwner || canConfigure;
+  const isForum = group.kind === "forum";
 
   const load = useCallback(async () => {
     const [msgs, mems, pins] = await Promise.all([
@@ -844,7 +857,6 @@ function ChannelRoom({
   }, [messages.length]);
 
   useEffect(() => {
-    setComposeKind(group.kind === "suggestions" ? "suggestion" : "chat");
     setTab("room");
     setReplyTo(null);
   }, [group.id, group.kind]);
@@ -855,18 +867,12 @@ function ChannelRoom({
     setSending(true);
     setError("");
     try {
-      const kind: CommunityMessageKind =
-        composeKind === "suggestion" && allowsSuggestions ? "suggestion" : "chat";
-      if (kind === "chat" && !allowsChat) {
-        setError("This channel is suggestions-only.");
-        return;
-      }
       await sendGroupMessage({
         groupId: group.id,
         serverId,
         userId,
         body: draft,
-        kind,
+        kind: "chat",
         authorName: authorLabel,
         replyToId: replyTo?.id ?? null,
       });
@@ -886,7 +892,7 @@ function ChannelRoom({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="flex items-center gap-1.5 truncate text-[1.0625rem] font-semibold">
-              <HashGlyph className="h-4 w-4 text-muted" />
+              <ChannelKindGlyph kind={group.kind} className="h-4 w-4 text-muted" />
               {group.name}
             </h2>
             <span className="text-[0.6875rem] text-muted">{KIND_LABELS[group.kind]}</span>
@@ -936,6 +942,14 @@ function ChannelRoom({
           <p className="text-[0.6875rem] font-semibold uppercase tracking-wide text-muted">
             Pinned — {pinned[0]?.body.slice(0, 80)}
             {(pinned[0]?.body.length ?? 0) > 80 ? "…" : ""}
+          </p>
+        </div>
+      )}
+
+      {isForum && tab === "room" && (
+        <div className="shrink-0 border-b border-[var(--community-border)] bg-fill/30 px-4 py-2">
+          <p className="text-[0.75rem] text-muted">
+            Forum channel — threaded posts are coming soon. Messages here work like a text channel for now.
           </p>
         </div>
       )}
@@ -1010,18 +1024,6 @@ function ChannelRoom({
                 >
                   <IconX size={14} />
                 </button>
-              </div>
-            )}
-            {allowsChat && allowsSuggestions && canPost && (
-              <div className="mb-2">
-                <SegmentedControl
-                  value={composeKind === "suggestion" ? "suggestion" : "chat"}
-                  onChange={(v) => setComposeKind(v)}
-                  options={[
-                    { value: "chat", label: "Chat" },
-                    { value: "suggestion", label: "Suggestion" },
-                  ]}
-                />
               </div>
             )}
             {error && <FormError message={error} />}
