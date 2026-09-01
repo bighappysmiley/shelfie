@@ -2,6 +2,8 @@ export type CommunityGroupKind = "chat" | "suggestions" | "both";
 export type CommunityMemberRole = "admin" | "moderator" | "member";
 export type CommunityMessageKind = "chat" | "suggestion" | "system";
 export type SuggestionStatus = "open" | "accepted" | "declined" | "implemented";
+export type CommunityJoinMode = "open" | "request" | "invite";
+export type JoinRequestStatus = "pending" | "approved" | "rejected" | "cancelled";
 
 export interface CommunityServer {
   id: string;
@@ -13,6 +15,7 @@ export interface CommunityServer {
   isOfficial: boolean;
   officialPosition: number | null;
   inviteCode: string;
+  joinMode: CommunityJoinMode;
   memberCount: number;
   messageCount: number;
   activityScore: number;
@@ -24,6 +27,20 @@ export interface CommunityServer {
   myRoleId?: string | null;
   isMember?: boolean;
   canManage?: boolean;
+  myJoinRequestStatus?: JoinRequestStatus | null;
+}
+
+export interface CommunityJoinRequest {
+  id: string;
+  serverId: string;
+  userId: string;
+  status: JoinRequestStatus;
+  message: string | null;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+  displayName?: string | null;
+  email?: string | null;
 }
 
 export interface CommunityServerRole {

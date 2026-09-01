@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { listMyServers } from "@/lib/community";
 import type { CommunityServer } from "@/lib/community-types";
@@ -27,8 +27,8 @@ function ServerGlyph({
       className="group relative flex w-full items-center justify-center py-1"
     >
       <span
-        className={`absolute left-0 h-2 w-1 rounded-r-full bg-foreground transition-all duration-200 ${
-          active ? "h-9 opacity-100" : "opacity-0 group-hover:h-5 group-hover:opacity-60"
+        className={`absolute left-0 w-1 rounded-r-full bg-white transition-all duration-200 ${
+          active ? "h-9 opacity-100" : "h-2 opacity-0 group-hover:h-5 group-hover:opacity-60"
         }`}
       />
       {server.iconUrl ? (
@@ -41,7 +41,7 @@ function ServerGlyph({
         />
       ) : (
         <span
-          className={`flex h-11 w-11 items-center justify-center bg-accent/20 text-[0.75rem] font-bold text-accent transition-all duration-200 ${
+          className={`flex h-11 w-11 items-center justify-center bg-[#5865f2]/35 text-[0.75rem] font-bold text-[#c9cdfb] transition-all duration-200 ${
             active ? "rounded-[0.9rem]" : "rounded-full group-hover:rounded-[0.9rem]"
           }`}
         >
@@ -69,14 +69,14 @@ function RailButton({
     tone === "add"
       ? active
         ? "rounded-[0.9rem] bg-emerald-500 text-white"
-        : "rounded-full bg-fill text-emerald-600 hover:rounded-[0.9rem] hover:bg-emerald-500 hover:text-white dark:text-emerald-400"
+        : "rounded-full bg-[#313338] text-emerald-400 hover:rounded-[0.9rem] hover:bg-emerald-500 hover:text-white"
       : tone === "discover"
         ? active
-          ? "rounded-[0.9rem] bg-accent text-accent-contrast"
-          : "rounded-full bg-fill text-accent hover:rounded-[0.9rem] hover:bg-accent hover:text-accent-contrast"
+          ? "rounded-[0.9rem] bg-[#5865f2] text-white"
+          : "rounded-full bg-[#313338] text-[#949ba4] hover:rounded-[0.9rem] hover:bg-[#5865f2] hover:text-white"
         : active
-          ? "rounded-[0.9rem] bg-accent text-accent-contrast"
-          : "rounded-full bg-fill text-muted hover:rounded-[0.9rem] hover:bg-accent/15 hover:text-accent";
+          ? "rounded-[0.9rem] bg-[#5865f2] text-white"
+          : "rounded-full bg-[#313338] text-[#949ba4] hover:rounded-[0.9rem] hover:bg-[#404249] hover:text-white";
 
   return (
     <button
@@ -88,7 +88,7 @@ function RailButton({
       className="group relative flex w-full items-center justify-center py-1"
     >
       <span
-        className={`absolute left-0 w-1 rounded-r-full bg-foreground transition-all duration-200 ${
+        className={`absolute left-0 w-1 rounded-r-full bg-white transition-all duration-200 ${
           active ? "h-9 opacity-100" : "h-2 opacity-0 group-hover:h-5 group-hover:opacity-60"
         }`}
       />
@@ -112,8 +112,14 @@ export function CommunityDiscordShell({
 }) {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
   const [servers, setServers] = useState<CommunityServer[]>([]);
+  const [railTick, setRailTick] = useState(0);
+
+  useEffect(() => {
+    const onRefresh = () => setRailTick((n) => n + 1);
+    window.addEventListener("community-rail-refresh", onRefresh);
+    return () => window.removeEventListener("community-rail-refresh", onRefresh);
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -128,19 +134,15 @@ export function CommunityDiscordShell({
     return () => {
       cancelled = true;
     };
-  }, [user, location.pathname]);
+  }, [user, railTick, pane, activeServerId]);
 
   return (
-    <div className="-mx-4 -my-4 flex min-h-[calc(100dvh-4.5rem)] overflow-hidden bg-[#1e1f22] text-white sm:-mx-5 sm:-my-5 lg:-mx-8 lg:-my-7 lg:min-h-[calc(100dvh-3.5rem)] lg:rounded-[var(--radius-group)]">
+    <div className="community-discord-shell -mx-4 -my-4 flex min-h-[calc(100dvh-4.5rem)] overflow-hidden bg-[#1e1f22] text-[#f2f3f5] sm:-mx-5 sm:-my-5 lg:-mx-8 lg:-my-7 lg:min-h-[calc(100dvh-3.5rem)] lg:rounded-[var(--radius-group)]">
       <nav
         aria-label="Servers"
         className="flex w-[4.5rem] shrink-0 flex-col items-stretch gap-0.5 overflow-y-auto bg-[#1e1f22] py-3"
       >
-        <RailButton
-          label="Server list"
-          active={pane === "list"}
-          onClick={() => navigate("/community")}
-        >
+        <RailButton label="Server list" active={pane === "list"} onClick={() => navigate("/community")}>
           <IconList size={22} />
         </RailButton>
 

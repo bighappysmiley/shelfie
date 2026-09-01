@@ -59,7 +59,10 @@ export function encodeRoleColor(parsed: ParsedRoleColor): string {
 }
 
 /** CSS properties for a role swatch / name tint background. */
-export function roleColorStyle(raw: string | null | undefined): CSSProperties {
+export function roleColorStyle(
+  raw: string | null | undefined,
+  opts?: { animate?: boolean },
+): CSSProperties {
   const parsed = parseRoleColor(raw);
   if (parsed.mode === "solid") {
     return { backgroundColor: parsed.hex };
@@ -75,7 +78,7 @@ export function roleColorStyle(raw: string | null | undefined): CSSProperties {
     backgroundImage: `linear-gradient(120deg, ${stops})`,
     backgroundSize: "280% 280%",
     backgroundColor: parsed.stops[0],
-    animation: "role-holo-shift 5s ease infinite",
+    ...(opts?.animate ? { animation: "role-holo-shift 5s ease infinite" } : { backgroundPosition: "40% 50%" }),
   };
 }
 

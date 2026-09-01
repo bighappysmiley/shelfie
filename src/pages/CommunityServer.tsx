@@ -25,6 +25,8 @@ import {
   listGroupMembers,
   listGroupMessages,
   listTeammateCandidates,
+  getMyJoinRequestStatus,
+  requestJoinServer,
   removeGroupMember,
   renameCommunityCategory,
   sendGroupMessage,
@@ -117,6 +119,7 @@ export function CommunityServerPage() {
   const [modal, setModal] = useState<Modal>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [joinRequestStatus, setJoinRequestStatus] = useState<string | null>(null);
 
   const library = libraries.find((l) => l.id === server?.libraryId);
   const canConfigure = Boolean(isOwner || library?.role === "owner" || server?.canManage);
@@ -129,6 +132,8 @@ export function CommunityServerPage() {
       if (!s) throw new Error("Server not found");
       const member = await isServerMember(serverId, user.id);
       setIsMember(member);
+      const pending = member ? null : await getMyJoinRequestStatus(serverId, user.id);
+      setJoinRequestStatus(pending);
       const [cats, groups] = await Promise.all([
         listCommunityCategories(serverId),
         listCommunityGroups(user.id, serverId),
@@ -137,6 +142,7 @@ export function CommunityServerPage() {
         ...s,
         isMember: member,
         canManage: library?.role === "owner" || isOwner,
+        myJoinRequestStatus: pending,
       });
       setCategories(cats);
       setChannels(groups);
@@ -184,6 +190,41 @@ export function CommunityServerPage() {
       channels[0];
     navigate(`/community/s/${serverId}/${first.id}`, { replace: true });
   }, [loading, channels, channelId, navigate, orderedCategories, serverId]);
+
+  const tryJoin = async () => {
+    if (!user || !server || !serverId) return;
+    setJoining(true);
+    setError("");
+    try {
+      if (server.joinMode === "invite") {
+        setAddOpen(true);
+        return;
+      }
+      if (server.joinMode === "request") {
+        const result = await requestJoinServer(serverId);
+        await refresh();
+        if (result.status === "requested") {
+          setJoinRequestStatus("pending");
+        }
+        return;
+      }
+      await joinServer(serverId, user.id);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not join");
+    } finally {
+      setJoining(false);
+    }
+  };
+
+  const joinLabel =
+    joinRequestStatus === "pending"
+      ? "Requested"
+      : server?.joinMode === "request"
+        ? "Request to join"
+        : server?.joinMode === "invite"
+          ? "Enter invite"
+          : "Join";
 
   const sidebar = serverId ? (
     <ChannelSidebar
@@ -242,27 +283,22 @@ export function CommunityServerPage() {
               </Link>
             )}
           </div>
-          {!isMember && server && (server.isPublic || server.isOfficial) && (
+          {!isMember && server && (server.isPublic || server.isOfficial || server.joinMode === "invite") && (
             <div className="border-b border-black/30 bg-accent/15 px-3 py-2">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-[0.75rem] text-white/55">Previewing — join to chat.</p>
+                <p className="text-[0.75rem] text-white/55">
+                  {joinRequestStatus === "pending"
+                    ? "Join request pending."
+                    : server.joinMode === "invite"
+                      ? "Invite-only — enter a code to join."
+                      : "Previewing — join to chat."}
+                </p>
                 <Button
                   size="sm"
-                  disabled={joining || !user}
-                  onClick={async () => {
-                    if (!user) return;
-                    setJoining(true);
-                    try {
-                      await joinServer(serverId, user.id);
-                      await refresh();
-                    } catch (err) {
-                      setError(err instanceof Error ? err.message : "Could not join");
-                    } finally {
-                      setJoining(false);
-                    }
-                  }}
+                  disabled={joining || !user || joinRequestStatus === "pending"}
+                  onClick={() => void tryJoin()}
                 >
-                  {joining ? "…" : "Join"}
+                  {joining ? "…" : joinLabel}
                 </Button>
               </div>
             </div>
@@ -314,18 +350,10 @@ export function CommunityServerPage() {
               isAppOwner={Boolean(isOwner)}
               canConfigure={canConfigure}
               isMember={isMember}
-              onJoin={async () => {
-                setJoining(true);
-                try {
-                  await joinServer(server.id, user.id);
-                  await refresh();
-                } catch (err) {
-                  setError(err instanceof Error ? err.message : "Could not join");
-                } finally {
-                  setJoining(false);
-                }
-              }}
+              onJoin={tryJoin}
               joining={joining}
+              joinLabel={joinLabel}
+              joinDisabled={joinRequestStatus === "pending"}
               onOpenSettings={() => setModal({ type: "edit-channel", channel: active })}
               onChanged={refresh}
             />
@@ -573,6 +601,8 @@ function ChannelRoom({
   isMember,
   onJoin,
   joining,
+  joinLabel = "Join server",
+  joinDisabled = false,
   onOpenSettings,
   onChanged,
 }: {
@@ -586,6 +616,8 @@ function ChannelRoom({
   isMember: boolean;
   onJoin: () => Promise<void>;
   joining: boolean;
+  joinLabel?: string;
+  joinDisabled?: boolean;
   onOpenSettings: () => void;
   onChanged: () => void;
 }) {
@@ -795,8 +827,8 @@ function ChannelRoom({
             ) : (
               <div className="rounded-[var(--radius-control)] border border-dashed border-black/10 px-4 py-3 text-center dark:border-white/10">
                 <p className="mb-2 text-[0.875rem] text-muted">Join this server to post messages.</p>
-                <Button size="sm" disabled={joining} onClick={() => void onJoin()}>
-                  {joining ? "Joining…" : "Join server"}
+                <Button size="sm" disabled={joining || joinDisabled} onClick={() => void onJoin()}>
+                  {joining ? "Joining…" : joinLabel}
                 </Button>
               </div>
             )}

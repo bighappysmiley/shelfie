@@ -9,6 +9,7 @@ import {
   listOfficialServers,
   listPublicServers,
   reorderOfficialServers,
+  requestJoinServer,
 } from "@/lib/community";
 import { formatPopularity, type CommunityServer } from "@/lib/community-types";
 import { Button } from "@/components/Button";
@@ -105,6 +106,7 @@ export function CommunityPage() {
   const [reorderMode, setReorderMode] = useState(false);
   const [query, setQuery] = useState("");
   const [addOpen, setAddOpen] = useState(false);
+  const [notice, setNotice] = useState("");
 
   const canCreateServer = Boolean(activeLibrary) && (activeLibrary?.role === "owner" || isOwner);
 
@@ -150,9 +152,24 @@ export function CommunityPage() {
     setBusyId(server.id);
     setError("");
     try {
-      await joinServer(server.id, user.id);
+      if (server.joinMode === "invite") {
+        setAddOpen(true);
+        setError("This server is invite-only. Use + and enter an invite code.");
+        return;
+      }
+      if (server.joinMode === "request") {
+        const result = await requestJoinServer(server.id);
+        await refresh();
+        if (result.status === "requested") {
+          setNotice(`Join request sent to “${server.name}”.`);
+        } else {
+          navigate(`/community/s/${result.server.id}`);
+        }
+        return;
+      }
+      const result = await joinServer(server.id, user.id);
       await refresh();
-      navigate(`/community/s/${server.id}`);
+      navigate(`/community/s/${result.server.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not join");
     } finally {
@@ -202,9 +219,17 @@ export function CommunityPage() {
             </Button>
           )}
         </>
+      ) : s.myJoinRequestStatus === "pending" ? (
+        <Button size="sm" variant="secondary" disabled>
+          Requested
+        </Button>
+      ) : s.joinMode === "invite" ? (
+        <Button size="sm" variant="secondary" onClick={() => setAddOpen(true)}>
+          Invite
+        </Button>
       ) : (
         <Button size="sm" disabled={busyId === s.id} onClick={() => void handleJoin(s)}>
-          {busyId === s.id ? "…" : "Join"}
+          {busyId === s.id ? "…" : s.joinMode === "request" ? "Request" : "Join"}
         </Button>
       )}
     </div>
@@ -234,6 +259,11 @@ export function CommunityPage() {
               <div className="mb-3">
                 <FormError message={error} />
               </div>
+            )}
+            {notice && (
+              <p className="mb-3 rounded-xl bg-emerald-500/15 px-3 py-2 text-[0.8125rem] text-emerald-300">
+                {notice}
+              </p>
             )}
 
             <label className="relative mb-3 block">

@@ -5,14 +5,18 @@ import type {
   CommunityCategory,
   CommunityGroup,
   CommunityGroupKind,
+  CommunityJoinMode,
+  CommunityJoinRequest,
   CommunityMember,
   CommunityMemberRole,
   CommunityMessage,
   CommunityMessageKind,
   CommunityServer,
   CommunityServerRole,
+  JoinRequestStatus,
   SuggestionStatus,
 } from "./community-types";
+import { bumpCommunityRail } from "./community-events";
 
 type ServerRow = {
   id: string;
@@ -24,6 +28,7 @@ type ServerRow = {
   is_official: boolean;
   official_position: number | null;
   invite_code: string | null;
+  join_mode?: string | null;
   member_count: number;
   message_count: number;
   activity_score: number | string;
@@ -34,12 +39,17 @@ type ServerRow = {
 };
 
 function generateInviteCode(): string {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let out = "";
   for (let i = 0; i < 8; i += 1) {
     out += alphabet[Math.floor(Math.random() * alphabet.length)]!;
   }
   return out;
+}
+
+function normalizeJoinMode(raw: string | null | undefined): CommunityJoinMode {
+  if (raw === "request" || raw === "invite" || raw === "open") return raw;
+  return "open";
 }
 
 type RoleRow = {
@@ -104,6 +114,7 @@ function mapServer(row: ServerRow, extra?: Partial<CommunityServer>): CommunityS
     isOfficial: row.is_official,
     officialPosition: row.official_position,
     inviteCode: row.invite_code ?? "",
+    joinMode: normalizeJoinMode(row.join_mode),
     memberCount: row.member_count ?? 0,
     messageCount: row.message_count ?? 0,
     activityScore: Number(row.activity_score ?? 0),
@@ -113,6 +124,40 @@ function mapServer(row: ServerRow, extra?: Partial<CommunityServer>): CommunityS
     updatedAt: row.updated_at,
     ...extra,
   };
+}
+
+function mapServerFromRpc(row: Record<string, unknown>, extra?: Partial<CommunityServer>): CommunityServer {
+  return mapServer(
+    {
+      id: String(row.id ?? ""),
+      library_id: String(row.library_id ?? ""),
+      name: String(row.name ?? ""),
+      description: (row.description as string | null) ?? null,
+      icon_url: (row.icon_url as string | null) ?? null,
+      is_public: Boolean(row.is_public),
+      is_official: Boolean(row.is_official),
+      official_position: (row.official_position as number | null) ?? null,
+      invite_code: (row.invite_code as string | null) ?? null,
+      join_mode: (row.join_mode as string | null) ?? "open",
+      member_count: Number(row.member_count ?? 0),
+      message_count: Number(row.message_count ?? 0),
+      activity_score: Number(row.activity_score ?? 0),
+      last_activity_at: (row.last_activity_at as string | null) ?? null,
+      created_by: (row.created_by as string | null) ?? null,
+      created_at: String(row.created_at ?? ""),
+      updated_at: String(row.updated_at ?? ""),
+    },
+    extra,
+  );
+}
+
+function rpcErrorMessage(err: unknown, fallback: string): string {
+  if (err && typeof err === "object" && "message" in err) {
+    const msg = String((err as { message: string }).message || "");
+    const cleaned = msg.replace(/^.*?: /, "").trim();
+    return cleaned || fallback;
+  }
+  return fallback;
 }
 
 function mapRole(row: RoleRow): CommunityServerRole {
@@ -277,6 +322,7 @@ export async function createLibraryServer(input: {
       is_official: false,
       official_position: null,
       invite_code: generateInviteCode(),
+      join_mode: input.isPublic ? "open" : "invite",
       created_by: input.userId,
     })
     .select("*")
@@ -301,6 +347,7 @@ export async function createLibraryServer(input: {
   });
 
   await recomputeServerScore(server.id);
+  bumpCommunityRail();
   return mapServer(server, { canManage: true, isMember: true, memberCount: 1 });
 }
 
@@ -340,7 +387,13 @@ export async function listPublicServers(userId?: string): Promise<CommunityServe
   if (error) throw error;
   const rows = (data ?? []) as ServerRow[];
   const memberIds = userId ? await memberServerIdSet(userId) : new Set<string>();
-  return rows.map((r) => mapServer(r, { isMember: memberIds.has(r.id) }));
+  const pending = userId ? await pendingRequestServerIdSet(userId) : new Set<string>();
+  return rows.map((r) =>
+    mapServer(r, {
+      isMember: memberIds.has(r.id),
+      myJoinRequestStatus: pending.has(r.id) ? "pending" : null,
+    }),
+  );
 }
 
 export async function listOfficialServers(userId?: string): Promise<CommunityServer[]> {
@@ -354,7 +407,13 @@ export async function listOfficialServers(userId?: string): Promise<CommunitySer
   if (error) throw error;
   const rows = (data ?? []) as ServerRow[];
   const memberIds = userId ? await memberServerIdSet(userId) : new Set<string>();
-  return rows.map((r) => mapServer(r, { isMember: memberIds.has(r.id) }));
+  const pending = userId ? await pendingRequestServerIdSet(userId) : new Set<string>();
+  return rows.map((r) =>
+    mapServer(r, {
+      isMember: memberIds.has(r.id),
+      myJoinRequestStatus: pending.has(r.id) ? "pending" : null,
+    }),
+  );
 }
 
 async function memberServerIdSet(userId: string): Promise<Set<string>> {
@@ -362,6 +421,15 @@ async function memberServerIdSet(userId: string): Promise<Set<string>> {
     .from("community_server_members")
     .select("server_id")
     .eq("user_id", userId);
+  return new Set((data ?? []).map((m) => m.server_id as string));
+}
+
+async function pendingRequestServerIdSet(userId: string): Promise<Set<string>> {
+  const { data } = await supabase
+    .from("community_server_join_requests")
+    .select("server_id")
+    .eq("user_id", userId)
+    .eq("status", "pending");
   return new Set((data ?? []).map((m) => m.server_id as string));
 }
 
@@ -418,6 +486,7 @@ export async function updateServer(
     isPublic?: boolean;
     isOfficial?: boolean;
     officialPosition?: number | null;
+    joinMode?: CommunityJoinMode;
   },
 ): Promise<void> {
   const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -425,6 +494,7 @@ export async function updateServer(
   if (patch.description !== undefined) row.description = patch.description?.trim() || null;
   if (patch.iconUrl !== undefined) row.icon_url = patch.iconUrl || null;
   if (patch.isPublic !== undefined) row.is_public = patch.isPublic;
+  if (patch.joinMode !== undefined) row.join_mode = patch.joinMode;
   if (patch.isOfficial !== undefined) {
     row.is_official = patch.isOfficial;
     if (patch.isOfficial && patch.officialPosition === undefined) {
@@ -460,41 +530,118 @@ export async function reorderOfficialServers(orderedIds: string[]): Promise<void
   }
 }
 
-export async function joinServer(serverId: string, userId: string): Promise<void> {
-  const { data: everyone } = await supabase
-    .from("community_server_roles")
-    .select("id")
-    .eq("server_id", serverId)
-    .eq("is_everyone", true)
-    .maybeSingle();
+export type JoinOutcome = {
+  status: "joined" | "already_member" | "requested";
+  server: CommunityServer;
+};
 
-  const { error } = await supabase.from("community_server_members").upsert({
-    server_id: serverId,
-    user_id: userId,
-    role_id: everyone?.id ?? null,
+export async function joinServer(serverId: string, _userId?: string): Promise<JoinOutcome> {
+  const { data, error } = await supabase.rpc("join_community_server", { p_server_id: serverId });
+  if (error) throw new Error(rpcErrorMessage(error, "Could not join server"));
+  const payload = data as { status: JoinOutcome["status"]; server: Record<string, unknown> };
+  const server = mapServerFromRpc(payload.server, {
+    isMember: payload.status === "joined" || payload.status === "already_member",
+    myJoinRequestStatus: payload.status === "requested" ? "pending" : null,
   });
-  if (error) throw error;
-  await recomputeServerScore(serverId);
+  bumpCommunityRail();
+  return { status: payload.status, server };
 }
 
-export async function findServerByInviteCode(code: string): Promise<CommunityServer | null> {
-  const invite = code.trim();
-  if (!invite) return null;
+export async function joinServerByInviteCode(_userId: string | undefined, code: string): Promise<JoinOutcome> {
+  const { data, error } = await supabase.rpc("join_server_by_invite_code", {
+    p_code: code.trim(),
+  });
+  if (error) throw new Error(rpcErrorMessage(error, "Invalid invite code"));
+  const payload = data as { status: JoinOutcome["status"]; server: Record<string, unknown> };
+  const server = mapServerFromRpc(payload.server, {
+    isMember: payload.status === "joined" || payload.status === "already_member",
+    myJoinRequestStatus: payload.status === "requested" ? "pending" : null,
+  });
+  if (payload.status !== "requested") bumpCommunityRail();
+  return { status: payload.status, server };
+}
+
+export async function requestJoinServer(serverId: string, message?: string): Promise<JoinOutcome> {
+  const { data, error } = await supabase.rpc("request_join_community_server", {
+    p_server_id: serverId,
+    p_message: message?.trim() || null,
+  });
+  if (error) throw new Error(rpcErrorMessage(error, "Could not send join request"));
+  const payload = data as { status: JoinOutcome["status"]; server: Record<string, unknown> };
+  return {
+    status: payload.status,
+    server: mapServerFromRpc(payload.server, {
+      isMember: payload.status === "joined" || payload.status === "already_member",
+      myJoinRequestStatus: payload.status === "requested" ? "pending" : null,
+    }),
+  };
+}
+
+export async function reviewJoinRequest(requestId: string, approve: boolean): Promise<"approved" | "rejected"> {
+  const { data, error } = await supabase.rpc("review_join_request", {
+    p_request_id: requestId,
+    p_approve: approve,
+  });
+  if (error) throw new Error(rpcErrorMessage(error, "Could not review request"));
+  const status = (data as { status: "approved" | "rejected" }).status;
+  if (status === "approved") bumpCommunityRail();
+  return status;
+}
+
+export async function listPendingJoinRequests(serverId: string): Promise<CommunityJoinRequest[]> {
   const { data, error } = await supabase
-    .from("community_servers")
-    .select("*")
-    .ilike("invite_code", invite)
-    .maybeSingle();
+    .from("community_server_join_requests")
+    .select("id, server_id, user_id, status, message, reviewed_by, reviewed_at, created_at")
+    .eq("server_id", serverId)
+    .eq("status", "pending")
+    .order("created_at", { ascending: true });
   if (error) throw error;
-  if (!data) return null;
-  return mapServer(data as ServerRow);
+
+  const rows = data ?? [];
+  const userIds = [...new Set(rows.map((r) => r.user_id as string))];
+  const profileByUser = new Map<string, { displayName: string | null; email: string | null }>();
+
+  if (userIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from("user_profiles")
+      .select("user_id, display_name, community_display_name, community_username")
+      .in("user_id", userIds);
+    for (const p of profiles ?? []) {
+      profileByUser.set(p.user_id as string, {
+        displayName:
+          (p.community_display_name as string | null) ||
+          (p.display_name as string | null) ||
+          (p.community_username ? `@${p.community_username}` : null),
+        email: null,
+      });
+    }
+  }
+
+  return rows.map((r) => ({
+    id: r.id as string,
+    serverId: r.server_id as string,
+    userId: r.user_id as string,
+    status: r.status as JoinRequestStatus,
+    message: (r.message as string | null) ?? null,
+    reviewedBy: (r.reviewed_by as string | null) ?? null,
+    reviewedAt: (r.reviewed_at as string | null) ?? null,
+    createdAt: r.created_at as string,
+    displayName: profileByUser.get(r.user_id as string)?.displayName ?? null,
+    email: profileByUser.get(r.user_id as string)?.email ?? null,
+  }));
 }
 
-export async function joinServerByInviteCode(userId: string, code: string): Promise<CommunityServer> {
-  const server = await findServerByInviteCode(code);
-  if (!server) throw new Error("Invalid invite code");
-  await joinServer(server.id, userId);
-  return { ...server, isMember: true, memberCount: Math.max(1, server.memberCount) };
+export async function getMyJoinRequestStatus(
+  serverId: string,
+  userId: string,
+): Promise<JoinRequestStatus | null> {
+  const { data } = await supabase
+    .from("community_server_join_requests")
+    .select("status")
+    .eq("server_id", serverId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  return (data?.status as JoinRequestStatus | undefined) ?? null;
 }
 
 export async function regenerateServerInviteCode(serverId: string): Promise<string> {
@@ -514,7 +661,12 @@ export async function leaveServer(serverId: string, userId: string): Promise<voi
     .eq("server_id", serverId)
     .eq("user_id", userId);
   if (error) throw error;
-  await recomputeServerScore(serverId);
+  try {
+    await recomputeServerScore(serverId);
+  } catch {
+    // Score update may be restricted; membership delete still succeeded.
+  }
+  bumpCommunityRail();
 }
 
 export async function isServerMember(serverId: string, userId: string): Promise<boolean> {

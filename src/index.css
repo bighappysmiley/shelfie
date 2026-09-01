@@ -304,3 +304,26 @@ h1, h2, h3 {
     animation: none !important;
   }
 }
+
+/* Isolate Discord community shell from app light-theme tokens */
+.community-discord-shell {
+  --foreground: #f2f3f5;
+  --muted: #949ba4;
+  --surface: #313338;
+  --fill: rgba(255, 255, 255, 0.06);
+  --fill-secondary: rgba(255, 255, 255, 0.1);
+  --accent: #5865f2;
+  --accent-contrast: #ffffff;
+  --accent-hover: #4752c4;
+  --link: #00a8fc;
+  --chat-mine: #5865f2;
+  --chat-theirs: #2b2d31;
+  --destructive: #ed4245;
+  color-scheme: dark;
+}
+
+.community-discord-shell input,
+.community-discord-shell textarea,
+.community-discord-shell select {
+  color: #f2f3f5;
+}

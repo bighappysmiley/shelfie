@@ -27,11 +27,13 @@ export function AddServerModal({
   const [invite, setInvite] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
 
   useEffect(() => {
     if (!open) return;
     setMode("menu");
     setError("");
+    setInfo("");
     setInvite("");
     setDescription("");
     setIsPublic(false);
@@ -73,11 +75,17 @@ export function AddServerModal({
     if (!invite.trim()) return;
     setBusy(true);
     setError("");
+    setInfo("");
     try {
-      const server = await joinServerByInviteCode(user.id, invite.trim());
-      onClose();
+      const result = await joinServerByInviteCode(user.id, invite.trim());
       onDone?.();
-      navigate(`/community/s/${server.id}`);
+      if (result.status === "requested") {
+        setInfo(`Join request sent to “${result.server.name}”. You’ll get in once a manager approves.`);
+        setBusy(false);
+        return;
+      }
+      onClose();
+      navigate(`/community/s/${result.server.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not join");
       setBusy(false);
@@ -91,7 +99,7 @@ export function AddServerModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-t-2xl bg-[#313338] p-5 text-[#f2f3f5] shadow-xl sm:rounded-2xl"
+        className="community-discord-shell w-full max-w-md rounded-t-2xl bg-[#313338] p-5 text-[#f2f3f5] shadow-xl sm:rounded-2xl"
       >
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-[1.125rem] font-semibold text-white">
@@ -137,7 +145,7 @@ export function AddServerModal({
               onClick={() => setMode("invite")}
               className="flex w-full items-center gap-3 rounded-xl bg-[#1e1f22] px-4 py-3 text-left transition hover:bg-black/40"
             >
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/20 text-accent">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#5865f2]/25 text-[#c9cdfb]">
                 <IconCompass size={20} />
               </span>
               <span>
@@ -175,7 +183,7 @@ export function AddServerModal({
             />
             <ToggleRow
               label="Make public"
-              hint="Show in Discover"
+              hint="Show in Discover (join mode defaults to Open)"
               checked={isPublic}
               onChange={setIsPublic}
             />
@@ -194,6 +202,7 @@ export function AddServerModal({
               onClick={() => {
                 setMode("menu");
                 setError("");
+                setInfo("");
               }}
             >
               ← Back
@@ -205,7 +214,11 @@ export function AddServerModal({
               placeholder="e.g. aB3dE7xY"
               required
               autoFocus
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
             />
+            {info && <p className="text-[0.875rem] text-emerald-400">{info}</p>}
             {error && <FormError message={error} />}
             <Button type="submit" className="w-full" disabled={busy || !invite.trim()}>
               {busy ? "Joining…" : "Join Server"}

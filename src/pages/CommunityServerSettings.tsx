@@ -13,9 +13,11 @@ import {
   getServer,
   listCommunityCategories,
   listCommunityGroups,
+  listPendingJoinRequests,
   listServerRoles,
   regenerateServerInviteCode,
   renameCommunityCategory,
+  reviewJoinRequest,
   updateCommunityGroup,
   updateServer,
   updateServerRole,
@@ -26,6 +28,8 @@ import {
   type CommunityCategory,
   type CommunityGroup,
   type CommunityGroupKind,
+  type CommunityJoinMode,
+  type CommunityJoinRequest,
   type CommunityServer,
   type CommunityServerRole,
 } from "@/lib/community-types";
@@ -42,7 +46,7 @@ import { EmptyState, PageHeader, SegmentedControl, ToggleRow } from "@/component
 import { AuthedImage } from "@/components/AuthedImage";
 import { IconPlus, IconSettings, IconX } from "@/components/Icons";
 
-type SettingsTab = "overview" | "channels" | "roles" | "danger";
+type SettingsTab = "overview" | "channels" | "roles" | "members" | "danger";
 
 export function CommunityServerSettingsPage() {
   const { serverId } = useParams<{ serverId: string }>();
@@ -64,10 +68,12 @@ export function CommunityServerSettingsPage() {
   const [iconUrl, setIconUrl] = useState<string | null>(null);
   const [isPublic, setIsPublic] = useState(false);
   const [isOfficial, setIsOfficial] = useState(false);
+  const [joinMode, setJoinMode] = useState<CommunityJoinMode>("open");
   const [inviteCode, setInviteCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [regenBusy, setRegenBusy] = useState(false);
+  const [joinRequests, setJoinRequests] = useState<CommunityJoinRequest[]>([]);
   const iconInput = useRef<HTMLInputElement>(null);
 
   const library = libraries.find((l) => l.id === server?.libraryId);
@@ -77,22 +83,25 @@ export function CommunityServerSettingsPage() {
     if (!serverId || !user) return;
     setError("");
     try {
-      const [s, r, cats, groups] = await Promise.all([
+      const [s, r, cats, groups, requests] = await Promise.all([
         getServer(serverId),
         listServerRoles(serverId),
         listCommunityCategories(serverId),
-        listCommunityGroups(user.id, serverId),
+        listCommunityGroups(user!.id, serverId),
+        listPendingJoinRequests(serverId).catch(() => [] as CommunityJoinRequest[]),
       ]);
       if (!s) throw new Error("Server not found");
       setServer(s);
       setRoles(r);
       setCategories(cats);
       setChannels(groups);
+      setJoinRequests(requests);
       setName(s.name);
       setDescription(s.description ?? "");
       setIconUrl(s.iconUrl);
       setIsPublic(s.isPublic);
       setIsOfficial(s.isOfficial);
+      setJoinMode(s.joinMode);
       setInviteCode(s.inviteCode || "");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load settings");
@@ -186,6 +195,10 @@ export function CommunityServerSettingsPage() {
             { value: "overview", label: "Overview" },
             { value: "channels", label: "Channels" },
             { value: "roles", label: "Roles" },
+            {
+              value: "members",
+              label: joinRequests.length > 0 ? `Requests (${joinRequests.length})` : "Requests",
+            },
             { value: "danger", label: "Visibility" },
           ]}
         />
@@ -313,6 +326,14 @@ export function CommunityServerSettingsPage() {
         <RolesPanel serverId={serverId} roles={roles} onChanged={refresh} onError={setError} />
       )}
 
+      {tab === "members" && (
+        <JoinRequestsPanel
+          requests={joinRequests}
+          onChanged={refresh}
+          onError={setError}
+        />
+      )}
+
       {tab === "danger" && (
         <div className="max-w-lg space-y-4">
           <ToggleRow
@@ -329,6 +350,34 @@ export function CommunityServerSettingsPage() {
               onChange={setIsOfficial}
             />
           )}
+
+          <div>
+            <p className="mb-2 text-[0.8125rem] font-medium text-muted">Who can join</p>
+            <div className="space-y-2">
+              {(
+                [
+                  ["open", "Open", "Anyone can join instantly from Discover"],
+                  ["request", "Join requests", "People request access; you approve in Requests"],
+                  ["invite", "Invite only", "Only invite codes work (best for private servers)"],
+                ] as const
+              ).map(([value, label, hint]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setJoinMode(value)}
+                  className={`flex w-full flex-col rounded-[var(--radius-group)] px-3 py-2.5 text-left ring-1 transition ${
+                    joinMode === value
+                      ? "bg-accent/10 ring-accent"
+                      : "bg-surface ring-black/[0.04] hover:bg-fill/50 dark:ring-white/[0.06]"
+                  }`}
+                >
+                  <span className="font-medium">{label}</span>
+                  <span className="text-[0.75rem] text-muted">{hint}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <Button
             disabled={busy}
             onClick={async () => {
@@ -338,6 +387,7 @@ export function CommunityServerSettingsPage() {
                 await updateServer(serverId, {
                   isPublic,
                   isOfficial: isOwner ? isOfficial : undefined,
+                  joinMode,
                 });
                 setSaved(true);
                 await refresh();
@@ -384,6 +434,82 @@ export function CommunityServerSettingsPage() {
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+function JoinRequestsPanel({
+  requests,
+  onChanged,
+  onError,
+}: {
+  requests: CommunityJoinRequest[];
+  onChanged: () => Promise<void>;
+  onError: (msg: string) => void;
+}) {
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  if (requests.length === 0) {
+    return (
+      <EmptyState
+        title="No pending requests"
+        description="When join mode is “Join requests”, new applicants show up here for approval."
+      />
+    );
+  }
+
+  return (
+    <div className="max-w-lg space-y-2">
+      <p className="mb-2 text-[0.875rem] text-muted">{requests.length} waiting for approval</p>
+      {requests.map((req) => (
+        <div
+          key={req.id}
+          className="flex items-center gap-3 rounded-[var(--radius-group)] bg-surface px-3 py-3 shadow-sm ring-1 ring-black/[0.04] dark:ring-white/[0.06]"
+        >
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-medium">{req.displayName || "Member"}</p>
+            {req.message && <p className="truncate text-[0.8125rem] text-muted">{req.message}</p>}
+            <p className="text-[0.6875rem] text-muted">{new Date(req.createdAt).toLocaleString()}</p>
+          </div>
+          <Button
+            size="sm"
+            disabled={busyId === req.id}
+            onClick={async () => {
+              setBusyId(req.id);
+              onError("");
+              try {
+                await reviewJoinRequest(req.id, true);
+                await onChanged();
+              } catch (err) {
+                onError(err instanceof Error ? err.message : "Could not approve");
+              } finally {
+                setBusyId(null);
+              }
+            }}
+          >
+            Approve
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={busyId === req.id}
+            onClick={async () => {
+              setBusyId(req.id);
+              onError("");
+              try {
+                await reviewJoinRequest(req.id, false);
+                await onChanged();
+              } catch (err) {
+                onError(err instanceof Error ? err.message : "Could not reject");
+              } finally {
+                setBusyId(null);
+              }
+            }}
+          >
+            Reject
+          </Button>
+        </div>
+      ))}
     </div>
   );
 }
@@ -1099,7 +1225,7 @@ function RoleColorPicker({ value, onChange }: { value: string; onChange: (v: str
         <p className="text-[0.8125rem] font-medium text-muted">Color</p>
         <div
           className="h-8 w-24 rounded-full ring-1 ring-black/10 dark:ring-white/15"
-          style={roleColorStyle(value)}
+          style={roleColorStyle(value, { animate: true })}
           title="Preview"
         />
       </div>
