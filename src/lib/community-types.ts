@@ -128,6 +128,7 @@ export interface CommunityMessage {
   replyPreview?: { authorName: string | null; body: string } | null;
   reactions: CommunityMessageReaction[];
   createdAt: string;
+  editedAt?: string | null;
 }
 
 export interface CommunityServerMember {

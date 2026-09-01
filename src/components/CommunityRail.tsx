@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
-import { listMyServers } from "@/lib/community";
+import { listMyServers, listServerUnreadTotals } from "@/lib/community";
 import type { CommunityServer } from "@/lib/community-types";
 import { AuthedImage } from "@/components/AuthedImage";
 import { IconCompass, IconHome, IconList, IconPlus } from "@/components/Icons";
@@ -11,10 +11,12 @@ export type CommunityPane = "list" | "discover" | "server";
 function ServerGlyph({
   server,
   active,
+  unread = 0,
   onClick,
 }: {
   server: CommunityServer;
   active: boolean;
+  unread?: number;
   onClick: () => void;
 }) {
   return (
@@ -31,6 +33,11 @@ function ServerGlyph({
           active ? "h-9 opacity-100" : "h-2 opacity-0 group-hover:h-5 group-hover:opacity-70"
         }`}
       />
+      {unread > 0 && (
+        <span className="absolute right-2 top-1 z-10 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[0.625rem] font-bold text-white">
+          {unread > 9 ? "9+" : unread}
+        </span>
+      )}
       {server.iconUrl ? (
         <AuthedImage
           src={server.iconUrl}
@@ -113,6 +120,7 @@ export function CommunityDiscordShell({
   const { user } = useAuth();
   const navigate = useNavigate();
   const [servers, setServers] = useState<CommunityServer[]>([]);
+  const [unreadByServer, setUnreadByServer] = useState<Map<string, number>>(new Map());
   const [railTick, setRailTick] = useState(0);
 
   useEffect(() => {
@@ -125,8 +133,14 @@ export function CommunityDiscordShell({
     if (!user) return;
     let cancelled = false;
     void listMyServers(user.id)
-      .then((list) => {
-        if (!cancelled) setServers(list);
+      .then(async (list) => {
+        if (cancelled) return;
+        setServers(list);
+        const totals = await listServerUnreadTotals(
+          user.id,
+          list.map((s) => s.id),
+        );
+        if (!cancelled) setUnreadByServer(totals);
       })
       .catch(() => {
         if (!cancelled) setServers([]);
@@ -159,6 +173,7 @@ export function CommunityDiscordShell({
             key={s.id}
             server={s}
             active={pane === "server" && activeServerId === s.id}
+            unread={unreadByServer.get(s.id) ?? 0}
             onClick={() => navigate(`/community/s/${s.id}`)}
           />
         ))}

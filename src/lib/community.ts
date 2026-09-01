@@ -267,6 +267,7 @@ function mapMessage(row: MessageRow, extra?: Partial<CommunityMessage>): Communi
     replyToId: row.reply_to_id,
     reactions: [],
     createdAt: row.created_at,
+    editedAt: (row as { edited_at?: string | null }).edited_at ?? null,
     ...extra,
   };
 }
@@ -1528,6 +1529,45 @@ export async function updateSuggestionStatus(
 export async function deleteGroupMessage(messageId: string): Promise<void> {
   const { error } = await supabase.from("community_messages").delete().eq("id", messageId);
   if (error) throw error;
+}
+
+export async function updateGroupMessage(
+  messageId: string,
+  userId: string,
+  body: string,
+): Promise<void> {
+  const trimmed = body.trim();
+  if (!trimmed) throw new Error("Message cannot be empty");
+  const { error } = await supabase
+    .from("community_messages")
+    .update({ body: trimmed, edited_at: new Date().toISOString() })
+    .eq("id", messageId)
+    .eq("author_id", userId);
+  if (error) throw error;
+}
+
+export async function listServerUnreadTotals(
+  userId: string,
+  serverIds: string[],
+): Promise<Map<string, number>> {
+  if (serverIds.length === 0) return new Map();
+  const { data: groups, error } = await supabase
+    .from("community_groups")
+    .select("id, server_id")
+    .in("server_id", serverIds)
+    .is("archived_at", null);
+  if (error) throw error;
+
+  const groupIds = (groups ?? []).map((g) => g.id as string);
+  const unread = await listUnreadCounts(userId, groupIds);
+  const totals = new Map<string, number>();
+  for (const g of groups ?? []) {
+    const count = unread.get(g.id as string) ?? 0;
+    if (count <= 0) continue;
+    const sid = g.server_id as string;
+    totals.set(sid, (totals.get(sid) ?? 0) + count);
+  }
+  return totals;
 }
 
 export async function listTeammateCandidates(

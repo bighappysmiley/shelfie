@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
+  forwardRef,
   type FormEvent,
 } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -33,6 +34,8 @@ import {
   listUnreadCounts,
   listPinnedMessages,
   pinMessage,
+  unpinMessage,
+  updateGroupMessage,
   sendGroupMessage,
   toggleMessageReaction,
   updateMemberRole,
@@ -67,8 +70,18 @@ import { CommunityChatHeader } from "@/components/CommunityChatHeader";
 import { CommunityDrawer } from "@/components/CommunityDrawer";
 import { CommunityMemberDrawer } from "@/components/CommunityMemberDrawer";
 import { CommunityActionSheet } from "@/components/CommunityActionSheet";
+import { ChannelKindGlyph, channelKindBanner, canPostInChannelKind } from "@/components/community/ChannelKind";
 import { ChannelFormModal, CategoryFormModal } from "@/components/community-server-modals";
 import { AddServerModal } from "@/components/AddServerModal";
+import { PinnedMessagesBar } from "@/components/community/PinnedMessagesBar";
+import { MentionAutocomplete } from "@/components/community/MentionAutocomplete";
+import {
+  applyMention,
+  extractMentionQuery,
+  filterMentionMembers,
+  renderMessageWithMentions,
+  type MentionMember,
+} from "@/lib/community-mentions";
 
 const QUICK_EMOJIS = ["👍", "❤️", "😂", "🔥", "🎉", "👀"];
 
@@ -78,35 +91,6 @@ type Modal =
   | { type: "edit-channel"; channel: CommunityGroup }
   | { type: "create-category" }
   | { type: "edit-category"; category: CommunityCategory };
-
-function HashGlyph({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
-      <path
-        d="M10 4 8 20M16 4l-2 16M5 9h14M4 15h14"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-function ChannelKindGlyph({ kind, className = "h-4 w-4" }: { kind: CommunityGroup["kind"]; className?: string }) {
-  if (kind === "forum") {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
-        <path
-          d="M4 6.5A2.5 2.5 0 0 1 6.5 4H18a2 2 0 0 1 2 2v7.5a2.5 2.5 0 0 1-2.5 2.5H9l-3.5 3v-3H6.5A2.5 2.5 0 0 1 4 16V6.5Z"
-          stroke="currentColor"
-          strokeWidth="1.75"
-        />
-        <path d="M8 9h8M8 12h5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
-      </svg>
-    );
-  }
-  return <HashGlyph className={className} />;
-}
 
 function Chevron({ open }: { open: boolean }) {
   return (
@@ -412,6 +396,7 @@ export function CommunityServerPage() {
               showServerMembers={showMembers}
               onToggleServerMembers={() => setShowMembers((v) => !v)}
               serverMemberCount={serverMembers.length}
+              serverMembers={serverMembers}
               onMarkRead={user ? () => void markChannelRead(user.id, active.id) : undefined}
             />
           ) : (
@@ -751,6 +736,7 @@ function ChannelRoom({
   showServerMembers = true,
   onToggleServerMembers,
   serverMemberCount = 0,
+  serverMembers = [],
   onMarkRead,
 }: {
   group: CommunityGroup;
@@ -770,6 +756,7 @@ function ChannelRoom({
   showServerMembers?: boolean;
   onToggleServerMembers?: () => void;
   serverMemberCount?: number;
+  serverMembers?: CommunityServerMember[];
   onMarkRead?: () => void;
 }) {
   const [tab, setTab] = useState<"room" | "members">("room");
@@ -781,13 +768,39 @@ function ChannelRoom({
   const [replyTo, setReplyTo] = useState<CommunityMessage | null>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const messageRefs = useRef<Map<string, HTMLLIElement>>(new Map());
+  const presenceRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  const mentionMembers = useMemo<MentionMember[]>(
+    () =>
+      serverMembers.map((m) => ({
+        userId: m.userId,
+        label: m.displayName || m.communityUsername || "Member",
+        username: m.communityUsername,
+      })),
+    [serverMembers],
+  );
+
+  const mentionSuggestions = useMemo(
+    () => (mentionQuery === null ? [] : filterMentionMembers(mentionMembers, mentionQuery)),
+    [mentionQuery, mentionMembers],
+  );
 
   const myRole = group.myRole ?? (isAppOwner || canConfigure ? "admin" : isMember ? "member" : null);
   const manage = canManageMembers(myRole, isAppOwner || canConfigure);
   const moderate = canModerate(myRole, isAppOwner || canConfigure);
-  const canPost = isMember || isAppOwner || canConfigure;
-  const isForum = group.kind === "forum";
+  const canPost = canPostInChannelKind(group.kind, {
+    isMember,
+    canConfigure,
+    canModerate: moderate,
+    canManage: manage,
+    isAppOwner: Boolean(isAppOwner),
+  });
+  const isVoice = group.kind === "voice";
+  const kindBanner = channelKindBanner(group.kind);
 
   const load = useCallback(async () => {
     const [msgs, mems, pins] = await Promise.all([
@@ -847,7 +860,9 @@ function ChannelRoom({
           await channel.track({ name: authorLabel, typing: false });
         }
       });
+    presenceRef.current = channel;
     return () => {
+      presenceRef.current = null;
       void supabase.removeChannel(channel);
     };
   }, [group.id, load, userId, authorLabel]);
@@ -878,6 +893,7 @@ function ChannelRoom({
       });
       setDraft("");
       setReplyTo(null);
+      setMentionQuery(null);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not send");
@@ -938,19 +954,22 @@ function ChannelRoom({
       </header>
 
       {pinned.length > 0 && tab === "room" && (
-        <div className="shrink-0 border-b border-[var(--community-border)] bg-fill/40 px-4 py-2">
-          <p className="text-[0.6875rem] font-semibold uppercase tracking-wide text-muted">
-            Pinned — {pinned[0]?.body.slice(0, 80)}
-            {(pinned[0]?.body.length ?? 0) > 80 ? "…" : ""}
-          </p>
-        </div>
+        <PinnedMessagesBar
+          pins={pinned}
+          canManage={moderate || manage}
+          onJump={(messageId) => {
+            messageRefs.current.get(messageId)?.scrollIntoView({ behavior: "smooth", block: "center" });
+          }}
+          onUnpin={async (messageId) => {
+            await unpinMessage(group.id, messageId);
+            await load();
+          }}
+        />
       )}
 
-      {isForum && tab === "room" && (
+      {kindBanner && tab === "room" && (
         <div className="shrink-0 border-b border-[var(--community-border)] bg-fill/30 px-4 py-2">
-          <p className="text-[0.75rem] text-muted">
-            Forum channel — threaded posts are coming soon. Messages here work like a text channel for now.
-          </p>
+          <p className="text-[0.75rem] text-muted">{kindBanner}</p>
         </div>
       )}
 
@@ -965,24 +984,50 @@ function ChannelRoom({
             onChanged();
           }}
         />
+      ) : isVoice ? (
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
+          <ChannelKindGlyph kind="voice" className="h-14 w-14 text-white/25" />
+          <div>
+            <p className="text-[1rem] font-semibold text-foreground">#{group.name}</p>
+            <p className="mt-1 max-w-sm text-[0.875rem] text-muted">
+              Voice chat is coming soon. You&apos;ll be able to hang out here with voice and screen share.
+            </p>
+          </div>
+          {members.length > 0 && (
+            <p className="text-[0.8125rem] text-muted">
+              {members.length} {members.length === 1 ? "member" : "members"} in channel
+            </p>
+          )}
+        </div>
       ) : (
         <>
           <CommunityScrollBody className="px-4 py-4">
             <ul className="space-y-1">
               {messages.length === 0 && (
                 <li className="py-12 text-center text-muted">
-                  Welcome to #{group.name}. Say hello!
+                  {group.kind === "announcement"
+                    ? `Welcome to #${group.name}. Announcements appear here.`
+                    : `Welcome to #${group.name}. Say hello!`}
                 </li>
               )}
               {messages.map((m) => (
                 <MessageRow
                   key={m.id}
+                  ref={(el) => {
+                    if (el) messageRefs.current.set(m.id, el);
+                    else messageRefs.current.delete(m.id);
+                  }}
                   message={m}
+                  mentionMembers={mentionMembers}
                   isMine={m.authorId === userId}
                   canModerate={moderate}
                   canPin={moderate || manage}
                   userId={userId}
                   onReply={() => setReplyTo(m)}
+                  onEdit={async (body) => {
+                    await updateGroupMessage(m.id, userId, body);
+                    await load();
+                  }}
                   onReact={async (emoji) => {
                     await toggleMessageReaction(m.id, userId, emoji);
                     await load();
@@ -1026,6 +1071,22 @@ function ChannelRoom({
                 </button>
               </div>
             )}
+            {mentionSuggestions.length > 0 && (
+              <MentionAutocomplete
+                members={mentionSuggestions}
+                onPick={(member) => {
+                  const el = textareaRef.current;
+                  const cursor = el?.selectionStart ?? draft.length;
+                  const next = applyMention(draft, cursor, member);
+                  setDraft(next.text);
+                  setMentionQuery(null);
+                  requestAnimationFrame(() => {
+                    el?.focus();
+                    el?.setSelectionRange(next.cursor, next.cursor);
+                  });
+                }}
+              />
+            )}
             {error && <FormError message={error} />}
             {typingUsers.length > 0 && (
               <p className="mb-2 text-[0.75rem] text-muted">
@@ -1035,27 +1096,45 @@ function ChannelRoom({
             {canPost ? (
               <div className="flex gap-2">
                 <textarea
+                  ref={textareaRef}
                   value={draft}
                   onChange={(e) => {
-                    setDraft(e.target.value);
-                    const ch = supabase.channel(`community:${group.id}`, {
-                      config: { presence: { key: userId } },
+                    const value = e.target.value;
+                    const cursor = e.target.selectionStart ?? value.length;
+                    setDraft(value);
+                    setMentionQuery(extractMentionQuery(value, cursor));
+                    void presenceRef.current?.track({
+                      name: authorLabel,
+                      typing: value.length > 0,
                     });
-                    void ch.track({ name: authorLabel, typing: e.target.value.length > 0 });
                   }}
-                  rows={2}
-                  placeholder={`Message #${group.name}`}
-                  className="min-h-[2.75rem] flex-1 resize-none rounded-[var(--radius-control)] bg-fill px-3 py-2 text-[1.0625rem] outline-none ring-accent focus:ring-2 pb-[env(safe-area-inset-bottom,0px)]"
                   onKeyDown={(e) => {
+                    if (e.key === "Escape" && mentionQuery !== null) {
+                      setMentionQuery(null);
+                      return;
+                    }
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
                       void onSend(e);
                     }
                   }}
+                  rows={2}
+                  placeholder={
+                    group.kind === "announcement"
+                      ? `Post an announcement in #${group.name}`
+                      : `Message #${group.name}`
+                  }
+                  className="min-h-[2.75rem] flex-1 resize-none rounded-[var(--radius-control)] bg-fill px-3 py-2 text-[1.0625rem] outline-none ring-accent focus:ring-2 pb-[env(safe-area-inset-bottom,0px)]"
                 />
                 <Button type="submit" disabled={sending || !draft.trim()}>
                   {sending ? "…" : "Send"}
                 </Button>
+              </div>
+            ) : group.kind === "announcement" && (isMember || isAppOwner || canConfigure) ? (
+              <div className="rounded-[var(--radius-control)] border border-dashed border-black/10 px-4 py-3 text-center dark:border-white/10">
+                <p className="text-[0.875rem] text-muted">
+                  Only moderators and admins can post in announcement channels.
+                </p>
               </div>
             ) : (
               <div className="rounded-[var(--radius-control)] border border-dashed border-black/10 px-4 py-3 text-center dark:border-white/10">
@@ -1072,29 +1151,36 @@ function ChannelRoom({
   );
 }
 
-function MessageRow({
-  message,
-  isMine,
-  canModerate: canMod,
-  canPin = false,
-  userId: _userId,
-  onReply,
-  onReact,
-  onPin,
-  onStatus,
-  onDelete,
-}: {
-  message: CommunityMessage;
-  isMine: boolean;
-  canModerate: boolean;
-  canPin?: boolean;
-  userId: string;
-  onReply: () => void;
-  onReact: (emoji: string) => Promise<void>;
-  onPin?: () => Promise<void>;
-  onStatus: (s: SuggestionStatus) => Promise<void>;
-  onDelete: () => Promise<void>;
-}) {
+const MessageRow = forwardRef(function MessageRow(
+  {
+    message,
+    mentionMembers,
+    isMine,
+    canModerate: canMod,
+    canPin = false,
+    userId: _userId,
+    onReply,
+    onReact,
+    onPin,
+    onEdit,
+    onStatus,
+    onDelete,
+  }: {
+    message: CommunityMessage;
+    mentionMembers: MentionMember[];
+    isMine: boolean;
+    canModerate: boolean;
+    canPin?: boolean;
+    userId: string;
+    onReply: () => void;
+    onReact: (emoji: string) => Promise<void>;
+    onPin?: () => Promise<void>;
+    onEdit?: (body: string) => Promise<void>;
+    onStatus: (s: SuggestionStatus) => Promise<void>;
+    onDelete: () => Promise<void>;
+  },
+  ref: React.Ref<HTMLLIElement>,
+) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1108,6 +1194,17 @@ function MessageRow({
       label: "Copy text",
       onClick: () => void navigator.clipboard.writeText(message.body),
     },
+    ...(isMine && onEdit && message.kind === "chat"
+      ? [
+          {
+            label: "Edit message",
+            onClick: () => {
+              const next = prompt("Edit message", message.body);
+              if (next?.trim()) void onEdit(next.trim());
+            },
+          },
+        ]
+      : []),
     ...(canPin && onPin ? [{ label: "Pin message", onClick: () => void onPin() }] : []),
     ...(canMod || isMine
       ? [{ label: "Delete", onClick: () => void onDelete(), destructive: true as const }]
@@ -1115,13 +1212,14 @@ function MessageRow({
   ];
 
   if (message.kind === "system") {
-    return <li className="text-center text-[0.75rem] text-muted">{message.body}</li>;
+    return <li ref={ref} className="text-center text-[0.75rem] text-muted">{message.body}</li>;
   }
   const isSuggestion = message.kind === "suggestion";
   const initial = (message.authorName || "?")[0]?.toUpperCase();
 
   return (
     <li
+      ref={ref}
       className="group relative flex gap-3 rounded px-2 py-1 hover:bg-[var(--community-hover)]"
       onTouchStart={() => {
         longPressRef.current = setTimeout(openSheet, 500);
@@ -1162,7 +1260,18 @@ function MessageRow({
             Suggestion
           </p>
         )}
-        <p className="whitespace-pre-wrap break-words text-[0.9375rem]">{message.body}</p>
+        <p className="whitespace-pre-wrap break-words text-[0.9375rem]">
+          {renderMessageWithMentions(message.body, mentionMembers).map((part, i) =>
+            part.type === "mention" ? (
+              <span key={i} className="rounded bg-accent/15 px-0.5 font-medium text-accent">
+                {part.value}
+              </span>
+            ) : (
+              <span key={i}>{part.value}</span>
+            ),
+          )}
+          {message.editedAt && <span className="text-[0.625rem] text-muted"> (edited)</span>}
+        </p>
 
         {message.reactions.length > 0 && (
           <div className="mt-1 flex flex-wrap gap-1">
@@ -1256,7 +1365,7 @@ function MessageRow({
       <CommunityActionSheet open={sheetOpen} onClose={() => setSheetOpen(false)} actions={sheetActions} />
     </li>
   );
-}
+});
 
 function ServerMemberSidebar({ members }: { members: CommunityServerMember[] }) {
   const grouped = useMemo(() => {

@@ -12,6 +12,7 @@ import {
   reorderServerRoles,
   updateCommunityGroup,
   updateServerRole,
+  updateChannelPosition,
   uploadCommunityImage,
 } from "@/lib/community";
 import {
@@ -35,7 +36,9 @@ import { Button } from "@/components/Button";
 import { TextField, TextArea, SelectField } from "@/components/form";
 import { EmptyState, ToggleRow } from "@/components/layout";
 import { AuthedImage } from "@/components/AuthedImage";
+import { ChannelTypeSelect, ChannelKindGlyph } from "@/components/community/ChannelKind";
 import { IconPlus, IconSettings } from "@/components/Icons";
+
 export function JoinRequestsPanel({
   requests,
   onChanged,
@@ -251,18 +254,62 @@ export function ChannelsPanel({
                 <p className="px-1 py-2 text-[0.8125rem] text-muted">No channels yet</p>
               ) : (
                 <ul className="space-y-1">
-                  {list.map((ch) => (
+                  {list.map((ch, index) => (
                     <li
                       key={ch.id}
                       className="flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-fill/60"
                     >
-                      <span className="text-muted">#</span>
+                      <ChannelKindGlyph kind={ch.kind} className="h-4 w-4 shrink-0 text-muted" />
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-medium">{ch.name}</p>
                         <p className="truncate text-[0.75rem] text-muted">
                           {KIND_LABELS[ch.kind]}
                           {ch.topic ? ` · ${ch.topic}` : ""}
                         </p>
+                      </div>
+                      <div className="flex shrink-0 flex-col gap-0.5">
+                        <button
+                          type="button"
+                          disabled={index === 0 || busy}
+                          className="rounded px-1 text-[0.625rem] text-muted hover:bg-fill disabled:opacity-30"
+                          onClick={async () => {
+                            const prev = list[index - 1];
+                            if (!prev) return;
+                            setBusy(true);
+                            try {
+                              await updateChannelPosition(ch.id, prev.position);
+                              await updateChannelPosition(prev.id, ch.position);
+                              await onChanged();
+                            } catch (err) {
+                              onError(err instanceof Error ? err.message : "Could not reorder");
+                            } finally {
+                              setBusy(false);
+                            }
+                          }}
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          disabled={index === list.length - 1 || busy}
+                          className="rounded px-1 text-[0.625rem] text-muted hover:bg-fill disabled:opacity-30"
+                          onClick={async () => {
+                            const next = list[index + 1];
+                            if (!next) return;
+                            setBusy(true);
+                            try {
+                              await updateChannelPosition(ch.id, next.position);
+                              await updateChannelPosition(next.id, ch.position);
+                              await onChanged();
+                            } catch (err) {
+                              onError(err instanceof Error ? err.message : "Could not reorder");
+                            } finally {
+                              setBusy(false);
+                            }
+                          }}
+                        >
+                          ↓
+                        </button>
                       </div>
                       <Link
                         to={`/community/s/${serverId}/${ch.id}`}
@@ -459,15 +506,7 @@ function ChannelEditorModal({
         <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
         <TextField label="Topic" value={topic} onChange={(e) => setTopic(e.target.value)} hint="Shown under the channel name" />
         <TextArea label="Description" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
-        <SelectField
-          label="Channel type"
-          value={kind}
-          onChange={(e) => setKind(e.target.value as CommunityGroupKind)}
-          hint="Forum channels support threaded posts (full UI coming soon)."
-        >
-          <option value="text">Text channel</option>
-          <option value="forum">Forum channel</option>
-        </SelectField>
+        <ChannelTypeSelect value={kind} onChange={setKind} id="settings-channel-type" />
         <SelectField
           label="Category"
           value={categoryId}
