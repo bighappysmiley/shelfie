@@ -105,9 +105,9 @@ export function ChannelMessageComposer({
   return (
     <form onSubmit={onSend} className="shrink-0 px-4 pb-4 pt-2">
       {replyPreview && (
-        <div className="mb-2 flex items-center gap-2 rounded-lg border-l-2 border-accent bg-[var(--community-input)] px-3 py-2">
+        <div className="mb-2 flex items-center gap-2 rounded border-l-4 border-[var(--community-border)] bg-[var(--community-input)] px-3 py-2">
           <div className="min-w-0 flex-1">
-            <p className="text-[0.75rem] font-medium text-accent">
+            <p className="text-xs font-medium text-muted">
               Replying to {replyPreview.authorName}
             </p>
             <p className="truncate text-[0.75rem] text-muted">{replyPreview.body}</p>
@@ -125,7 +125,7 @@ export function ChannelMessageComposer({
 
       {hint && <p className="mb-2 text-[0.75rem] text-muted">{hint}</p>}
 
-      <div className="flex items-end gap-2 rounded-lg bg-[var(--community-input)] px-2 py-1.5 ring-1 ring-[var(--community-border)]">
+      <div className="flex items-end gap-2 rounded-lg bg-[var(--community-input)] px-3 py-2.5">
         <ComposerIconButton label="More actions" onClick={() => setPlusOpen(true)} active={plusOpen}>
           <IconPlus size={20} />
         </ComposerIconButton>

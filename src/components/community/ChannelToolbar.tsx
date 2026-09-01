@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ChannelKindGlyph } from "@/components/community/ChannelKind";
+import { DiscordChannelIcon } from "@/components/community/DiscordIcons";
 import { IconBell, IconPeople, IconPin, IconSearch, IconSettings } from "@/components/Icons";
 import { KIND_LABELS, type CommunityGroup } from "@/lib/community-types";
 
@@ -20,8 +20,8 @@ function ToolbarButton({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className={`rounded p-1.5 text-muted transition hover:bg-[var(--community-hover)] hover:text-foreground ${
-        active ? "bg-[var(--community-hover)] text-foreground" : ""
+      className={`rounded p-1.5 text-muted transition hover:bg-[var(--community-channel-hover)] hover:text-foreground ${
+        active ? "text-foreground" : ""
       }`}
     >
       {children}
@@ -59,16 +59,13 @@ export function ChannelToolbar({
   canManage?: boolean;
 }) {
   return (
-    <header className="shrink-0 border-b border-[var(--community-border)]">
-      <div className="flex h-12 items-center gap-2 px-4">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <ChannelKindGlyph kind={group.kind} className="h-5 w-5 shrink-0 text-muted" />
-          <h2 className="truncate text-[0.9375rem] font-semibold text-foreground">
-            <span className="text-muted">#</span>
-            {group.name}
-          </h2>
-          <span className="hidden text-[var(--community-border)] sm:inline">|</span>
-          <p className="hidden min-w-0 truncate text-[0.8125rem] text-muted sm:block">
+    <header className="shrink-0 border-b border-[var(--community-border)] shadow-[0_1px_0_0_var(--community-border)]">
+      <div className="flex h-12 items-center gap-1 px-4">
+        <div className="flex min-w-0 flex-1 items-center gap-1.5">
+          <DiscordChannelIcon kind={group.kind} className="h-5 w-5" />
+          <h2 className="truncate text-base font-semibold text-foreground">{group.name}</h2>
+          <span className="hidden text-xl leading-none text-muted sm:inline">|</span>
+          <p className="hidden min-w-0 truncate text-sm text-muted sm:block">
             {group.topic || group.description || KIND_LABELS[group.kind]}
           </p>
         </div>

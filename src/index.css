@@ -35,14 +35,6 @@
   --radius-group: 0.625rem;
   --radius-control: 0.5rem;
   --radius-pill: 624.9375rem;
-  --community-rail: #e0e4db;
-  --community-panel: var(--surface);
-  --community-chat: var(--background);
-  --community-input: #e8ebe3;
-  --community-border: var(--hairline);
-  --community-hover: var(--fill);
-  --community-channel-hover: rgba(61, 82, 72, 0.06);
-  --community-channel-active: rgba(61, 82, 72, 0.12);
 }
 
 .dark {
@@ -74,14 +66,6 @@
   --chat-mine: #4a6358;
   --chat-theirs: #2a3436;
   --nav-blur: rgba(26, 36, 38, 0.9);
-  --community-rail: #1e1f22;
-  --community-panel: #2b2d31;
-  --community-chat: #313338;
-  --community-input: #383a40;
-  --community-border: rgba(255, 255, 255, 0.06);
-  --community-hover: rgba(79, 84, 92, 0.32);
-  --community-channel-hover: rgba(79, 84, 92, 0.16);
-  --community-channel-active: rgba(79, 84, 92, 0.48);
 }
 
 @theme inline {
@@ -406,9 +390,73 @@ h1, h2, h3 {
   }
 }
 
-/* Community shell — follows app light/dark via :root / .dark community tokens above */
+/* Discord-scoped theme — blurple accent + gray shell (light/dark follow app .dark) */
 .community-discord-shell {
+  font-size: 16px;
+  --foreground: #060607;
+  --muted: #5c5e66;
+  --tertiary: #949ba4;
+  --accent: #5865f2;
+  --accent-hover: #4752c4;
+  --accent-contrast: #ffffff;
+  --accent-soft: rgba(88, 101, 242, 0.15);
+  --link: #006ce7;
+  --fill: rgba(116, 127, 141, 0.16);
+  --fill-secondary: rgba(116, 127, 141, 0.08);
+  --destructive: #ed4245;
+  --community-rail: #e3e5e8;
+  --community-panel: #f2f3f5;
+  --community-chat: #ffffff;
+  --community-input: #e3e5e8;
+  --community-border: rgba(0, 0, 0, 0.08);
+  --community-hover: rgba(116, 127, 141, 0.16);
+  --community-channel-hover: rgba(116, 127, 141, 0.08);
+  --community-channel-active: rgba(116, 127, 141, 0.24);
+  --community-mention-bg: rgba(88, 101, 242, 0.15);
+  --community-mention-text: #5865f2;
+  --community-message-hover: rgba(116, 127, 141, 0.08);
+  --community-toolbar-bg: #f2f3f5;
+  --community-user-bar: #ebedef;
+  --community-rail-pill: #060607;
   color: var(--foreground);
+}
+
+.dark .community-discord-shell {
+  --foreground: #dbdee1;
+  --muted: #949ba4;
+  --tertiary: #6d6f78;
+  --accent: #5865f2;
+  --accent-hover: #4752c4;
+  --accent-contrast: #ffffff;
+  --accent-soft: rgba(88, 101, 242, 0.15);
+  --link: #00a8fc;
+  --fill: rgba(79, 84, 92, 0.48);
+  --fill-secondary: rgba(79, 84, 92, 0.32);
+  --destructive: #f23f43;
+  --community-rail: #1e1f22;
+  --community-panel: #2b2d31;
+  --community-chat: #313338;
+  --community-input: #383a40;
+  --community-border: rgba(255, 255, 255, 0.06);
+  --community-hover: #2e3035;
+  --community-channel-hover: rgba(79, 84, 92, 0.16);
+  --community-channel-active: rgba(79, 84, 92, 0.32);
+  --community-mention-bg: rgba(88, 101, 242, 0.3);
+  --community-mention-text: #c9cdfb;
+  --community-message-hover: #2e3035;
+  --community-toolbar-bg: #36373d;
+  --community-user-bar: #232428;
+  --community-rail-pill: #ffffff;
+}
+
+.community-discord-shell .community-mention {
+  background: var(--community-mention-bg);
+  color: var(--community-mention-text);
+}
+
+.community-discord-shell .community-message-actions {
+  background: var(--community-toolbar-bg);
+  border-color: var(--community-border);
 }
 
 .community-message-grouped {

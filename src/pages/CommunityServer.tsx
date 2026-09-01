@@ -46,7 +46,6 @@ import {
   canManageMembers,
   canModerate,
   formatCommunityTime,
-  formatPopularity,
   type CommunityCategory,
   type CommunityGroup,
   type CommunityMessage,
@@ -60,7 +59,6 @@ import {
 import { Button } from "@/components/Button";
 import { FormError } from "@/components/form";
 import { EmptyState } from "@/components/layout";
-import { AuthedImage } from "@/components/AuthedImage";
 import { IconChat, IconPlus, IconSearch, IconSettings } from "@/components/Icons";
 import { communityAuthorLabel, communityShortName } from "@/lib/community-identity";
 import { isAppOwnerUser, listAppOwnerUserIds } from "@/lib/app-owner";
@@ -72,6 +70,7 @@ import { CommunityDrawer } from "@/components/CommunityDrawer";
 import { CommunityMemberDrawer } from "@/components/CommunityMemberDrawer";
 import { CommunityActionSheet } from "@/components/CommunityActionSheet";
 import { ChannelKindGlyph, channelKindBanner, canPostInChannelKind } from "@/components/community/ChannelKind";
+import { DiscordChannelIcon } from "@/components/community/DiscordIcons";
 import { ChannelMessageComposer } from "@/components/community/ChannelMessageComposer";
 import { ChannelToolbar } from "@/components/community/ChannelToolbar";
 import { ChannelWelcome } from "@/components/community/ChannelWelcome";
@@ -102,12 +101,6 @@ function shouldGroupMessages(prev: CommunityMessage | null, curr: CommunityMessa
   const prevTime = new Date(prev.createdAt).getTime();
   const currTime = new Date(curr.createdAt).getTime();
   return currTime - prevTime < MESSAGE_GROUP_MS;
-}
-
-function channelHashPrefix(kind: CommunityGroup["kind"]): string {
-  if (kind === "voice") return "";
-  if (kind === "forum") return "";
-  return "#";
 }
 
 type Modal =
@@ -345,33 +338,27 @@ export function CommunityServerPage() {
       onAdd={() => setAddOpen(true)}
     >
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        <aside className="hidden w-[15.25rem] shrink-0 flex-col border-r border-[var(--community-border)] bg-[var(--community-panel)] min-h-0 md:flex">
-          <div className="flex h-12 shrink-0 items-center gap-2 border-b border-[var(--community-border)] px-3 shadow-sm">
-            {server?.iconUrl ? (
-              <AuthedImage src={server.iconUrl} className="h-7 w-7 rounded-lg object-cover" />
-            ) : (
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/25 text-[0.625rem] font-bold text-accent">
-                {(server?.name || "?").slice(0, 2).toUpperCase()}
-              </div>
-            )}
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[0.875rem] font-semibold text-foreground">{server?.name || "Server"}</p>
-              {server && (
-                <p className="truncate text-[0.625rem] text-muted">{formatPopularity(server)}</p>
-              )}
-            </div>
+        <aside className="hidden w-60 shrink-0 flex-col bg-[var(--community-panel)] min-h-0 md:flex">
+          <div className="flex h-12 shrink-0 items-center justify-between gap-2 px-4 shadow-[0_1px_0_0_var(--community-border)]">
+            <button
+              type="button"
+              className="min-w-0 flex-1 truncate text-left text-base font-semibold text-foreground hover:text-foreground"
+              title={server?.name}
+            >
+              {server?.name || "Server"}
+            </button>
             {canConfigure && (
               <Link
                 to={`/community/s/${serverId}/settings`}
-                className="rounded p-1.5 text-muted hover:bg-[var(--community-hover)] hover:text-foreground"
+                className="shrink-0 rounded p-1 text-muted hover:bg-[var(--community-channel-hover)] hover:text-foreground"
                 title="Server settings"
               >
-                <IconSettings size={16} />
+                <IconSettings size={18} />
               </Link>
             )}
           </div>
           {!isMember && server && (server.isPublic || server.isOfficial || server.joinMode === "invite") && (
-            <div className="shrink-0 border-b border-[var(--community-border)] bg-accent/15 px-3 py-2">
+            <div className="shrink-0 border-b border-[var(--community-border)] bg-[var(--community-channel-hover)] px-3 py-2">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-[0.75rem] text-muted">
                   {joinRequestStatus === "pending"
@@ -390,21 +377,7 @@ export function CommunityServerPage() {
               </div>
             </div>
           )}
-          <div className="shrink-0 px-2 py-2">
-            <label className="relative block">
-              <IconSearch
-                size={14}
-                className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"
-              />
-              <input
-                value={channelSearch}
-                onChange={(e) => setChannelSearch(e.target.value)}
-                placeholder="Search channels"
-                className="w-full rounded-lg bg-fill py-1.5 pl-8 pr-2 text-[0.8125rem] outline-none ring-accent placeholder:text-muted focus:ring-2"
-              />
-            </label>
-          </div>
-          <CommunityScrollBody className="px-2 py-2">{sidebar}</CommunityScrollBody>
+          <CommunityScrollBody className="px-2 py-2 pt-3">{sidebar}</CommunityScrollBody>
           {user && (
             <CommunityUserPanel
               profile={myCommunityProfile}
@@ -709,7 +682,7 @@ function ChannelSidebar({
               <button
                 type="button"
                 onClick={() => onToggle(cat.id)}
-                className="flex min-w-0 flex-1 items-center gap-1 rounded px-1 py-1 text-[0.6875rem] font-bold uppercase tracking-wider text-muted hover:text-foreground"
+                className="flex min-w-0 flex-1 items-center gap-1 rounded px-1 py-0.5 text-left text-xs font-semibold uppercase tracking-wide text-muted hover:text-foreground"
               >
                 <Chevron open={open} />
                 <span className="flex min-w-0 items-center gap-1 truncate">{cat.name}</span>
@@ -741,23 +714,18 @@ function ChannelSidebar({
                   key={ch.id}
                   type="button"
                   onClick={() => onSelect(ch.id)}
-                  className={`mb-0.5 flex w-full items-center gap-1 rounded-[0.25rem] px-2 py-[0.3125rem] text-left text-[0.9375rem] transition ${
+                  className={`mb-px flex w-full items-center gap-1.5 rounded px-1.5 py-[0.375rem] text-left text-base transition ${
                     ch.id === activeId
-                      ? "bg-[var(--community-channel-active)] font-medium text-foreground"
+                      ? "bg-[var(--community-channel-active)] text-foreground"
                       : "text-muted hover:bg-[var(--community-channel-hover)] hover:text-foreground"
                   }`}
                 >
-                  <ChannelKindGlyph kind={ch.kind} className="h-4 w-4 shrink-0 opacity-60" />
-                  <span className="truncate">
-                    {channelHashPrefix(ch.kind)}
-                    <span className={unreadCounts?.get(ch.id) ? "font-semibold text-foreground" : ""}>
-                      {ch.name}
-                    </span>
+                  <DiscordChannelIcon kind={ch.kind} />
+                  <span className={`truncate ${unreadCounts?.get(ch.id) ? "font-semibold text-foreground" : ""}`}>
+                    {ch.name}
                   </span>
                   {unreadCounts?.get(ch.id) ? (
-                    <span className="ml-auto flex h-[0.6875rem] min-w-[0.6875rem] shrink-0 items-center justify-center rounded-full bg-destructive px-1 text-[0.625rem] font-bold text-white">
-                      {unreadCounts.get(ch.id)! > 9 ? "9+" : unreadCounts.get(ch.id)}
-                    </span>
+                    <span className="ml-auto h-2 w-2 shrink-0 rounded-full bg-foreground" />
                   ) : null}
                 </button>
               ))}
@@ -771,17 +739,14 @@ function ChannelSidebar({
             key={ch.id}
             type="button"
             onClick={() => onSelect(ch.id)}
-            className={`mb-0.5 flex w-full items-center gap-1 rounded-[0.25rem] px-2 py-[0.3125rem] text-left text-[0.9375rem] ${
+            className={`mb-px flex w-full items-center gap-1.5 rounded px-1.5 py-[0.375rem] text-left text-base ${
               ch.id === activeId
-                ? "bg-[var(--community-channel-active)] font-medium text-foreground"
+                ? "bg-[var(--community-channel-active)] text-foreground"
                 : "text-muted hover:bg-[var(--community-channel-hover)] hover:text-foreground"
             }`}
           >
-            <ChannelKindGlyph kind={ch.kind} className="h-4 w-4 shrink-0 opacity-60" />
-            <span className="truncate">
-              {channelHashPrefix(ch.kind)}
-              {ch.name}
-            </span>
+            <DiscordChannelIcon kind={ch.kind} />
+            <span className="truncate">{ch.name}</span>
           </button>
         ))}
 
@@ -1481,8 +1446,8 @@ const MessageRow = forwardRef(function MessageRow(
   return (
     <li
       ref={ref}
-      className={`group relative flex gap-4 rounded px-2 hover:bg-[var(--community-hover)] ${
-        grouped ? "community-message-grouped py-0.5" : "py-0.5"
+      className={`group relative flex gap-4 rounded-md px-4 hover:bg-[var(--community-message-hover)] ${
+        grouped ? "community-message-grouped py-0.5" : "py-1"
       }`}
       onTouchStart={() => {
         longPressRef.current = setTimeout(openSheet, 500);
@@ -1523,7 +1488,7 @@ const MessageRow = forwardRef(function MessageRow(
               type="button"
               onClick={onOpenProfile}
               disabled={!onOpenProfile}
-              className="text-left text-[0.9375rem] font-medium disabled:cursor-default hover:underline"
+              className="text-left text-base font-semibold disabled:cursor-default hover:underline"
               style={nameStyle}
             >
               {isMine ? "You" : message.authorName || "Member"}
@@ -1539,8 +1504,8 @@ const MessageRow = forwardRef(function MessageRow(
         )}
 
         {message.replyPreview && (
-          <div className="mb-1 flex items-center gap-1 border-l-2 border-accent/50 pl-2 text-[0.75rem] text-muted">
-            <span className="font-medium text-accent">{message.replyPreview.authorName || "Member"}</span>
+          <div className="mb-1 flex items-center gap-1 border-l-4 border-[var(--community-border)] pl-3 text-sm text-muted">
+            <span className="font-medium text-foreground">{message.replyPreview.authorName || "Member"}</span>
             <span className="truncate">{message.replyPreview.body}</span>
           </div>
         )}
@@ -1550,10 +1515,10 @@ const MessageRow = forwardRef(function MessageRow(
             Suggestion
           </p>
         )}
-        <p className="whitespace-pre-wrap break-words text-[0.9375rem]">
+        <p className="whitespace-pre-wrap break-words text-base leading-[1.375rem] text-foreground">
           {renderMessageWithMentions(message.body, mentionMembers).map((part, i) =>
             part.type === "mention" ? (
-              <span key={i} className="rounded bg-accent/15 px-0.5 font-medium text-accent">
+              <span key={i} className="community-mention rounded px-0.5 font-medium">
                 {part.value}
               </span>
             ) : (
@@ -1572,8 +1537,8 @@ const MessageRow = forwardRef(function MessageRow(
                 onClick={() => void onReact(r.emoji)}
                 className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition ${
                   r.reactedByMe
-                    ? "border-accent/50 bg-accent/15"
-                    : "border-[var(--community-border)] bg-fill hover:border-accent/30"
+                    ? "border-[var(--accent)] bg-[var(--accent-soft)]"
+                    : "border-[var(--community-border)] bg-[var(--community-input)] hover:border-[var(--accent)]"
                 }`}
               >
                 <span>{r.emoji}</span>
@@ -1598,7 +1563,7 @@ const MessageRow = forwardRef(function MessageRow(
         )}
       </div>
 
-      <div className="absolute -top-3 right-2 hidden items-center gap-0.5 rounded border border-[var(--community-border)] bg-[var(--community-panel)] p-0.5 shadow-sm md:group-hover:flex">
+      <div className="community-message-actions absolute -top-4 right-4 hidden items-center gap-0.5 rounded border p-0.5 shadow-md md:group-hover:flex">
         {QUICK_EMOJIS.slice(0, 3).map((emoji) => (
           <button
             key={emoji}
@@ -1685,14 +1650,11 @@ function ServerMemberSidebar({
   }, [members]);
 
   return (
-    <aside className="hidden w-[15rem] shrink-0 flex-col border-l border-[var(--community-border)] bg-[var(--community-panel)] min-h-0 md:flex">
-      <div className="flex h-12 shrink-0 items-center border-b border-[var(--community-border)] px-4 shadow-sm">
-        <p className="text-[0.8125rem] font-semibold text-muted">Members — {members.length}</p>
-      </div>
+    <aside className="hidden w-60 shrink-0 flex-col bg-[var(--community-panel)] min-h-0 md:flex">
       <CommunityScrollBody className="px-2 py-3">
         {grouped.map(([roleName, roleMembers]) => (
           <div key={roleName} className="mb-4">
-            <p className="mb-1 px-2 text-[0.6875rem] font-bold uppercase tracking-wider text-muted">
+            <p className="mb-1 px-2 text-xs font-semibold uppercase tracking-wide text-muted">
               {roleName} — {roleMembers.length}
             </p>
             {roleMembers.map((m) => {
@@ -1714,7 +1676,7 @@ function ServerMemberSidebar({
                     size="sm"
                     isServerBooster={serverBoosters?.has(m.userId)}
                   />
-                  <span className="flex min-w-0 flex-1 items-center gap-1 truncate text-[0.875rem]" style={colorStyle}>
+                  <span className="flex min-w-0 flex-1 items-center gap-1 truncate text-base" style={colorStyle}>
                     <span className="truncate">{label}</span>
                     {isAppOwnerUser(m.userId, appOwnerUserIds) && (
                       <ChatAuthorBadge isAppOwner />
