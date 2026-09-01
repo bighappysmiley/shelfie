@@ -137,10 +137,10 @@ export function CommunityDiscordShell({
   }, [user, railTick, pane, activeServerId]);
 
   return (
-    <div className="community-discord-shell flex h-full min-h-0 flex-1 overflow-hidden rounded-[var(--radius-group)] bg-[var(--community-rail)] text-foreground">
+    <div className="community-discord-shell flex h-full min-h-0 flex-1 overflow-hidden rounded-none bg-[var(--community-rail)] text-foreground md:rounded-[var(--radius-group)]">
       <nav
         aria-label="Servers"
-        className="community-scroll flex w-[4.5rem] shrink-0 flex-col items-stretch gap-0.5 overflow-y-auto bg-[var(--community-rail)] py-3"
+        className="community-scroll hidden w-[4.5rem] shrink-0 flex-col items-stretch gap-0.5 overflow-y-auto bg-[var(--community-rail)] py-3 md:flex"
       >
         <RailButton label="Server list" active={pane === "list"} onClick={() => navigate("/community")}>
           <IconList size={22} />
@@ -180,8 +180,43 @@ export function CommunityDiscordShell({
         </div>
       </nav>
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-tl-2xl bg-[var(--community-panel)] shadow-inner">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-none bg-[var(--community-panel)] md:rounded-tl-2xl md:shadow-inner">
         {children}
+        {(pane === "list" || pane === "discover") && (
+          <nav
+            aria-label="Community navigation"
+            className="flex shrink-0 border-t border-[var(--community-border)] bg-[var(--community-panel)] pb-[env(safe-area-inset-bottom,0px)] md:hidden"
+          >
+            <button
+              type="button"
+              onClick={() => navigate("/community")}
+              className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[0.625rem] font-medium ${
+                pane === "list" ? "text-accent" : "text-muted"
+              }`}
+            >
+              <IconList size={20} />
+              Servers
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/community?tab=discover")}
+              className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[0.625rem] font-medium ${
+                pane === "discover" ? "text-accent" : "text-muted"
+              }`}
+            >
+              <IconCompass size={20} />
+              Discover
+            </button>
+            <button
+              type="button"
+              onClick={onAdd}
+              className="flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[0.625rem] font-medium text-muted"
+            >
+              <IconPlus size={20} />
+              Add
+            </button>
+          </nav>
+        )}
       </div>
     </div>
   );

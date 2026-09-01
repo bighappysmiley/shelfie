@@ -70,6 +70,7 @@ function AppShell() {
   const { user, userProfile } = useAuth();
   const { loading: libraryLoading, activeLibrary } = useLibrary();
   const location = useLocation();
+  const isCommunity = location.pathname.startsWith("/community");
 
   useEffect(() => {
     initTheme();
@@ -100,22 +101,37 @@ function AppShell() {
   }
 
   return (
-    <div className="min-h-dvh bg-background pb-[calc(3.25rem+env(safe-area-inset-bottom,0px))] md:pb-0">
+    <div
+      className={
+        isCommunity
+          ? "min-h-dvh bg-[var(--community-rail)]"
+          : "min-h-dvh bg-background pb-[calc(3.25rem+env(safe-area-inset-bottom,0px))] md:pb-0"
+      }
+    >
       <a href="#main" className="skip-link">
         Skip to content
       </a>
-      <DesktopSidebar />
-      <div className="lg:pl-[15.5rem]">
-        <div className="lg:hidden">
-          <Navbar />
-        </div>
-        <AppSidebar />
-        <main id="main" className="py-4 sm:py-5 lg:py-7">
-          <Container size="desktop">
+      {!isCommunity && <DesktopSidebar />}
+      <div className={isCommunity ? "" : "lg:pl-[15.5rem]"}>
+        {!isCommunity && (
+          <div className="lg:hidden">
+            <Navbar />
+          </div>
+        )}
+        {!isCommunity && <AppSidebar />}
+        <main
+          id="main"
+          className={isCommunity ? "h-dvh min-h-0 overflow-hidden" : "py-4 sm:py-5 lg:py-7"}
+        >
+          {isCommunity ? (
             <Outlet />
-          </Container>
+          ) : (
+            <Container size="desktop">
+              <Outlet />
+            </Container>
+          )}
         </main>
-        <MobileNav />
+        {!isCommunity && <MobileNav />}
       </div>
     </div>
   );
@@ -147,8 +163,8 @@ function AppRoutes() {
             <Route path="/community" element={<CommunityPage />} />
             <Route path="/community/s/:serverId" element={<CommunityServerPage />} />
             <Route path="/community/s/:serverId/:channelId" element={<CommunityServerPage />} />
+            <Route path="/community/s/:serverId/settings" element={<CommunityServerSettingsPage />} />
           </Route>
-          <Route path="/community/s/:serverId/settings" element={<CommunityServerSettingsPage />} />
           <Route path="/support" element={<SupportPage />} />
           <Route path="/support/:id" element={<SupportTicketPage />} />
           <Route path="/admin" element={<AdminPage />} />

@@ -33,8 +33,10 @@ import type {
 } from "@/lib/community-types";
 import { Button } from "@/components/Button";
 import { TextField, TextArea, FormError } from "@/components/form";
-import { EmptyState, PageHeader, ToggleRow } from "@/components/layout";
+import { EmptyState, ToggleRow } from "@/components/layout";
 import { AuthedImage } from "@/components/AuthedImage";
+import { CommunityDiscordShell, CommunityPanelHeader, CommunityScrollBody } from "@/components/CommunityRail";
+import { CommunitySettingsSheet } from "@/components/community-settings/CommunitySettingsSheet";
 import { InvitesTab } from "@/components/community-settings/InvitesTab";
 import { MembersTab } from "@/components/community-settings/MembersTab";
 import { ModerationTab } from "@/components/community-settings/ModerationTab";
@@ -70,6 +72,7 @@ export function CommunityServerSettingsPage() {
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [regenBusy, setRegenBusy] = useState(false);
+  const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
   const iconInput = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState("");
@@ -242,32 +245,30 @@ export function CommunityServerSettingsPage() {
   };
 
   return (
-    <div>
-      <PageHeader
+    <CommunityDiscordShell pane="server" activeServerId={serverId} onAdd={() => navigate("/community")}>
+      <CommunityPanelHeader
         title="Server settings"
         subtitle={server.name}
-        action={
-          <Button variant="secondary" size="sm" onClick={() => navigate(`/community/s/${serverId}`)}>
-            Back to server
+        trailing={
+          <Button variant="ghost" size="sm" onClick={() => navigate(`/community/s/${serverId}`)}>
+            Back
           </Button>
         }
       />
-
-      <div className="mb-4 overflow-x-auto lg:hidden">
-        <select
-          value={tab}
-          onChange={(e) => setTab(e.target.value as SettingsTab)}
-          className="w-full rounded-[var(--radius-control)] bg-fill px-3 py-2 text-[0.9375rem]"
-        >
-          {navGroups.flatMap((g) =>
-            g.items.map((item) => (
-              <option key={item.id} value={item.id}>
-                {g.label}: {item.label}
-              </option>
-            )),
-          )}
-        </select>
+      <CommunityScrollBody className="px-4 py-4">
+      <div className="mb-4 lg:hidden">
+        <Button variant="secondary" size="sm" className="w-full" onClick={() => setSettingsSheetOpen(true)}>
+          Browse settings sections
+        </Button>
       </div>
+
+      <CommunitySettingsSheet
+        open={settingsSheetOpen}
+        onClose={() => setSettingsSheetOpen(false)}
+        activeTab={tab}
+        tabs={navGroups.flatMap((g) => g.items.map((i) => i.id))}
+        onSelect={setTab}
+      />
 
       {error && (
         <div className="mb-4">
@@ -522,6 +523,7 @@ export function CommunityServerSettingsPage() {
           )}
         </div>
       </div>
-    </div>
+      </CommunityScrollBody>
+    </CommunityDiscordShell>
   );
 }

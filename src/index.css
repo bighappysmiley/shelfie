@@ -338,3 +338,55 @@ h1, h2, h3 {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
 }
+
+.community-drawer-backdrop {
+  animation: community-fade-in 0.2s ease;
+}
+
+.community-drawer-panel {
+  animation-duration: 0.25s;
+  animation-timing-function: ease-out;
+  animation-fill-mode: both;
+}
+
+.community-drawer-left {
+  animation-name: community-slide-in-left;
+}
+
+.community-drawer-right {
+  animation-name: community-slide-in-right;
+}
+
+@keyframes community-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes community-slide-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes community-slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .community-drawer-backdrop,
+  .community-drawer-panel {
+    animation: none !important;
+  }
+}

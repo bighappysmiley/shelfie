@@ -1575,3 +1575,86 @@ export async function listTeammateCandidates(
 
   return ids.map((id) => ({ userId: id, displayName: byId.get(id) ?? null }));
 }
+
+export async function markChannelRead(userId: string, groupId: string): Promise<void> {
+  const { error } = await supabase.from("community_group_read_state").upsert({
+    user_id: userId,
+    group_id: groupId,
+    last_read_at: new Date().toISOString(),
+  });
+  if (error) throw error;
+}
+
+export async function listUnreadCounts(
+  userId: string,
+  groupIds: string[],
+): Promise<Map<string, number>> {
+  const result = new Map<string, number>();
+  if (groupIds.length === 0) return result;
+
+  const { data: readStates } = await supabase
+    .from("community_group_read_state")
+    .select("group_id, last_read_at")
+    .eq("user_id", userId)
+    .in("group_id", groupIds);
+
+  const lastRead = new Map(
+    (readStates ?? []).map((r) => [r.group_id as string, r.last_read_at as string]),
+  );
+
+  await Promise.all(
+    groupIds.map(async (gid) => {
+      const readAt = lastRead.get(gid) ?? "1970-01-01T00:00:00Z";
+      const { count, error } = await supabase
+        .from("community_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("group_id", gid)
+        .gt("created_at", readAt);
+      if (!error && count && count > 0) result.set(gid, count);
+    }),
+  );
+
+  return result;
+}
+
+export async function pinMessage(groupId: string, messageId: string, userId: string): Promise<void> {
+  const { error } = await supabase.from("community_pinned_messages").upsert({
+    group_id: groupId,
+    message_id: messageId,
+    pinned_by: userId,
+    pinned_at: new Date().toISOString(),
+  });
+  if (error) throw error;
+}
+
+export async function unpinMessage(groupId: string, messageId: string): Promise<void> {
+  const { error } = await supabase
+    .from("community_pinned_messages")
+    .delete()
+    .eq("group_id", groupId)
+    .eq("message_id", messageId);
+  if (error) throw error;
+}
+
+export async function listPinnedMessages(groupId: string): Promise<CommunityMessage[]> {
+  const { data: pins, error } = await supabase
+    .from("community_pinned_messages")
+    .select("message_id")
+    .eq("group_id", groupId)
+    .order("pinned_at", { ascending: false });
+  if (error) throw error;
+  const ids = (pins ?? []).map((p) => p.message_id as string);
+  if (ids.length === 0) return [];
+
+  const { data: messages, error: msgErr } = await supabase
+    .from("community_messages")
+    .select("*")
+    .in("id", ids);
+  if (msgErr) throw msgErr;
+
+  const byId = new Map((messages ?? []).map((m) => [m.id as string, m]));
+  return ids
+    .map((id) => byId.get(id))
+    .filter(Boolean)
+    .map((row) => mapMessage(row as MessageRow));
+}

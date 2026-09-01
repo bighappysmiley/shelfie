@@ -1029,6 +1029,13 @@ export function RoleColorPicker({ value, onChange }: { value: string; onChange: 
           colors needed.
         </p>
       )}
+
+      <div className="mt-4 rounded-xl border border-dashed border-accent/30 bg-accent/5 px-3 py-3">
+        <p className="text-[0.8125rem] font-semibold text-foreground">Pine Nitro</p>
+        <p className="mt-0.5 text-[0.75rem] text-muted">
+          Premium holographic styles and more — coming soon.
+        </p>
+      </div>
     </div>
   );
 }
