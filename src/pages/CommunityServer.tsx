@@ -210,6 +210,12 @@ export function CommunityServerPage() {
 
   const active = channels.find((g) => g.id === channelId) ?? null;
 
+  const activeChannelRole =
+    active?.myRole ?? (isOwner || canConfigure ? "admin" : isMember ? "member" : null);
+  const canManageActiveChannel = Boolean(
+    active && (canConfigure || canManageMembers(activeChannelRole, isOwner || canConfigure)),
+  );
+
   useEffect(() => {
     if (loading || !serverId || channels.length === 0 || channelId) return;
     const first =
@@ -348,15 +354,19 @@ export function CommunityServerPage() {
 
         <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--community-chat)] text-foreground [&_.text-muted]:!text-muted [&_.text-foreground]:!text-foreground [&_h2]:text-foreground">
-          {active && server && (
+          {server && !loading && (
             <CommunityChatHeader
               serverName={server.name}
-              channelName={active.name}
-              serverId={server.id}
-              canConfigure={canConfigure}
+              channelName={active?.name}
+              canManageChannel={canManageActiveChannel}
               memberCount={serverMembers.length}
               onOpenChannels={() => setMobileNavOpen(true)}
               onOpenMembers={() => setMemberDrawerOpen(true)}
+              onOpenChannelSettings={
+                active
+                  ? () => setModal({ type: "edit-channel", channel: active })
+                  : undefined
+              }
             />
           )}
 
@@ -390,7 +400,7 @@ export function CommunityServerPage() {
               onMarkRead={user ? () => void markChannelRead(user.id, active.id) : undefined}
             />
           ) : (
-            <div className="flex flex-1 items-center justify-center p-8">
+            <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
               <EmptyState
                 title={server ? `Welcome to ${server.name}` : "Server"}
                 description={
@@ -399,6 +409,29 @@ export function CommunityServerPage() {
                     : "No channels yet."
                 }
               />
+              {canConfigure && (
+                <div className="flex flex-wrap justify-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      setModal({ type: "create-category" });
+                    }}
+                  >
+                    <IconPlus size={14} className="mr-1.5 inline" />
+                    Create category
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setModal({ type: "create-channel", categoryId: categories[0]?.id ?? null });
+                    }}
+                  >
+                    <IconChat size={14} className="mr-1.5 inline" />
+                    Create channel
+                  </Button>
+                </div>
+              )}
             </div>
           )}
           </div>
@@ -413,6 +446,47 @@ export function CommunityServerPage() {
         open={mobileNavOpen}
         onClose={() => setMobileNavOpen(false)}
         title={server?.name ?? "Channels"}
+        headerActions={
+          canConfigure && serverId ? (
+            <Link
+              to={`/community/s/${serverId}/settings`}
+              onClick={() => setMobileNavOpen(false)}
+              className="rounded-lg p-2 text-white/45 hover:bg-white/10 hover:text-white"
+              title="Server settings"
+              aria-label="Server settings"
+            >
+              <IconSettings size={18} />
+            </Link>
+          ) : undefined
+        }
+        footer={
+          canConfigure ? (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setModal({ type: "create-category" });
+                  setMobileNavOpen(false);
+                }}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-white/[0.06] px-3 py-2 text-[0.8125rem] font-medium text-white/80 hover:bg-white/10"
+              >
+                <IconPlus size={14} />
+                Category
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setModal({ type: "create-channel", categoryId: categories[0]?.id ?? null });
+                  setMobileNavOpen(false);
+                }}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-[0.8125rem] font-medium text-white hover:opacity-90"
+              >
+                <IconChat size={14} />
+                Channel
+              </button>
+            </div>
+          ) : undefined
+        }
       >
         <div className="px-2 py-2">
           <label className="relative mb-2 block">
