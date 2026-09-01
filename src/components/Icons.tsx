@@ -206,3 +206,51 @@ export function IconX(props: IconProps) {
     </Icon>
   );
 }
+
+export function IconSmile(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M8.5 14.5a4 4 0 0 0 7 0" />
+      <circle cx="9" cy="10" r="0.75" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="10" r="0.75" fill="currentColor" stroke="none" />
+    </Icon>
+  );
+}
+
+export function IconSend(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m5 12 14-7-4 14-2-5-8-2z" />
+    </Icon>
+  );
+}
+
+export function IconPin(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 17v5" />
+      <path d="M8 3h8l-1 7 3 2v2H6v-2l3-2-1-7z" />
+    </Icon>
+  );
+}
+
+export function IconSticker(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 3 3 8v8l9 5 9-5V8l-9-5z" />
+      <path d="M12 12v8" />
+      <path d="M12 12 3 8" />
+      <path d="M12 12 21 16" />
+    </Icon>
+  );
+}
+
+export function IconGift(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3" y="10" width="18" height="11" rx="1" />
+      <path d="M12 10V21M3 10h18M12 10c-2-2-4-3-4-5a2 2 0 0 1 4 0c0 2-2 3-4 5zM12 10c2-2 4-3 4-5a2 2 0 0 0-4 0c0 2 2 3 4 5z" />
+    </Icon>
+  );
+}

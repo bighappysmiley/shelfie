@@ -12,7 +12,6 @@ import { useAuth } from "@/lib/auth";
 import { useLibrary } from "@/lib/library";
 import { supabase } from "@/lib/supabase";
 import {
-  addGroupMember,
   archiveCommunityGroup,
   createCommunityCategory,
   deleteCommunityCategory,
@@ -22,12 +21,9 @@ import {
   joinServer,
   listCommunityCategories,
   listCommunityGroups,
-  listGroupMembers,
   listGroupMessages,
-  listTeammateCandidates,
   getMyJoinRequestStatus,
   requestJoinServer,
-  removeGroupMember,
   renameCommunityCategory,
   listServerMembers,
   markChannelRead,
@@ -37,13 +33,13 @@ import {
   unpinMessage,
   updateGroupMessage,
   sendGroupMessage,
+  listServerEmoji,
+  listServerStickers,
+  uploadCommunityImage,
   toggleMessageReaction,
-  updateMemberRole,
   updateSuggestionStatus,
 } from "@/lib/community";
 import {
-  KIND_LABELS,
-  MEMBER_ROLE_LABELS,
   SUGGESTION_STATUS_LABELS,
   canManageMembers,
   canModerate,
@@ -51,18 +47,18 @@ import {
   formatPopularity,
   type CommunityCategory,
   type CommunityGroup,
-  type CommunityMember,
-  type CommunityMemberRole,
   type CommunityMessage,
   type CommunityServer,
   type CommunityServerMember,
+  type CommunityServerEmoji,
+  type CommunityServerSticker,
   type SuggestionStatus,
 } from "@/lib/community-types";
 import { Button } from "@/components/Button";
 import { FormError } from "@/components/form";
-import { EmptyState, SegmentedControl } from "@/components/layout";
+import { EmptyState } from "@/components/layout";
 import { AuthedImage } from "@/components/AuthedImage";
-import { IconChat, IconPeople, IconPlus, IconSearch, IconSettings, IconX } from "@/components/Icons";
+import { IconChat, IconPlus, IconSearch, IconSettings } from "@/components/Icons";
 import { communityAuthorLabel, communityShortName } from "@/lib/community-identity";
 import { roleColorStyle } from "@/lib/role-color";
 import { CommunityDiscordShell, CommunityScrollBody } from "@/components/CommunityRail";
@@ -71,6 +67,9 @@ import { CommunityDrawer } from "@/components/CommunityDrawer";
 import { CommunityMemberDrawer } from "@/components/CommunityMemberDrawer";
 import { CommunityActionSheet } from "@/components/CommunityActionSheet";
 import { ChannelKindGlyph, channelKindBanner, canPostInChannelKind } from "@/components/community/ChannelKind";
+import { ChannelMessageComposer } from "@/components/community/ChannelMessageComposer";
+import { ChannelToolbar } from "@/components/community/ChannelToolbar";
+import { ChannelWelcome } from "@/components/community/ChannelWelcome";
 import { CommunityAvatar } from "@/components/community/CommunityAvatar";
 import { CommunityProfileModal } from "@/components/community/CommunityProfileModal";
 import { ChannelFormModal, CategoryFormModal } from "@/components/community-server-modals";
@@ -798,9 +797,7 @@ function ChannelRoom({
   onOpenProfile?: (target: { userId?: string; username?: string | null }) => void;
   onMarkRead?: () => void;
 }) {
-  const [tab, setTab] = useState<"room" | "members">("room");
   const [messages, setMessages] = useState<CommunityMessage[]>([]);
-  const [members, setMembers] = useState<CommunityMember[]>([]);
   const [pinned, setPinned] = useState<CommunityMessage[]>([]);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [draft, setDraft] = useState("");
@@ -811,8 +808,12 @@ function ChannelRoom({
   const [forumThreadId, setForumThreadId] = useState<string | null>(null);
   const [joinedVoice, setJoinedVoice] = useState(false);
   const [voiceParticipants, setVoiceParticipants] = useState<{ userId: string; name: string }[]>([]);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [pinsExpanded, setPinsExpanded] = useState(true);
+  const [serverEmoji, setServerEmoji] = useState<CommunityServerEmoji[]>([]);
+  const [serverStickers, setServerStickers] = useState<CommunityServerSticker[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messageRefs = useRef<Map<string, HTMLLIElement>>(new Map());
   const presenceRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const voiceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -858,21 +859,37 @@ function ChannelRoom({
     return counts;
   }, [messages]);
   const visibleMessages = useMemo(() => {
-    if (!isForum) return messages;
-    if (forumThreadId) {
-      return messages.filter((m) => m.id === forumThreadId || m.replyToId === forumThreadId);
+    let base: CommunityMessage[];
+    if (!isForum) base = messages;
+    else if (forumThreadId) {
+      base = messages.filter((m) => m.id === forumThreadId || m.replyToId === forumThreadId);
+    } else {
+      base = forumPosts;
     }
-    return forumPosts;
-  }, [isForum, forumThreadId, messages, forumPosts]);
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return base;
+    return base.filter(
+      (m) =>
+        m.body.toLowerCase().includes(q) ||
+        (m.authorName?.toLowerCase().includes(q) ?? false),
+    );
+  }, [isForum, forumThreadId, messages, forumPosts, searchQuery]);
+
+  useEffect(() => {
+    void listServerEmoji(serverId)
+      .then(setServerEmoji)
+      .catch(() => setServerEmoji([]));
+    void listServerStickers(serverId)
+      .then(setServerStickers)
+      .catch(() => setServerStickers([]));
+  }, [serverId]);
 
   const load = useCallback(async () => {
-    const [msgs, mems, pins] = await Promise.all([
+    const [msgs, pins] = await Promise.all([
       listGroupMessages(group.id, userId),
-      listGroupMembers(group.id),
       listPinnedMessages(group.id).catch(() => [] as CommunityMessage[]),
     ]);
     setMessages(msgs);
-    setMembers(mems);
     setPinned(pins);
     onMarkRead?.();
   }, [group.id, userId, onMarkRead]);
@@ -935,10 +952,11 @@ function ChannelRoom({
   }, [messages.length]);
 
   useEffect(() => {
-    setTab("room");
     setReplyTo(null);
     setForumThreadId(null);
     setJoinedVoice(false);
+    setSearchOpen(false);
+    setSearchQuery("");
   }, [group.id, group.kind]);
 
   useEffect(() => {
@@ -1008,6 +1026,7 @@ function ChannelRoom({
         // Stay on post list after creating a new forum post
       }
       await load();
+      onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not send");
     } finally {
@@ -1017,56 +1036,25 @@ function ChannelRoom({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="hidden shrink-0 flex-wrap items-start justify-between gap-3 border-b border-[var(--community-border)] px-4 py-3 md:flex">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="flex items-center gap-1.5 truncate text-[1.0625rem] font-semibold">
-              <ChannelKindGlyph kind={group.kind} className="h-4 w-4 text-muted" />
-              {group.name}
-            </h2>
-            <span className="text-[0.6875rem] text-muted">{KIND_LABELS[group.kind]}</span>
-          </div>
-          {(group.topic || group.description) && (
-            <p className="mt-0.5 truncate text-[0.8125rem] text-muted">
-              {group.topic || group.description}
-            </p>
-          )}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {isMember && onToggleServerMembers && serverMemberCount > 0 && (
-            <button
-              type="button"
-              onClick={onToggleServerMembers}
-              className={`hidden rounded-[var(--radius-control)] p-2 md:inline-flex ${
-                showServerMembers ? "bg-fill text-foreground" : "text-muted hover:bg-fill hover:text-foreground"
-              }`}
-              title="Toggle member list"
-            >
-              <IconPeople size={18} />
-            </button>
-          )}
-          <SegmentedControl
-            value={tab}
-            onChange={setTab}
-            options={[
-              { value: "room", label: "Chat" },
-              { value: "members", label: `Members (${members.length})` },
-            ]}
-          />
-          {(canConfigure || manage) && (
-            <button
-              type="button"
-              onClick={onOpenSettings}
-              className="rounded-[var(--radius-control)] p-2 text-muted hover:bg-fill hover:text-foreground"
-              title="Channel settings"
-            >
-              <IconSettings size={18} />
-            </button>
-          )}
-        </div>
-      </header>
+      <div className="hidden md:block">
+        <ChannelToolbar
+          group={group}
+          pinnedCount={pinned.length}
+          pinsOpen={pinsExpanded}
+          onTogglePins={() => setPinsExpanded((v) => !v)}
+          searchOpen={searchOpen}
+          onToggleSearch={() => setSearchOpen((v) => !v)}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          membersOpen={showServerMembers}
+          onToggleMembers={onToggleServerMembers}
+          memberCount={serverMemberCount}
+          onOpenSettings={onOpenSettings}
+          canManage={canConfigure || manage}
+        />
+      </div>
 
-      {pinned.length > 0 && tab === "room" && (
+      {pinned.length > 0 && pinsExpanded && (
         <PinnedMessagesBar
           pins={pinned}
           canManage={moderate || manage}
@@ -1080,24 +1068,13 @@ function ChannelRoom({
         />
       )}
 
-      {kindBanner && tab === "room" && (
+      {kindBanner && (
         <div className="shrink-0 border-b border-[var(--community-border)] bg-fill/30 px-4 py-2">
           <p className="text-[0.75rem] text-muted">{kindBanner}</p>
         </div>
       )}
 
-      {tab === "members" ? (
-        <MembersPanel
-          groupId={group.id}
-          members={members}
-          userId={userId}
-          canManage={manage}
-          onChanged={async () => {
-            await load();
-            onChanged();
-          }}
-        />
-      ) : isVoice ? (
+      {isVoice ? (
         <div className="flex min-h-0 flex-1 flex-col">
           <CommunityScrollBody className="flex-1 px-4 py-6">
             <div className="mx-auto max-w-md text-center">
@@ -1172,6 +1149,7 @@ function ChannelRoom({
           )}
           <CommunityScrollBody className="px-4 py-4">
             <ul className="space-y-1">
+              {!isForum && <ChannelWelcome group={group} />}
               {visibleMessages.length === 0 && (
                 <li className="py-12 text-center text-muted">
                   {isForum
@@ -1258,108 +1236,82 @@ function ChannelRoom({
             </ul>
           </CommunityScrollBody>
 
-          <form
-            onSubmit={onSend}
-            className="shrink-0 border-t border-[var(--community-border)] p-3"
-          >
-            {replyTo && (
-              <div className="mb-2 flex items-center gap-2 rounded-lg border-l-2 border-accent bg-fill px-3 py-2">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[0.75rem] font-medium text-accent">
-                    Replying to {replyTo.authorName || "Member"}
-                  </p>
-                  <p className="truncate text-[0.75rem] text-muted">{replyTo.body}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setReplyTo(null)}
-                  className="shrink-0 rounded p-1 text-muted hover:text-foreground"
-                >
-                  <IconX size={14} />
-                </button>
-              </div>
-            )}
-            {isForum && !forumThreadId && (
-              <p className="mb-2 text-[0.75rem] text-muted">You&apos;re creating a new forum post.</p>
-            )}
-            {mentionSuggestions.length > 0 && (
+          {mentionSuggestions.length > 0 && (
+            <div className="px-4">
               <MentionAutocomplete
                 members={mentionSuggestions}
                 onPick={(member) => {
-                  const el = textareaRef.current;
-                  const cursor = el?.selectionStart ?? draft.length;
-                  const next = applyMention(draft, cursor, member);
+                  const next = applyMention(draft, draft.length, member);
                   setDraft(next.text);
                   setMentionQuery(null);
-                  requestAnimationFrame(() => {
-                    el?.focus();
-                    el?.setSelectionRange(next.cursor, next.cursor);
-                  });
                 }}
               />
-            )}
-            {error && <FormError message={error} />}
-            {typingUsers.length > 0 && (
-              <p className="mb-2 text-[0.75rem] text-muted">
-                {typingUsers.join(", ")} {typingUsers.length === 1 ? "is" : "are"} typing…
+            </div>
+          )}
+
+          {error && (
+            <div className="px-4">
+              <FormError message={error} />
+            </div>
+          )}
+          {typingUsers.length > 0 && (
+            <p className="px-4 pb-1 text-[0.75rem] text-muted">
+              {typingUsers.join(", ")} {typingUsers.length === 1 ? "is" : "are"} typing…
+            </p>
+          )}
+
+          {canPost ? (
+            <ChannelMessageComposer
+              channelName={group.name}
+              draft={draft}
+              onDraftChange={(value, cursor) => {
+                setDraft(value);
+                setMentionQuery(
+                  cursor === undefined ? null : extractMentionQuery(value, cursor),
+                );
+              }}
+              onTypingChange={(typing) => {
+                void presenceRef.current?.track({ name: authorLabel, typing });
+              }}
+              onSend={onSend}
+              sending={sending}
+              placeholder={
+                isForum && forumThreadId
+                  ? "Reply to thread"
+                  : isForum
+                    ? `Create a post in #${group.name}`
+                    : group.kind === "announcement"
+                      ? `Post an announcement in #${group.name}`
+                      : `Message #${group.name}`
+              }
+              serverEmoji={serverEmoji}
+              serverStickers={serverStickers}
+              onUploadImage={async (file) => {
+                const url = await uploadCommunityImage(file);
+                setDraft((prev) => `${prev}${prev ? "\n" : ""}${url}\n`);
+              }}
+              replyPreview={
+                replyTo
+                  ? { authorName: replyTo.authorName || "Member", body: replyTo.body }
+                  : null
+              }
+              onClearReply={() => setReplyTo(null)}
+              hint={isForum && !forumThreadId ? "You're creating a new forum post." : undefined}
+            />
+          ) : group.kind === "announcement" && (isMember || isAppOwner || canConfigure) ? (
+            <div className="mx-4 mb-4 rounded-lg border border-dashed border-white/10 px-4 py-3 text-center">
+              <p className="text-[0.875rem] text-muted">
+                Only moderators and admins can post in announcement channels.
               </p>
-            )}
-            {canPost ? (
-              <div className="flex gap-2">
-                <textarea
-                  ref={textareaRef}
-                  value={draft}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    const cursor = e.target.selectionStart ?? value.length;
-                    setDraft(value);
-                    setMentionQuery(extractMentionQuery(value, cursor));
-                    void presenceRef.current?.track({
-                      name: authorLabel,
-                      typing: value.length > 0,
-                    });
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape" && mentionQuery !== null) {
-                      setMentionQuery(null);
-                      return;
-                    }
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      void onSend(e);
-                    }
-                  }}
-                  rows={2}
-                  placeholder={
-                    isForum && forumThreadId
-                      ? "Reply to thread"
-                      : isForum
-                        ? `Create a post in #${group.name}`
-                        : group.kind === "announcement"
-                          ? `Post an announcement in #${group.name}`
-                          : `Message #${group.name}`
-                  }
-                  className="min-h-[2.75rem] flex-1 resize-none rounded-[var(--radius-control)] bg-fill px-3 py-2 text-[1.0625rem] outline-none ring-accent focus:ring-2 pb-[env(safe-area-inset-bottom,0px)]"
-                />
-                <Button type="submit" disabled={sending || !draft.trim()}>
-                  {sending ? "…" : "Send"}
-                </Button>
-              </div>
-            ) : group.kind === "announcement" && (isMember || isAppOwner || canConfigure) ? (
-              <div className="rounded-[var(--radius-control)] border border-dashed border-black/10 px-4 py-3 text-center dark:border-white/10">
-                <p className="text-[0.875rem] text-muted">
-                  Only moderators and admins can post in announcement channels.
-                </p>
-              </div>
-            ) : (
-              <div className="rounded-[var(--radius-control)] border border-dashed border-black/10 px-4 py-3 text-center dark:border-white/10">
-                <p className="mb-2 text-[0.875rem] text-muted">Join this server to post messages.</p>
-                <Button size="sm" disabled={joining || joinDisabled} onClick={() => void onJoin()}>
-                  {joining ? "Joining…" : joinLabel}
-                </Button>
-              </div>
-            )}
-          </form>
+            </div>
+          ) : (
+            <div className="mx-4 mb-4 rounded-lg border border-dashed border-white/10 px-4 py-3 text-center">
+              <p className="mb-2 text-[0.875rem] text-muted">Join this server to post messages.</p>
+              <Button size="sm" disabled={joining || joinDisabled} onClick={() => void onJoin()}>
+                {joining ? "Joining…" : joinLabel}
+              </Button>
+            </div>
+          )}
         </>
       )}
     </div>
@@ -1654,136 +1606,6 @@ function ServerMemberSidebar({
         ))}
       </CommunityScrollBody>
     </aside>
-  );
-}
-
-function MembersPanel({
-  groupId,
-  members,
-  userId,
-  canManage,
-  onChanged,
-}: {
-  groupId: string;
-  members: CommunityMember[];
-  userId: string;
-  canManage: boolean;
-  onChanged: () => Promise<void>;
-}) {
-  const [candidates, setCandidates] = useState<{ userId: string; displayName: string | null }[]>([]);
-  const [addId, setAddId] = useState("");
-  const [addRole, setAddRole] = useState<CommunityMemberRole>("member");
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    void listTeammateCandidates(userId)
-      .then((list) => {
-        const existing = new Set(members.map((m) => m.userId));
-        setCandidates(list.filter((c) => !existing.has(c.userId)));
-      })
-      .catch(() => setCandidates([]));
-  }, [userId, members]);
-
-  return (
-    <CommunityScrollBody className="p-4">
-      <div className="space-y-4">
-      <ul className="space-y-2">
-        {members.map((m) => (
-          <li
-            key={m.userId}
-            className="flex items-center justify-between gap-3 rounded-[var(--radius-control)] bg-fill px-3 py-2"
-          >
-            <div className="min-w-0">
-              <p className="truncate font-medium">
-                {m.displayName || "Member"}
-                {m.userId === userId ? " (you)" : ""}
-              </p>
-              <p className="text-[0.8125rem] text-muted">{MEMBER_ROLE_LABELS[m.role]}</p>
-            </div>
-            {canManage && m.userId !== userId && (
-              <div className="flex items-center gap-2">
-                <select
-                  className="rounded-[var(--radius-control)] bg-surface px-2 py-1 text-[0.8125rem]"
-                  value={m.role}
-                  onChange={async (e) => {
-                    await updateMemberRole(groupId, m.userId, e.target.value as CommunityMemberRole);
-                    await onChanged();
-                  }}
-                >
-                  {(Object.keys(MEMBER_ROLE_LABELS) as CommunityMemberRole[]).map((r) => (
-                    <option key={r} value={r}>
-                      {MEMBER_ROLE_LABELS[r]}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  className="text-[0.8125rem] text-muted hover:text-destructive"
-                  onClick={async () => {
-                    await removeGroupMember(groupId, m.userId);
-                    await onChanged();
-                  }}
-                >
-                  Remove
-                </button>
-              </div>
-            )}
-          </li>
-        ))}
-      </ul>
-      {canManage && (
-        <div className="rounded-[var(--radius-control)] bg-fill p-3">
-          <p className="mb-2 text-[0.875rem] font-medium">Add teammate</p>
-          {candidates.length === 0 ? (
-            <p className="text-[0.8125rem] text-muted">No library teammates to add.</p>
-          ) : (
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <select
-                className="flex-1 rounded-[var(--radius-control)] bg-surface px-3 py-2 text-[0.9375rem]"
-                value={addId}
-                onChange={(e) => setAddId(e.target.value)}
-              >
-                <option value="">Choose person…</option>
-                {candidates.map((c) => (
-                  <option key={c.userId} value={c.userId}>
-                    {c.displayName || c.userId.slice(0, 8)}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="rounded-[var(--radius-control)] bg-surface px-3 py-2 text-[0.9375rem]"
-                value={addRole}
-                onChange={(e) => setAddRole(e.target.value as CommunityMemberRole)}
-              >
-                {(Object.keys(MEMBER_ROLE_LABELS) as CommunityMemberRole[]).map((r) => (
-                  <option key={r} value={r}>
-                    {MEMBER_ROLE_LABELS[r]}
-                  </option>
-                ))}
-              </select>
-              <Button
-                size="sm"
-                disabled={!addId}
-                onClick={async () => {
-                  setError("");
-                  try {
-                    await addGroupMember(groupId, addId, addRole);
-                    setAddId("");
-                    await onChanged();
-                  } catch (err) {
-                    setError(err instanceof Error ? err.message : "Could not add");
-                  }
-                }}
-              >
-                Add
-              </Button>
-            </div>
-          )}
-          {error && <FormError message={error} />}
-        </div>
-      )}
-      </div>
-    </CommunityScrollBody>
   );
 }
 
