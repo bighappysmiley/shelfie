@@ -1,6 +1,14 @@
 import { useEffect, useState } from "react";
 import { fetchAuthed } from "@/lib/api";
 
+function isDirectImageSrc(src: string): boolean {
+  return (
+    src.startsWith("blob:") ||
+    src.startsWith("data:") ||
+    (!src.startsWith("/api/") && !src.startsWith("http"))
+  );
+}
+
 /** Renders /api/covers (and similar) URLs with auth headers. */
 export function AuthedImage({
   src,
@@ -11,14 +19,14 @@ export function AuthedImage({
   alt?: string;
   className?: string;
 }) {
-  const [resolved, setResolved] = useState(src.startsWith("/api/") ? "" : src);
+  const [resolved, setResolved] = useState(() => (isDirectImageSrc(src) ? src : ""));
 
   useEffect(() => {
     let revoked: string | null = null;
     let cancelled = false;
 
     const run = async () => {
-      if (!src.startsWith("/api/")) {
+      if (isDirectImageSrc(src)) {
         setResolved(src);
         return;
       }

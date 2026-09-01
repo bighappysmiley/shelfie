@@ -45,6 +45,7 @@ import {
   updateSuggestionStatus,
   getChannelLastRead,
 } from "@/lib/community";
+import { ensureChannelNotificationsForServer } from "@/lib/community-notification-prefs";
 import {
   SUGGESTION_STATUS_LABELS,
   canManageMembers,
@@ -258,6 +259,11 @@ export function CommunityServerPage() {
           groups.map((g) => g.id),
         );
         setUnreadCounts(unread);
+        ensureChannelNotificationsForServer(
+          user.id,
+          groups.map((g) => g.id),
+          s.defaultNotifications ?? "all",
+        );
       } else {
         setUnreadCounts(new Map());
       }
@@ -1791,8 +1797,8 @@ function ChannelRoom({
               serverStickers={serverStickers}
               serverWebhooks={serverWebhooks}
               onUploadImage={async (file) => {
-                const url = await uploadCommunityImage(file);
-                setDraft((prev) => `${prev}${prev ? "\n" : ""}${url}\n`);
+                const url = await uploadCommunityImage(file, { serverId, userId });
+                setDraft((prev) => `${prev}${prev ? "\n" : ""}![image](${url})\n`);
               }}
               replyPreview={
                 replyTo

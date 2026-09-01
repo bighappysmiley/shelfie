@@ -39,7 +39,22 @@ export type MarkdownContext = {
 const URL_RE =
   /https?:\/\/[^\s<>)}\]]+/gi;
 const IMAGE_URL_RE =
-  /^(https?:\/\/[^\s]+\.(?:png|jpe?g|gif|webp|avif)(?:\?[^\s]*)?|data:image\/[^\s]+)$/i;
+  /^(https?:\/\/[^\s]+\.(?:png|jpe?g|gif|webp|avif)(?:\?[^\s]*)?|data:image\/[^\s]+|\/api\/covers\?[^\s]+)$/i;
+const MARKDOWN_IMAGE_RE = /^!\[[^\]]*\]\(([^)]+)\)$/;
+
+export function isRenderableImageUrl(url: string): boolean {
+  const trimmed = url.trim();
+  return IMAGE_URL_RE.test(trimmed) || MARKDOWN_IMAGE_RE.test(trimmed);
+}
+
+export function extractImageUrl(line: string): string | null {
+  const trimmed = line.trim();
+  if (IMAGE_URL_RE.test(trimmed)) return trimmed;
+  const markdown = MARKDOWN_IMAGE_RE.exec(trimmed);
+  if (markdown?.[1] && IMAGE_URL_RE.test(markdown[1].trim())) return markdown[1].trim();
+  if (markdown?.[1]?.startsWith("/api/covers")) return markdown[1].trim();
+  return null;
+}
 
 function mentionMap(members: MentionMember[] = []) {
   const map = new Map<string, string>();
@@ -346,8 +361,8 @@ function parseTextBlocks(text: string, ctx: MarkdownContext): MarkdownBlockNode[
       continue;
     }
 
-    if (IMAGE_URL_RE.test(line.trim())) {
-      blocks.push({ type: "image", url: line.trim() });
+    if (extractImageUrl(line)) {
+      blocks.push({ type: "image", url: extractImageUrl(line)! });
       i++;
       continue;
     }

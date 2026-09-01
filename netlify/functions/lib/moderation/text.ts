@@ -21,6 +21,9 @@ const LEET_MAP: Record<string, string> = {
   "+": "t",
 };
 
+const UNICODE_SPACES = /[\u00a0\u1680\u2000-\u200b\u202f\u205f\u3000\ufeff]/g;
+const LETTER_SEPARATORS = /[\s._\-*•|/\\,`'"~]+/;
+
 function normalizeChar(char: string): string {
   const lower = char.toLowerCase();
   return LEET_MAP[lower] ?? lower;
@@ -28,8 +31,9 @@ function normalizeChar(char: string): string {
 
 /** Collapse leetspeak and strip decorative characters for token matching. */
 export function normalizeForModeration(input: string): string {
+  const spaced = input.replace(UNICODE_SPACES, " ");
   let out = "";
-  for (const char of input) {
+  for (const char of spaced) {
     if (/[a-z0-9@$!+]/i.test(char)) {
       out += normalizeChar(char);
     } else if (/\s/.test(char)) {
@@ -44,6 +48,22 @@ function collapseSpacedLetters(input: string): string {
   return input.replace(/(?:\b[a-z]\s+){2,}[a-z]\b/gi, (match) => match.replace(/\s+/g, ""));
 }
 
+/** Collapse letters separated by punctuation (e.g. "f.u.c.k", "f-u-c-k"). */
+function collapseSeparatedLetters(input: string): string {
+  return input.replace(/(?:[a-z][\s._\-*•|/\\,`'"~]+){2,}[a-z]/gi, (match) =>
+    match.replace(/[^a-z0-9]/gi, ""),
+  );
+}
+
+/** Keep only letters/digits after leet normalization. */
+function alphaCompact(input: string): string {
+  let out = "";
+  for (const char of input) {
+    if (/[a-z0-9]/i.test(char)) out += normalizeChar(char);
+  }
+  return out;
+}
+
 /** Collapse stretched letters: fuuuuck → fuuck (max 2 repeats). */
 function collapseRepeats(input: string): string {
   return input.replace(/(.)\1{2,}/g, "$1$1");
@@ -56,31 +76,50 @@ function tokenize(input: string): string[] {
     .filter((t) => t.length > 0);
 }
 
-function findBlockedWord(text: string): string | null {
-  const normalized = collapseRepeats(collapseSpacedLetters(normalizeForModeration(text)));
-  const tokens = tokenize(normalized);
-
-  for (const token of tokens) {
-    if (PROFANITY_WORDS.has(token)) return token;
-    if (token.length >= 4) {
-      for (const word of PROFANITY_WORDS) {
-        if (word.length >= 4 && token.includes(word)) return word;
-      }
-    }
-  }
-
-  const compact = normalized.replace(/\s+/g, "");
+function matchesProfanityInCompact(compact: string): string | null {
   for (const word of PROFANITY_WORDS) {
-    if (word.length >= 4 && compact.includes(word)) return word;
+    if (word.length >= 3 && compact.includes(word)) return word;
   }
-
   return null;
 }
 
+function findBlockedWord(text: string): string | null {
+  const normalized = normalizeForModeration(text);
+  const candidates = [
+    collapseRepeats(collapseSeparatedLetters(collapseSpacedLetters(normalized))),
+    collapseRepeats(alphaCompact(normalized)),
+    collapseRepeats(collapseSpacedLetters(normalized)),
+  ];
+
+  for (const candidate of candidates) {
+    const tokens = tokenize(candidate);
+    for (const token of tokens) {
+      if (PROFANITY_WORDS.has(token)) return token;
+      if (token.length >= 4) {
+        for (const word of PROFANITY_WORDS) {
+          if (word.length >= 4 && token.includes(word)) return word;
+        }
+      }
+    }
+
+    const compact = candidate.replace(/\s+/g, "");
+    const blocked = matchesProfanityInCompact(compact);
+    if (blocked) return blocked;
+  }
+
+  // Catch mixed separators without word boundaries, e.g. "f u.c-k".
+  const mixed = collapseRepeats(alphaCompact(normalized.split(LETTER_SEPARATORS).join("")));
+  return matchesProfanityInCompact(mixed);
+}
+
 function findBlockedPhrase(text: string): string | null {
-  const lower = ` ${text.toLowerCase()} `;
+  const normalized = normalizeForModeration(text).toLowerCase();
+  const compactPhrase = alphaCompact(text).toLowerCase();
   for (const phrase of BLOCKED_PHRASES) {
-    if (lower.includes(phrase)) return phrase.trim();
+    const compactPhraseNeedle = alphaCompact(phrase);
+    if (normalized.includes(phrase) || compactPhrase.includes(compactPhraseNeedle)) {
+      return phrase.trim();
+    }
   }
   return null;
 }
@@ -124,9 +163,12 @@ export function moderateTextContent(
   }
 
   const lower = trimmed.toLowerCase();
+  const compactLower = alphaCompact(trimmed).toLowerCase();
   for (const kw of extraKeywords) {
     const needle = kw.trim().toLowerCase();
-    if (needle && lower.includes(needle)) {
+    if (!needle) continue;
+    const compactNeedle = alphaCompact(needle);
+    if (lower.includes(needle) || compactLower.includes(compactNeedle)) {
       return {
         allowed: false,
         reason: `Message blocked by server filter (matched “${needle}”).`,

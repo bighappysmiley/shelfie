@@ -24,7 +24,11 @@ export function AttachmentPreviewBar({
           key={a.id}
           className="relative overflow-hidden rounded-lg border border-[var(--community-border)] bg-[var(--community-input)]"
         >
-          <AuthedImage src={a.previewUrl} alt="" className="h-20 w-20 object-cover" />
+          {a.previewUrl.startsWith("blob:") || a.previewUrl.startsWith("data:") ? (
+            <img src={a.previewUrl} alt="" className="h-20 w-20 object-cover" />
+          ) : (
+            <AuthedImage src={a.previewUrl} alt="" className="h-20 w-20 object-cover" />
+          )}
           {a.uploading && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-xs text-white">
               Uploading…

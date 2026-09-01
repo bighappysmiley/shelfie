@@ -46,6 +46,22 @@ export function setChannelNotificationLevel(
   writeStore(store);
 }
 
+/** Seed per-channel notification prefs from a server's default for channels without a saved pref. */
+export function ensureChannelNotificationsForServer(
+  userId: string,
+  channelIds: string[],
+  defaultNotifications: "all" | "mentions",
+): void {
+  if (defaultNotifications === "all") return;
+  const store = readStore();
+  for (const channelId of channelIds) {
+    const key = prefKey(userId, channelId);
+    if (store[key]) continue;
+    store[key] = defaultNotifications;
+  }
+  writeStore(store);
+}
+
 export const CHANNEL_NOTIFICATION_LABELS: Record<ChannelNotificationLevel, string> = {
   all: "All messages",
   mentions: "Only @mentions",

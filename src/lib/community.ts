@@ -962,8 +962,15 @@ export async function deleteServerRole(roleId: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function uploadCommunityImage(file: File, options?: { moderate?: boolean }): Promise<string> {
-  const shouldModerate = options?.moderate !== false;
+export async function uploadCommunityImage(
+  file: File,
+  options?: { moderate?: boolean; serverId?: string; userId?: string },
+): Promise<string> {
+  let shouldModerate = options?.moderate;
+  if (shouldModerate === undefined && options?.serverId && options?.userId) {
+    shouldModerate = await shouldModerateCommunityImage(options.serverId, options.userId);
+  }
+  if (shouldModerate === undefined) shouldModerate = true;
   if (shouldModerate) {
     const blocked = isBlockedImageFile(file);
     if (blocked) throw new Error(blocked);
@@ -1694,6 +1701,32 @@ export async function getMyServerRoleId(
   return (data?.role_id as string | null) ?? null;
 }
 
+export async function shouldModerateCommunityImage(
+  serverId: string,
+  userId: string,
+): Promise<boolean> {
+  const { data: server, error } = await supabase
+    .from("community_servers")
+    .select("explicit_content_filter")
+    .eq("id", serverId)
+    .maybeSingle();
+  if (error) throw error;
+
+  const filter = (server?.explicit_content_filter as ExplicitContentFilter | null) ?? "disabled";
+  if (filter === "disabled") return false;
+  if (filter === "all") return true;
+
+  const roleId = await getMyServerRoleId(serverId, userId);
+  if (!roleId) return true;
+
+  const { data: role } = await supabase
+    .from("community_server_roles")
+    .select("is_everyone")
+    .eq("id", roleId)
+    .maybeSingle();
+  return Boolean(role?.is_everyone);
+}
+
 export async function updateSuggestionStatus(
   messageId: string,
   status: SuggestionStatus,
@@ -1899,12 +1932,15 @@ export async function listPinnedMessages(groupId: string): Promise<CommunityMess
 async function assertContentAllowed(serverId: string, body: string): Promise<void> {
   const { data, error } = await supabase
     .from("community_servers")
-    .select("automod_keywords")
+    .select("automod_keywords, automod_enabled")
     .eq("id", serverId)
     .maybeSingle();
   if (error) throw error;
 
-  const extraKeywords = (data?.automod_keywords as string[] | null) ?? [];
+  const extraKeywords =
+    data?.automod_enabled === false
+      ? []
+      : ((data?.automod_keywords as string[] | null) ?? []);
   const result = moderateTextContent(body, extraKeywords);
   if (!result.allowed) {
     throw new Error(result.reason);
