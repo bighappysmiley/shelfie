@@ -3,8 +3,44 @@ export type CommunityMemberRole = "admin" | "moderator" | "member";
 export type CommunityMessageKind = "chat" | "suggestion" | "system";
 export type SuggestionStatus = "open" | "accepted" | "declined" | "implemented";
 
+export interface CommunityServer {
+  id: string;
+  libraryId: string;
+  name: string;
+  description: string | null;
+  iconUrl: string | null;
+  isPublic: boolean;
+  isOfficial: boolean;
+  officialPosition: number | null;
+  memberCount: number;
+  messageCount: number;
+  activityScore: number;
+  lastActivityAt: string | null;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+  /** Present when current user belongs to this server / library */
+  myRoleId?: string | null;
+  canManage?: boolean;
+}
+
+export interface CommunityServerRole {
+  id: string;
+  serverId: string;
+  name: string;
+  position: number;
+  color: string;
+  iconUrl: string | null;
+  canManageServer: boolean;
+  canManageChannels: boolean;
+  canModerate: boolean;
+  isEveryone: boolean;
+  createdAt: string;
+}
+
 export interface CommunityCategory {
   id: string;
+  serverId: string | null;
   name: string;
   position: number;
   isOfficial: boolean;
@@ -13,6 +49,7 @@ export interface CommunityCategory {
 
 export interface CommunityGroup {
   id: string;
+  serverId: string | null;
   name: string;
   description: string | null;
   topic: string | null;
@@ -91,4 +128,10 @@ export function formatCommunityTime(iso: string): string {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+export function formatPopularity(server: CommunityServer): string {
+  if (server.memberCount >= 1000) return `${(server.memberCount / 1000).toFixed(1)}k members`;
+  if (server.memberCount === 1) return "1 member";
+  return `${server.memberCount} members`;
 }

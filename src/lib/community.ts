@@ -1,4 +1,6 @@
 import { supabase } from "./supabase";
+import { getActiveLibraryId } from "./library-storage";
+import { compressCover } from "./cover-upload";
 import type {
   CommunityCategory,
   CommunityGroup,
@@ -7,11 +9,46 @@ import type {
   CommunityMemberRole,
   CommunityMessage,
   CommunityMessageKind,
+  CommunityServer,
+  CommunityServerRole,
   SuggestionStatus,
 } from "./community-types";
 
+type ServerRow = {
+  id: string;
+  library_id: string;
+  name: string;
+  description: string | null;
+  icon_url: string | null;
+  is_public: boolean;
+  is_official: boolean;
+  official_position: number | null;
+  member_count: number;
+  message_count: number;
+  activity_score: number | string;
+  last_activity_at: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type RoleRow = {
+  id: string;
+  server_id: string;
+  name: string;
+  position: number;
+  color: string;
+  icon_url: string | null;
+  can_manage_server: boolean;
+  can_manage_channels: boolean;
+  can_moderate: boolean;
+  is_everyone: boolean;
+  created_at: string;
+};
+
 type CategoryRow = {
   id: string;
+  server_id: string | null;
   name: string;
   position: number;
   is_official: boolean;
@@ -20,6 +57,7 @@ type CategoryRow = {
 
 type GroupRow = {
   id: string;
+  server_id: string | null;
   name: string;
   description: string | null;
   topic: string | null;
@@ -45,9 +83,47 @@ type MessageRow = {
   created_at: string;
 };
 
+function mapServer(row: ServerRow, extra?: Partial<CommunityServer>): CommunityServer {
+  return {
+    id: row.id,
+    libraryId: row.library_id,
+    name: row.name,
+    description: row.description,
+    iconUrl: row.icon_url,
+    isPublic: row.is_public,
+    isOfficial: row.is_official,
+    officialPosition: row.official_position,
+    memberCount: row.member_count ?? 0,
+    messageCount: row.message_count ?? 0,
+    activityScore: Number(row.activity_score ?? 0),
+    lastActivityAt: row.last_activity_at,
+    createdBy: row.created_by,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    ...extra,
+  };
+}
+
+function mapRole(row: RoleRow): CommunityServerRole {
+  return {
+    id: row.id,
+    serverId: row.server_id,
+    name: row.name,
+    position: row.position,
+    color: row.color,
+    iconUrl: row.icon_url,
+    canManageServer: row.can_manage_server,
+    canManageChannels: row.can_manage_channels,
+    canModerate: row.can_moderate,
+    isEveryone: row.is_everyone,
+    createdAt: row.created_at,
+  };
+}
+
 function mapCategory(row: CategoryRow): CommunityCategory {
   return {
     id: row.id,
+    serverId: row.server_id,
     name: row.name,
     position: row.position,
     isOfficial: row.is_official,
@@ -58,6 +134,7 @@ function mapCategory(row: CategoryRow): CommunityCategory {
 function mapGroup(row: GroupRow, extra?: Partial<CommunityGroup>): CommunityGroup {
   return {
     id: row.id,
+    serverId: row.server_id,
     name: row.name,
     description: row.description,
     topic: row.topic,
@@ -87,10 +164,401 @@ function mapMessage(row: MessageRow): CommunityMessage {
   };
 }
 
-export async function listCommunityCategories(): Promise<CommunityCategory[]> {
+async function seedDefaultRoles(serverId: string): Promise<void> {
+  const defaults = [
+    { name: "Owner", position: 0, color: "#E11D48", can_manage_server: true, can_manage_channels: true, can_moderate: true, is_everyone: false },
+    { name: "Admin", position: 10, color: "#F59E0B", can_manage_server: true, can_manage_channels: true, can_moderate: true, is_everyone: false },
+    { name: "Moderator", position: 20, color: "#3B82F6", can_manage_server: false, can_manage_channels: false, can_moderate: true, is_everyone: false },
+    { name: "Member", position: 100, color: "#6B7280", can_manage_server: false, can_manage_channels: false, can_moderate: false, is_everyone: true },
+  ];
+  for (const role of defaults) {
+    await supabase.from("community_server_roles").upsert(
+      { server_id: serverId, ...role },
+      { onConflict: "server_id,name", ignoreDuplicates: true },
+    );
+  }
+}
+
+async function seedDefaultCategories(serverId: string): Promise<void> {
+  const { data: existing } = await supabase
+    .from("community_categories")
+    .select("id, is_official, name")
+    .eq("server_id", serverId);
+  const rows = existing ?? [];
+  if (!rows.some((r) => r.is_official)) {
+    await supabase.from("community_categories").insert({
+      name: "Official",
+      position: 0,
+      is_official: true,
+      server_id: serverId,
+    });
+  }
+  if (!rows.some((r) => !r.is_official && r.name === "Text Channels")) {
+    await supabase.from("community_categories").insert({
+      name: "Text Channels",
+      position: 10,
+      is_official: false,
+      server_id: serverId,
+    });
+  }
+}
+
+export async function recomputeServerScore(serverId: string): Promise<void> {
+  const [{ count: members }, { data: groups }] = await Promise.all([
+    supabase
+      .from("community_server_members")
+      .select("*", { count: "exact", head: true })
+      .eq("server_id", serverId),
+    supabase.from("community_groups").select("id").eq("server_id", serverId),
+  ]);
+  const groupIds = (groups ?? []).map((g) => g.id as string);
+  let messageCount = 0;
+  let lastActivity: string | null = null;
+  if (groupIds.length > 0) {
+    const { count, data: latest } = await supabase
+      .from("community_messages")
+      .select("created_at", { count: "exact" })
+      .in("group_id", groupIds)
+      .order("created_at", { ascending: false })
+      .limit(1);
+    messageCount = count ?? 0;
+    lastActivity = latest?.[0]?.created_at ?? null;
+  }
+  const memberCount = members ?? 0;
+  const recentBoost =
+    lastActivity && Date.now() - new Date(lastActivity).getTime() < 7 * 24 * 60 * 60 * 1000
+      ? 50
+      : 0;
+  const activityScore = memberCount * 5 + messageCount * 2 + recentBoost;
+  await supabase
+    .from("community_servers")
+    .update({
+      member_count: memberCount,
+      message_count: messageCount,
+      activity_score: activityScore,
+      last_activity_at: lastActivity,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", serverId);
+}
+
+/** Ensure the active (or given) library has a community server. */
+export async function ensureLibraryServer(input: {
+  libraryId: string;
+  libraryName: string;
+  userId: string;
+  isLibraryOwner: boolean;
+}): Promise<CommunityServer> {
+  const { data: existing } = await supabase
+    .from("community_servers")
+    .select("*")
+    .eq("library_id", input.libraryId)
+    .maybeSingle();
+
+  if (existing) {
+    return mapServer(existing as ServerRow, { canManage: input.isLibraryOwner });
+  }
+
+  if (!input.isLibraryOwner) {
+    throw new Error("Only the library owner can create this library’s server");
+  }
+
+  const { data, error } = await supabase
+    .from("community_servers")
+    .insert({
+      library_id: input.libraryId,
+      name: input.libraryName,
+      is_public: false,
+      created_by: input.userId,
+    })
+    .select("*")
+    .single();
+  if (error || !data) throw error ?? new Error("Could not create server");
+
+  const server = data as ServerRow;
+  await seedDefaultRoles(server.id);
+  await seedDefaultCategories(server.id);
+
+  const { data: ownerRole } = await supabase
+    .from("community_server_roles")
+    .select("id")
+    .eq("server_id", server.id)
+    .eq("name", "Owner")
+    .maybeSingle();
+
+  await supabase.from("community_server_members").upsert({
+    server_id: server.id,
+    user_id: input.userId,
+    role_id: ownerRole?.id ?? null,
+  });
+
+  await recomputeServerScore(server.id);
+  return mapServer(server, { canManage: true, memberCount: 1 });
+}
+
+export async function listPublicServers(): Promise<CommunityServer[]> {
+  const { data, error } = await supabase
+    .from("community_servers")
+    .select("*")
+    .eq("is_public", true)
+    .eq("is_official", false)
+    .order("activity_score", { ascending: false })
+    .order("member_count", { ascending: false })
+    .order("name", { ascending: true });
+  if (error) throw error;
+  return ((data ?? []) as ServerRow[]).map((r) => mapServer(r));
+}
+
+export async function listOfficialServers(): Promise<CommunityServer[]> {
+  const { data, error } = await supabase
+    .from("community_servers")
+    .select("*")
+    .eq("is_official", true)
+    .order("official_position", { ascending: true, nullsFirst: false })
+    .order("activity_score", { ascending: false })
+    .order("name", { ascending: true });
+  if (error) throw error;
+  return ((data ?? []) as ServerRow[]).map((r) => mapServer(r));
+}
+
+export async function listMyServers(userId: string): Promise<CommunityServer[]> {
+  const [{ data: memberships }, { data: libraryMemberships }] = await Promise.all([
+    supabase.from("community_server_members").select("server_id, role_id").eq("user_id", userId),
+    supabase.from("library_members").select("library_id, role").eq("user_id", userId),
+  ]);
+
+  const libraryIds = (libraryMemberships ?? []).map((m) => m.library_id as string);
+  const memberServerIds = (memberships ?? []).map((m) => m.server_id as string);
+  const roleByServer = new Map(
+    (memberships ?? []).map((m) => [m.server_id as string, m.role_id as string | null]),
+  );
+  const libraryRole = new Map(
+    (libraryMemberships ?? []).map((m) => [m.library_id as string, m.role as string]),
+  );
+
+  if (libraryIds.length === 0 && memberServerIds.length === 0) return [];
+
+  let rows: ServerRow[] = [];
+
+  if (libraryIds.length > 0) {
+    const { data, error } = await supabase
+      .from("community_servers")
+      .select("*")
+      .in("library_id", libraryIds)
+      .order("name");
+    if (error) throw error;
+    rows = (data ?? []) as ServerRow[];
+  }
+
+  const have = new Set(rows.map((r) => r.id));
+  const missing = memberServerIds.filter((id) => !have.has(id));
+  if (missing.length > 0) {
+    const { data, error } = await supabase.from("community_servers").select("*").in("id", missing);
+    if (error) throw error;
+    rows = [...rows, ...((data ?? []) as ServerRow[])];
+  }
+
+  rows.sort((a, b) => a.name.localeCompare(b.name));
+
+  return rows.map((r) =>
+    mapServer(r, {
+      myRoleId: roleByServer.get(r.id) ?? null,
+      canManage: libraryRole.get(r.library_id) === "owner",
+    }),
+  );
+}
+
+export async function getServer(serverId: string): Promise<CommunityServer | null> {
+  const { data, error } = await supabase
+    .from("community_servers")
+    .select("*")
+    .eq("id", serverId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return mapServer(data as ServerRow);
+}
+
+export async function updateServer(
+  serverId: string,
+  patch: {
+    name?: string;
+    description?: string | null;
+    iconUrl?: string | null;
+    isPublic?: boolean;
+    isOfficial?: boolean;
+    officialPosition?: number | null;
+  },
+): Promise<void> {
+  const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (patch.name !== undefined) row.name = patch.name.trim();
+  if (patch.description !== undefined) row.description = patch.description?.trim() || null;
+  if (patch.iconUrl !== undefined) row.icon_url = patch.iconUrl || null;
+  if (patch.isPublic !== undefined) row.is_public = patch.isPublic;
+  if (patch.isOfficial !== undefined) {
+    row.is_official = patch.isOfficial;
+    if (patch.isOfficial && patch.officialPosition === undefined) {
+      const { data: max } = await supabase
+        .from("community_servers")
+        .select("official_position")
+        .eq("is_official", true)
+        .order("official_position", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      row.official_position = (max?.official_position ?? -1) + 1;
+    }
+    if (!patch.isOfficial) row.official_position = null;
+  }
+  if (patch.officialPosition !== undefined) row.official_position = patch.officialPosition;
+
+  const { error } = await supabase.from("community_servers").update(row).eq("id", serverId);
+  if (error) throw error;
+}
+
+/** App owner: set ordered list of official server ids. */
+export async function reorderOfficialServers(orderedIds: string[]): Promise<void> {
+  for (let i = 0; i < orderedIds.length; i++) {
+    const { error } = await supabase
+      .from("community_servers")
+      .update({
+        is_official: true,
+        official_position: i,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", orderedIds[i]);
+    if (error) throw error;
+  }
+}
+
+export async function joinServer(serverId: string, userId: string): Promise<void> {
+  const { data: everyone } = await supabase
+    .from("community_server_roles")
+    .select("id")
+    .eq("server_id", serverId)
+    .eq("is_everyone", true)
+    .maybeSingle();
+
+  const { error } = await supabase.from("community_server_members").upsert({
+    server_id: serverId,
+    user_id: userId,
+    role_id: everyone?.id ?? null,
+  });
+  if (error) throw error;
+  await recomputeServerScore(serverId);
+}
+
+export async function listServerRoles(serverId: string): Promise<CommunityServerRole[]> {
+  const { data, error } = await supabase
+    .from("community_server_roles")
+    .select("*")
+    .eq("server_id", serverId)
+    .order("position", { ascending: true });
+  if (error) throw error;
+  return ((data ?? []) as RoleRow[]).map(mapRole);
+}
+
+export async function createServerRole(
+  serverId: string,
+  input: { name: string; color?: string; iconUrl?: string | null },
+): Promise<CommunityServerRole> {
+  const { data: max } = await supabase
+    .from("community_server_roles")
+    .select("position")
+    .eq("server_id", serverId)
+    .order("position", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const { data, error } = await supabase
+    .from("community_server_roles")
+    .insert({
+      server_id: serverId,
+      name: input.name.trim(),
+      color: input.color || "#6B7280",
+      icon_url: input.iconUrl || null,
+      position: Math.min((max?.position ?? 90) + 1, 99),
+      can_manage_server: false,
+      can_manage_channels: false,
+      can_moderate: false,
+      is_everyone: false,
+    })
+    .select("*")
+    .single();
+  if (error || !data) throw error ?? new Error("Could not create role");
+  return mapRole(data as RoleRow);
+}
+
+export async function updateServerRole(
+  roleId: string,
+  patch: {
+    name?: string;
+    color?: string;
+    iconUrl?: string | null;
+    position?: number;
+    canManageServer?: boolean;
+    canManageChannels?: boolean;
+    canModerate?: boolean;
+  },
+): Promise<void> {
+  const row: Record<string, unknown> = {};
+  if (patch.name !== undefined) row.name = patch.name.trim();
+  if (patch.color !== undefined) row.color = patch.color;
+  if (patch.iconUrl !== undefined) row.icon_url = patch.iconUrl;
+  if (patch.position !== undefined) row.position = patch.position;
+  if (patch.canManageServer !== undefined) row.can_manage_server = patch.canManageServer;
+  if (patch.canManageChannels !== undefined) row.can_manage_channels = patch.canManageChannels;
+  if (patch.canModerate !== undefined) row.can_moderate = patch.canModerate;
+  const { error } = await supabase.from("community_server_roles").update(row).eq("id", roleId);
+  if (error) throw error;
+}
+
+export async function deleteServerRole(roleId: string): Promise<void> {
+  const { error } = await supabase
+    .from("community_server_roles")
+    .delete()
+    .eq("id", roleId)
+    .eq("is_everyone", false);
+  if (error) throw error;
+}
+
+export async function uploadCommunityImage(file: File): Promise<string> {
+  const raw = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Could not read file"));
+    reader.readAsDataURL(file);
+  });
+  const { dataUrl, mediaType } = await compressCover(raw, 256, 0.85);
+
+  const { data: session } = await supabase.auth.getSession();
+  const token = session.session?.access_token;
+  if (!token) throw new Error("Sign in to upload");
+
+  const libraryId = getActiveLibraryId();
+  if (!libraryId) throw new Error("Select a library first");
+
+  const res = await fetch("/api/covers", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      "X-Library-Id": libraryId,
+    },
+    body: JSON.stringify({ image: dataUrl, mediaType }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Upload failed" }));
+    throw new Error(err.error || "Upload failed");
+  }
+  const data = (await res.json()) as { url: string };
+  return data.url;
+}
+
+export async function listCommunityCategories(serverId: string): Promise<CommunityCategory[]> {
   const { data, error } = await supabase
     .from("community_categories")
     .select("*")
+    .eq("server_id", serverId)
     .order("position", { ascending: true })
     .order("created_at", { ascending: true });
   if (error) throw error;
@@ -98,12 +566,14 @@ export async function listCommunityCategories(): Promise<CommunityCategory[]> {
 }
 
 export async function createCommunityCategory(input: {
+  serverId: string;
   name: string;
   userId: string;
 }): Promise<CommunityCategory> {
   const { data: existing } = await supabase
     .from("community_categories")
     .select("position")
+    .eq("server_id", input.serverId)
     .order("position", { ascending: false })
     .limit(1);
   const nextPos = ((existing?.[0]?.position as number | undefined) ?? 0) + 10;
@@ -114,6 +584,7 @@ export async function createCommunityCategory(input: {
       name: input.name.trim(),
       position: nextPos,
       is_official: false,
+      server_id: input.serverId,
       created_by: input.userId,
     })
     .select("*")
@@ -140,12 +611,16 @@ export async function deleteCommunityCategory(id: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function listCommunityGroups(userId: string): Promise<CommunityGroup[]> {
+export async function listCommunityGroups(
+  userId: string,
+  serverId: string,
+): Promise<CommunityGroup[]> {
   const [{ data: memberships }, { data: groups, error }] = await Promise.all([
     supabase.from("community_group_members").select("group_id, role").eq("user_id", userId),
     supabase
       .from("community_groups")
       .select("*")
+      .eq("server_id", serverId)
       .is("archived_at", null)
       .order("position", { ascending: true })
       .order("created_at", { ascending: true }),
@@ -172,6 +647,7 @@ export async function listCommunityGroups(userId: string): Promise<CommunityGrou
 }
 
 export async function createCommunityGroup(input: {
+  serverId: string;
   name: string;
   description?: string;
   topic?: string;
@@ -184,7 +660,7 @@ export async function createCommunityGroup(input: {
   let categoryId = input.categoryId ?? null;
 
   if (isOfficial || !categoryId) {
-    const cats = await listCommunityCategories();
+    const cats = await listCommunityCategories(input.serverId);
     const official = cats.find((c) => c.isOfficial);
     const text =
       cats.find((c) => !c.isOfficial && c.name === "Text Channels") ??
@@ -215,6 +691,7 @@ export async function createCommunityGroup(input: {
       topic: input.topic?.trim() || null,
       kind: input.kind,
       category_id: categoryId,
+      server_id: input.serverId,
       is_official: isOfficial,
       position: nextPos,
       icon: "hash",
@@ -225,12 +702,11 @@ export async function createCommunityGroup(input: {
   if (error || !data) throw error ?? new Error("Could not create channel");
 
   const group = data as GroupRow;
-  const { error: memberErr } = await supabase.from("community_group_members").insert({
+  await supabase.from("community_group_members").insert({
     group_id: group.id,
     user_id: input.userId,
     role: "admin",
   });
-  if (memberErr) throw memberErr;
 
   await supabase.from("community_messages").insert({
     group_id: group.id,
@@ -242,6 +718,7 @@ export async function createCommunityGroup(input: {
     author_name: "Pine",
   });
 
+  await recomputeServerScore(input.serverId);
   return mapGroup(group, { myRole: "admin", memberCount: 1 });
 }
 
@@ -255,6 +732,7 @@ export async function updateCommunityGroup(
     categoryId?: string | null;
     isOfficial?: boolean;
     position?: number;
+    serverId?: string;
   },
 ): Promise<void> {
   const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -264,8 +742,8 @@ export async function updateCommunityGroup(
   if (patch.kind !== undefined) row.kind = patch.kind;
   if (patch.position !== undefined) row.position = patch.position;
 
-  if (patch.isOfficial === true) {
-    const cats = await listCommunityCategories();
+  if (patch.isOfficial === true && patch.serverId) {
+    const cats = await listCommunityCategories(patch.serverId);
     const official = cats.find((c) => c.isOfficial);
     if (!official) throw new Error("Official category is missing");
     row.is_official = true;
@@ -364,6 +842,7 @@ export async function listGroupMessages(groupId: string): Promise<CommunityMessa
 
 export async function sendGroupMessage(input: {
   groupId: string;
+  serverId: string;
   userId: string;
   body: string;
   kind: CommunityMessageKind;
@@ -382,6 +861,7 @@ export async function sendGroupMessage(input: {
     .select("*")
     .single();
   if (error || !data) throw error ?? new Error("Could not send");
+  void recomputeServerScore(input.serverId);
   return mapMessage(data as MessageRow);
 }
 

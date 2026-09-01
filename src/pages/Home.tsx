@@ -119,8 +119,8 @@ export function HomePage() {
         <GroupHeader>Community</GroupHeader>
         <Group>
           <ListRow
-            title="Groups & suggestions"
-            subtitle="Chat with teammates and share ideas"
+            title="Library servers"
+            subtitle="Browse official & public servers, chat in channels"
             to="/community"
             chevron
           />
