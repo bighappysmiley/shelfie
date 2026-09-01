@@ -117,6 +117,7 @@ import {
 } from "@/lib/community-mentions";
 import { getChannelDraft, setChannelDraft, draftPreview, getAllChannelDrafts } from "@/lib/community-drafts";
 import { useCommunityHotkeys } from "@/hooks/useCommunityHotkeys";
+import { useIsDesktop } from "@/hooks/useIsDesktop";
 import { listCommunityProfiles } from "@/lib/community-profile";
 import type { CommunityProfile } from "@/lib/community-types";
 
@@ -1257,46 +1258,41 @@ function ChannelRoom({
     }
   };
 
+  const channelToolbarProps = {
+    group,
+    pinnedCount: pinned.length,
+    pinsOpen: pinsExpanded,
+    onTogglePins: () => setPinsExpanded((v) => !v),
+    searchOpen,
+    onToggleSearch: () => setSearchOpen((v) => !v),
+    searchQuery,
+    onSearchChange: setSearchQuery,
+    searchResultCount: searchQuery.trim() ? searchMatches.length : undefined,
+    onSearchPrev: searchMatches.length > 0 ? handleSearchPrev : undefined,
+    onSearchNext:
+      searchMatches.length > 1
+        ? () => {
+            const next = (searchMatchIndex + 1) % searchMatches.length;
+            setSearchMatchIndex(next);
+            jumpToMessage(searchMatches[next]!.id);
+          }
+        : searchMatches.length === 1
+          ? () => jumpToMessage(searchMatches[0]!.id)
+          : undefined,
+    threadsOpen: threadsPanelOpen,
+    onToggleThreads:
+      group.kind === "text" ? () => setThreadsPanelOpen((v) => !v) : undefined,
+    membersOpen: showServerMembers,
+    onToggleMembers: onToggleServerMembers,
+    memberCount: serverMemberCount,
+    onOpenSettings,
+    canManage: canConfigure || manage,
+  };
+
   return (
     <div className="flex min-h-0 flex-1 flex-col relative">
-      <ChannelToolbar
-          group={group}
-          pinnedCount={pinned.length}
-          pinsOpen={pinsExpanded}
-          onTogglePins={() => setPinsExpanded((v) => !v)}
-          searchOpen={searchOpen}
-          onToggleSearch={() => setSearchOpen((v) => !v)}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          searchResultCount={searchQuery.trim() ? searchMatches.length : undefined}
-          onSearchPrev={
-            searchMatches.length > 0
-              ? handleSearchPrev
-              : undefined
-          }
-          onSearchNext={
-            searchMatches.length > 1
-              ? () => {
-                  const next = (searchMatchIndex + 1) % searchMatches.length;
-                  setSearchMatchIndex(next);
-                  jumpToMessage(searchMatches[next]!.id);
-                }
-              : searchMatches.length === 1
-                ? () => jumpToMessage(searchMatches[0]!.id)
-                : undefined
-          }
-          threadsOpen={threadsPanelOpen}
-          onToggleThreads={
-            group.kind === "text"
-              ? () => setThreadsPanelOpen((v) => !v)
-              : undefined
-          }
-          membersOpen={showServerMembers}
-          onToggleMembers={onToggleServerMembers}
-          memberCount={serverMemberCount}
-          onOpenSettings={onOpenSettings}
-          canManage={canConfigure || manage}
-        />
+      <ChannelToolbar variant="mobile" {...channelToolbarProps} />
+      <ChannelToolbar variant="desktop" {...channelToolbarProps} />
 
       {pinned.length > 0 && pinsExpanded && (
         <PinnedMessagesBar
@@ -1569,7 +1565,7 @@ function ChannelRoom({
           </CommunityScrollBody>
 
           {mentionSuggestions.length > 0 || mentionRoleSuggestions.length > 0 ? (
-            <div className="px-4">
+            <div className="relative z-20 px-3 md:px-4">
               <MentionAutocomplete
                 members={mentionSuggestions}
                 roles={mentionRoleSuggestions}
@@ -1595,7 +1591,7 @@ function ChannelRoom({
           <TypingIndicator names={typingUsers} />
 
           {scrolledUp && (
-            <div className="pointer-events-none absolute bottom-24 left-0 right-0 z-10 flex justify-center px-4">
+            <div className="pointer-events-none absolute bottom-[calc(6.5rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-10 flex justify-center px-4 md:bottom-24">
               <button
                 type="button"
                 onClick={() => {
@@ -1669,6 +1665,7 @@ function ChannelRoom({
 
           {threadsPanelOpen && group.kind === "text" && (
             <ThreadsPanel
+              open={threadsPanelOpen}
               threads={threadSummaries}
               activeThreadId={threadRootId}
               onSelect={(rootId) => {
@@ -1774,13 +1771,16 @@ const MessageRow = forwardRef(function MessageRow(
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   const reactBtnRef = useRef<HTMLButtonElement>(null);
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isDesktop = typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches;
+  const isDesktop = useIsDesktop();
 
   const openSheet = () => setSheetOpen(true);
   const openMenu = (x: number, y: number) => setMenuPos({ x, y });
 
   const sheetActions = [
-    { label: "React 👍", onClick: () => void onReact("👍") },
+    ...QUICK_EMOJIS.slice(0, 4).map((emoji) => ({
+      label: `React ${emoji}`,
+      onClick: () => void onReact(emoji),
+    })),
     { label: "Reply", onClick: onReply },
     ...(onCreateThread ? [{ label: "Create thread", onClick: onCreateThread }] : []),
     {
@@ -1821,6 +1821,12 @@ const MessageRow = forwardRef(function MessageRow(
         longPressRef.current = setTimeout(openSheet, 500);
       }}
       onTouchEnd={() => {
+        if (longPressRef.current) clearTimeout(longPressRef.current);
+      }}
+      onTouchMove={() => {
+        if (longPressRef.current) clearTimeout(longPressRef.current);
+      }}
+      onTouchCancel={() => {
         if (longPressRef.current) clearTimeout(longPressRef.current);
       }}
       onContextMenu={(e) => {
@@ -1990,7 +1996,7 @@ const MessageRow = forwardRef(function MessageRow(
         </button>
       </div>
 
-      {pickerOpen && (
+      {isDesktop && pickerOpen && (
         <EmojiPicker
           open={pickerOpen}
           onClose={() => setPickerOpen(false)}

@@ -3,7 +3,6 @@ import { AuthedImage } from "@/components/AuthedImage";
 import { CommunityActionSheet } from "@/components/CommunityActionSheet";
 import { AppsLauncher, type AppLauncherItem } from "@/components/community/AppsLauncher";
 import { CommunityPopover, PopoverItem } from "@/components/community/discord-ui";
-import { AttachmentPreviewBar, type StagedAttachment } from "@/components/community/AttachmentPreviewBar";
 import { EmojiPicker } from "@/components/community/EmojiPicker";
 import { TimestampBuilderModal } from "@/components/community/TimestampBuilderModal";
 import { SlashCommandMenu } from "@/components/community/SlashCommandMenu";
@@ -15,6 +14,8 @@ import {
   type SlashCommand,
 } from "@/lib/community-slash-commands";
 import type { CommunityServerEmoji, CommunityServerSticker, CommunityServerWebhook } from "@/lib/community-types";
+import { useIsDesktop } from "@/hooks/useIsDesktop";
+import { AttachmentPreviewBar, type StagedAttachment } from "@/components/community/AttachmentPreviewBar";
 
 const DEFAULT_EMOJIS = ["😀", "😂", "❤️", "👍", "🔥", "🎉", "👀", "📚", "✨", "🙌", "😮", "💯"];
 
@@ -88,9 +89,7 @@ export function ChannelMessageComposer({
   const [stickerOpen, setStickerOpen] = useState(false);
   const [timestampOpen, setTimestampOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [isDesktop, setIsDesktop] = useState(() =>
-    typeof window !== "undefined" ? window.matchMedia("(min-width: 768px)").matches : true,
-  );
+  const isDesktop = useIsDesktop();
   const fileRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const plusRef = useRef<HTMLButtonElement>(null);
@@ -100,14 +99,6 @@ export function ChannelMessageComposer({
   const [dragOver, setDragOver] = useState(false);
   const [slashQuery, setSlashQuery] = useState<string | null>(null);
   const [draftCursor, setDraftCursor] = useState(0);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 768px)");
-    const onChange = () => setIsDesktop(mq.matches);
-    onChange();
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
 
   useEffect(() => {
     const el = textareaRef.current;
@@ -219,7 +210,7 @@ export function ChannelMessageComposer({
   return (
     <form
       onSubmit={onSend}
-      className={`shrink-0 px-4 pb-4 pt-2 ${dragOver ? "ring-2 ring-accent/30 rounded-lg" : ""}`}
+      className={`shrink-0 px-3 pb-3 pt-2 md:px-4 md:pb-4 ${dragOver ? "ring-2 ring-accent/30 rounded-lg" : ""}`}
       onDragOver={(e) => {
         e.preventDefault();
         setDragOver(true);
@@ -362,11 +353,23 @@ export function ChannelMessageComposer({
       />
 
       <AppsLauncher
-        open={appsOpen}
+        open={appsOpen && isDesktop}
         onClose={() => setAppsOpen(false)}
         anchorRef={appsRef}
         items={appItems}
       />
+
+      {!isDesktop && (
+        <CommunityActionSheet
+          open={appsOpen}
+          onClose={() => setAppsOpen(false)}
+          title="Apps"
+          actions={appItems.map((item) => ({
+            label: item.name,
+            onClick: item.onClick,
+          }))}
+        />
+      )}
 
       <TimestampBuilderModal
         open={timestampOpen}

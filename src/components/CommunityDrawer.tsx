@@ -43,7 +43,7 @@ export function CommunityDrawer({
         aria-label="Close"
       />
       <aside
-        className={`community-discord-shell community-drawer-panel ${slideFrom} absolute top-0 ${position} flex h-full flex-col bg-[var(--community-panel)] shadow-xl`}
+        className={`community-discord-shell community-drawer-panel ${slideFrom} absolute top-0 ${position} flex h-full flex-col bg-[var(--community-panel)] pt-[env(safe-area-inset-top,0px)] shadow-xl`}
         style={{ width }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -55,7 +55,9 @@ export function CommunityDrawer({
         )}
         <div className="community-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>
         {footer && (
-          <footer className="shrink-0 border-t border-[var(--community-border)] p-2">{footer}</footer>
+          <footer className="shrink-0 border-t border-[var(--community-border)] p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]">
+            {footer}
+          </footer>
         )}
       </aside>
     </div>,

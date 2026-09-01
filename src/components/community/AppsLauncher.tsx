@@ -48,7 +48,7 @@ export function AppsLauncher({
 }) {
   return (
     <CommunityPopover open={open} onClose={onClose} anchorRef={anchorRef} align="left">
-      <div className="w-72 p-3">
+      <div className="w-full max-w-[18rem] p-3 sm:w-72">
         <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-muted">Apps</p>
         <div className="grid grid-cols-3 gap-2">
           {items.map((item) => (

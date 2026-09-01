@@ -10,7 +10,7 @@ export function SlashCommandMenu({
   if (commands.length === 0) return null;
 
   return (
-    <ul className="mb-2 max-h-48 overflow-y-auto rounded-lg border border-[var(--community-border)] bg-[var(--community-panel)] py-1 shadow-lg">
+    <ul className="relative z-20 mb-2 max-h-48 overflow-y-auto rounded-lg border border-[var(--community-border)] bg-[var(--community-panel)] py-1 shadow-lg">
       {commands.map((cmd) => (
         <li key={cmd.name}>
           <button

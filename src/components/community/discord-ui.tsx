@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 export function ToolbarDivider() {
@@ -61,6 +61,36 @@ export function ChevronDown({ className = "h-4 w-4" }: { className?: string }) {
   );
 }
 
+type PopoverPosition = { top: number; left?: number; right?: number };
+
+function clampPopoverPosition(
+  rect: DOMRect,
+  panelWidth: number,
+  panelHeight: number,
+  align: "left" | "right",
+): PopoverPosition {
+  const margin = 8;
+  const gap = 6;
+  const viewportW = window.innerWidth;
+  const viewportH = window.innerHeight;
+
+  let top = rect.bottom + gap;
+  if (top + panelHeight > viewportH - margin) {
+    const above = rect.top - panelHeight - gap;
+    top = above >= margin ? above : Math.max(margin, viewportH - panelHeight - margin);
+  }
+
+  if (align === "right") {
+    let right = viewportW - rect.right;
+    right = Math.max(margin, Math.min(right, viewportW - panelWidth - margin));
+    return { top, right };
+  }
+
+  let left = rect.left;
+  left = Math.max(margin, Math.min(left, viewportW - panelWidth - margin));
+  return { top, left };
+}
+
 export function CommunityPopover({
   open,
   onClose,
@@ -75,6 +105,37 @@ export function CommunityPopover({
   align?: "left" | "right";
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState<PopoverPosition | null>(null);
+
+  const updatePosition = useCallback(() => {
+    if (!anchorRef.current) return;
+    const rect = anchorRef.current.getBoundingClientRect();
+    const panel = panelRef.current;
+    const panelWidth = panel?.offsetWidth ?? Math.min(288, window.innerWidth - 16);
+    const panelHeight = panel?.offsetHeight ?? 240;
+    setPosition(clampPopoverPosition(rect, panelWidth, panelHeight, align));
+  }, [align, anchorRef]);
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setPosition(null);
+      return;
+    }
+    updatePosition();
+    const raf = requestAnimationFrame(updatePosition);
+    return () => cancelAnimationFrame(raf);
+  }, [open, updatePosition, children]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onReflow = () => updatePosition();
+    window.addEventListener("resize", onReflow);
+    window.addEventListener("scroll", onReflow, true);
+    return () => {
+      window.removeEventListener("resize", onReflow);
+      window.removeEventListener("scroll", onReflow, true);
+    };
+  }, [open, updatePosition]);
 
   useEffect(() => {
     if (!open) return;
@@ -89,19 +150,23 @@ export function CommunityPopover({
 
   if (!open || !anchorRef.current) return null;
 
-  const rect = anchorRef.current.getBoundingClientRect();
   const style: React.CSSProperties = {
     position: "fixed",
-    top: rect.bottom + 6,
-    ...(align === "right" ? { right: window.innerWidth - rect.right } : { left: rect.left }),
+    top: position?.top ?? anchorRef.current.getBoundingClientRect().bottom + 6,
+    ...(position?.right !== undefined
+      ? { right: position.right }
+      : { left: position?.left ?? anchorRef.current.getBoundingClientRect().left }),
     zIndex: 120,
+    maxHeight: "min(70dvh, calc(100dvh - 16px))",
+    overflowY: "auto",
+    maxWidth: "calc(100vw - 16px)",
   };
 
   return createPortal(
     <div
       ref={panelRef}
       style={style}
-      className="min-w-[12rem] overflow-hidden rounded-md border border-[var(--community-border)] bg-[var(--community-panel)] py-1 shadow-lg"
+      className="min-w-[12rem] overflow-x-hidden rounded-md border border-[var(--community-border)] bg-[var(--community-panel)] py-1 shadow-lg"
     >
       {children}
     </div>,

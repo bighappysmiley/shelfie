@@ -64,7 +64,7 @@ export function EmojiPicker({
 
   return (
     <CommunityPopover open={open} onClose={onClose} anchorRef={anchorRef} align={align}>
-      <div className="w-72 p-2">
+      <div className="w-full max-w-[18rem] p-2 sm:w-72">
         <label className="relative mb-2 block">
           <IconSearch size={14} className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted" />
           <input

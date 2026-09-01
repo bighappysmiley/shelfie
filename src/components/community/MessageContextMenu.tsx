@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 export function MessageContextMenu({
@@ -15,6 +15,19 @@ export function MessageContextMenu({
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState({ left: x, top: y });
+
+  useLayoutEffect(() => {
+    if (!open || !ref.current) return;
+    const margin = 8;
+    const rect = ref.current.getBoundingClientRect();
+    const maxLeft = window.innerWidth - rect.width - margin;
+    const maxTop = window.innerHeight - rect.height - margin;
+    setPosition({
+      left: Math.max(margin, Math.min(x, maxLeft)),
+      top: Math.max(margin, Math.min(y, maxTop)),
+    });
+  }, [open, x, y, children]);
 
   useEffect(() => {
     if (!open) return;
@@ -35,14 +48,11 @@ export function MessageContextMenu({
 
   if (!open) return null;
 
-  const maxX = typeof window !== "undefined" ? window.innerWidth - 220 : x;
-  const maxY = typeof window !== "undefined" ? window.innerHeight - 280 : y;
-
   return createPortal(
     <div
       ref={ref}
-      className="community-discord-shell fixed z-[130] min-w-[12rem] overflow-hidden rounded-md border border-[var(--community-border)] bg-[var(--community-panel)] py-1 shadow-xl"
-      style={{ left: Math.min(x, maxX), top: Math.min(y, maxY) }}
+      className="community-discord-shell fixed z-[130] min-w-[12rem] max-w-[calc(100vw-16px)] overflow-hidden rounded-md border border-[var(--community-border)] bg-[var(--community-panel)] py-1 shadow-xl"
+      style={{ left: position.left, top: position.top }}
       role="menu"
     >
       {children}

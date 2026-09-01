@@ -21,7 +21,7 @@ export function CommunityChatHeader({
   const inChannel = Boolean(channelName);
 
   return (
-    <header className="flex h-12 shrink-0 items-center gap-1 border-b border-[var(--community-border)] px-2 shadow-[0_1px_0_0_var(--community-border)] md:hidden">
+    <header className="safe-top flex h-12 shrink-0 items-center gap-1 border-b border-[var(--community-border)] px-3 shadow-[0_1px_0_0_var(--community-border)] md:hidden">
       <button
         type="button"
         onClick={onOpenChannels}
