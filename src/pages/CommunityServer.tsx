@@ -64,6 +64,7 @@ import { AuthedImage } from "@/components/AuthedImage";
 import { IconChat, IconPlus, IconSearch, IconSettings } from "@/components/Icons";
 import { communityAuthorLabel, communityShortName } from "@/lib/community-identity";
 import { isAppOwnerUser, listAppOwnerUserIds } from "@/lib/app-owner";
+import { getChatRoleIconUrl } from "@/lib/chat-badges";
 import { roleColorTextStyle } from "@/lib/role-color";
 import { CommunityDiscordShell, CommunityScrollBody } from "@/components/CommunityRail";
 import { CommunityChatHeader } from "@/components/CommunityChatHeader";
@@ -1254,6 +1255,7 @@ function ChannelRoom({
                 const grouped = shouldGroupMessages(prev, m);
                 const member = m.authorId ? memberByUserId.get(m.authorId) : undefined;
                 const role = member?.roleId ? roleById.get(member.roleId) : undefined;
+                const chatRoleIconUrl = getChatRoleIconUrl(role);
                 return (
                 <MessageRow
                   key={m.id}
@@ -1268,7 +1270,7 @@ function ChannelRoom({
                   isServerBooster={m.authorId ? serverBoosters.has(m.authorId) : false}
                   isAppOwnerAuthor={isAppOwnerUser(m.authorId, appOwnerUserIds)}
                   roleColor={member?.roleColor}
-                  roleIconUrl={role?.iconUrl ?? null}
+                  roleIconUrl={chatRoleIconUrl}
                   isMine={m.authorId === userId}
                   canModerate={moderate}
                   canPin={moderate || manage}

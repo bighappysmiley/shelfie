@@ -1,11 +1,17 @@
 import { AuthedImage } from "@/components/AuthedImage";
 
-/** Chat badges: app OWNER pill, or server role icon only (no Nitro, no role initial). */
+/**
+ * Badges beside chat usernames (Discord-style):
+ * - App owners → OWNER pill
+ * - Otherwise → server role icon when the member's assigned role has `icon_url`
+ * Nitro never adds a chat badge here.
+ */
 export function ChatAuthorBadge({
   isAppOwner = false,
   roleIconUrl,
 }: {
   isAppOwner?: boolean;
+  /** From the member's server role only — not Nitro, not profile. */
   roleIconUrl?: string | null;
 }) {
   if (isAppOwner) {
