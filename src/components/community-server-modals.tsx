@@ -75,6 +75,7 @@ export function ChannelFormModal({
           description,
           categoryId: categoryId || null,
           userId,
+          slowModeSeconds,
         });
         await onSaved(g);
       }

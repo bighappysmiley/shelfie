@@ -122,7 +122,7 @@ import {
   type MentionRole,
 } from "@/lib/community-mentions";
 import { getChannelDraft, setChannelDraft, draftPreview, getAllChannelDrafts } from "@/lib/community-drafts";
-import { loadResolvedChannelPermissions, type ResolvedChannelPermissions } from "@/lib/community-permissions";
+import { loadResolvedChannelPermissions, batchLoadResolvedChannelPermissions, type ResolvedChannelPermissions } from "@/lib/community-permissions";
 import { getVoicePrefs, toggleVoiceDeafened, toggleVoiceMuted } from "@/lib/community-voice-prefs";
 import { useCommunityHotkeys } from "@/hooks/useCommunityHotkeys";
 import { useServerPresence } from "@/hooks/useServerPresence";
@@ -158,6 +158,43 @@ function Chevron({ open }: { open: boolean }) {
     >
       <path d="M4.5 6.5 8 10l3.5-3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
+  );
+}
+
+function ServerPreviewBanner({
+  server,
+  joinRequestStatus,
+  joining,
+  user,
+  joinLabel,
+  onJoin,
+}: {
+  server: CommunityServer;
+  joinRequestStatus: string | null;
+  joining: boolean;
+  user: { id: string } | null;
+  joinLabel: string;
+  onJoin: () => void;
+}) {
+  return (
+    <div className="shrink-0 border-b border-[var(--community-border)] bg-[var(--community-channel-hover)] px-3 py-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[0.75rem] text-muted">
+          {joinRequestStatus === "pending"
+            ? "Join request pending."
+            : server.joinMode === "invite"
+              ? "Invite-only — enter a code to join."
+              : "Previewing — join to chat."}
+        </p>
+        <Button
+          size="sm"
+          disabled={joining || !user || joinRequestStatus === "pending"}
+          onClick={onJoin}
+        >
+          {joining ? "…" : joinLabel}
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -198,6 +235,9 @@ export function CommunityServerPage() {
   const [serverBoosters, setServerBoosters] = useState<Set<string>>(new Set());
   const [serverRoles, setServerRoles] = useState<CommunityServerRole[]>([]);
   const [appOwnerUserIds, setAppOwnerUserIds] = useState<Set<string>>(new Set());
+  const [channelPermsById, setChannelPermsById] = useState<Map<string, ResolvedChannelPermissions>>(
+    new Map(),
+  );
   const [voiceConnection, setVoiceConnection] = useState<{
     channelId: string;
     channelName: string;
@@ -300,14 +340,18 @@ export function CommunityServerPage() {
 
   const filteredChannelsByCategory = useMemo(() => {
     const q = channelSearch.trim().toLowerCase();
-    if (!q) return channelsByCategory;
+    const source = channelsByCategory;
     const map = new Map<string | null, CommunityGroup[]>();
-    for (const [key, list] of channelsByCategory) {
-      const filtered = list.filter((c) => c.name.toLowerCase().includes(q));
-      if (filtered.length > 0) map.set(key, filtered);
+    for (const [key, list] of source) {
+      let visible = list;
+      if (isMember && !canConfigure) {
+        visible = list.filter((c) => channelPermsById.get(c.id)?.view !== false);
+      }
+      if (q) visible = visible.filter((c) => c.name.toLowerCase().includes(q));
+      if (visible.length > 0) map.set(key, visible);
     }
     return map;
-  }, [channelsByCategory, channelSearch]);
+  }, [channelsByCategory, channelSearch, isMember, canConfigure, channelPermsById]);
 
   const active = channels.find((g) => g.id === channelId) ?? null;
 
@@ -318,6 +362,46 @@ export function CommunityServerPage() {
   );
 
   const roleById = useMemo(() => new Map(serverRoles.map((r) => [r.id, r])), [serverRoles]);
+  const myServerRoleForMe = useMemo(() => {
+    if (!user) return undefined;
+    const member = serverMembers.find((m) => m.userId === user.id);
+    if (!member) return undefined;
+    if (member.roleId) return roleById.get(member.roleId);
+    return serverRoles.find((r) => r.isEveryone);
+  }, [user, serverMembers, serverRoles, roleById]);
+  const canInviteMembers = Boolean(
+    isOwner ||
+      canConfigure ||
+      myServerRoleForMe?.canInviteUsers ||
+      myServerRoleForMe?.canManageServer,
+  );
+  const canPreviewServer = Boolean(
+    isMember ||
+      canConfigure ||
+      server?.isPublic ||
+      server?.isOfficial ||
+      server?.joinMode === "invite",
+  );
+  const mustAcceptRules = Boolean(isMember && server?.rules?.trim() && !rulesAcceptedAt);
+
+  useEffect(() => {
+    if (!isMember || channels.length === 0) {
+      setChannelPermsById(new Map());
+      return;
+    }
+    let cancelled = false;
+    void batchLoadResolvedChannelPermissions(
+      serverId ?? "",
+      channels.map((c) => ({ id: c.id, categoryId: c.categoryId })),
+      myServerRoleForMe ?? null,
+      { isAppOwner: isOwner, canConfigure },
+    ).then((perms) => {
+      if (!cancelled) setChannelPermsById(perms);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [channels, isMember, myServerRoleForMe, isOwner, canConfigure, serverId]);
   const myCommunityProfile = user ? memberProfiles.get(user.id) ?? null : null;
   const onlineUserIds = useServerPresence(serverId, user?.id);
   const channelNames = useMemo(() => new Map(channels.map((c) => [c.id, c.name])), [channels]);
@@ -327,11 +411,15 @@ export function CommunityServerPage() {
 
   useEffect(() => {
     if (loading || !serverId || channels.length === 0 || channelId) return;
+    const visibleChannels = isMember && !canConfigure
+      ? channels.filter((c) => channelPermsById.get(c.id)?.view !== false)
+      : channels;
     const first =
-      channels.find((c) => orderedCategories[0] && c.categoryId === orderedCategories[0].id) ??
-      channels[0];
-    navigate(`/community/s/${serverId}/${first.id}`, { replace: true });
-  }, [loading, channels, channelId, navigate, orderedCategories, serverId]);
+      visibleChannels.find(
+        (c) => orderedCategories[0] && c.categoryId === orderedCategories[0].id,
+      ) ?? visibleChannels[0];
+    if (first) navigate(`/community/s/${serverId}/${first.id}`, { replace: true });
+  }, [loading, channels, channelId, navigate, orderedCategories, serverId, isMember, canConfigure, channelPermsById]);
 
   useEffect(() => {
     if (!isMember) return;
@@ -410,6 +498,19 @@ export function CommunityServerPage() {
     return <EmptyState title="Server not found" description="Pick a server from Community." />;
   }
 
+  if (!loading && server && !canPreviewServer) {
+    return (
+      <CommunityDiscordShell pane="server" activeServerId={serverId} onAdd={() => setAddOpen(true)}>
+        <div className="flex flex-1 items-center justify-center p-8">
+          <EmptyState
+            title="Private server"
+            description="This server is invite-only. You need an invite to view it."
+          />
+        </div>
+      </CommunityDiscordShell>
+    );
+  }
+
   return (
     <CommunityDiscordShell
       pane="server"
@@ -428,29 +529,19 @@ export function CommunityServerPage() {
                   ? () => setModal({ type: "create-channel", categoryId: categories[0]?.id ?? null })
                   : undefined
               }
-              onInvite={isMember ? () => setInviteOpen(true) : undefined}
+              onInvite={canInviteMembers ? () => setInviteOpen(true) : undefined}
               onSearch={isMember ? () => setServerSearchOpen(true) : undefined}
             />
           )}
-          {!isMember && server && (server.isPublic || server.isOfficial || server.joinMode === "invite") && (
-            <div className="shrink-0 border-b border-[var(--community-border)] bg-[var(--community-channel-hover)] px-3 py-2">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-[0.75rem] text-muted">
-                  {joinRequestStatus === "pending"
-                    ? "Join request pending."
-                    : server.joinMode === "invite"
-                      ? "Invite-only — enter a code to join."
-                      : "Previewing — join to chat."}
-                </p>
-                <Button
-                  size="sm"
-                  disabled={joining || !user || joinRequestStatus === "pending"}
-                  onClick={() => void tryJoin()}
-                >
-                  {joining ? "…" : joinLabel}
-                </Button>
-              </div>
-            </div>
+          {!isMember && server && canPreviewServer && (
+            <ServerPreviewBanner
+              server={server}
+              joinRequestStatus={joinRequestStatus}
+              joining={joining}
+              user={user}
+              joinLabel={joinLabel}
+              onJoin={() => void tryJoin()}
+            />
           )}
           <CommunityScrollBody className="px-2 py-2 pt-3">{sidebar}</CommunityScrollBody>
           {user && (
@@ -472,9 +563,9 @@ export function CommunityServerPage() {
               serverName={server.name}
               channelName={active?.name}
               canManageChannel={canManageActiveChannel}
-              memberCount={serverMembers.length}
+              memberCount={isMember ? serverMembers.length : (server.memberCount ?? 0)}
               onOpenChannels={() => setMobileNavOpen(true)}
-              onOpenMembers={() => setMemberDrawerOpen(true)}
+              onOpenMembers={isMember ? () => setMemberDrawerOpen(true) : undefined}
               onOpenChannelSettings={
                 active
                   ? () => setModal({ type: "edit-channel", channel: active })
@@ -491,7 +582,7 @@ export function CommunityServerPage() {
 
           {loading ? (
             <p className="p-6 text-muted">Loading server…</p>
-          ) : active && user && server ? (
+          ) : active && user && server && !mustAcceptRules ? (
             <ChannelRoom
               group={active}
               serverId={server.id}
@@ -628,6 +719,19 @@ export function CommunityServerPage() {
         }
       >
         <div className="px-2 py-2">
+          {!isMember && server && canPreviewServer && (
+            <ServerPreviewBanner
+              server={server}
+              joinRequestStatus={joinRequestStatus}
+              joining={joining}
+              user={user}
+              joinLabel={joinLabel}
+              onJoin={() => {
+                void tryJoin();
+                setMobileNavOpen(false);
+              }}
+            />
+          )}
           <label className="relative mb-2 block">
             <IconSearch
               size={14}
@@ -645,7 +749,7 @@ export function CommunityServerPage() {
       </CommunityDrawer>
 
       <CommunityMemberDrawer
-        open={memberDrawerOpen}
+        open={memberDrawerOpen && isMember}
         onClose={() => setMemberDrawerOpen(false)}
         members={serverMembers}
         memberProfiles={memberProfiles}
@@ -1352,6 +1456,10 @@ function ChannelRoom({
   }, [group.id, isVoice, isMember, userId]);
 
   const toggleVoice = async () => {
+    if (!channelPerms?.connect) {
+      setError("You do not have permission to connect to this voice channel.");
+      return;
+    }
     const channel = voiceChannelRef.current;
     if (!channel) return;
     if (joinedVoice) {
@@ -1488,7 +1596,7 @@ function ChannelRoom({
                 Voice lounge — join to show you&apos;re here. Live audio uses your device mic when
                 you connect (library communities can hang out while reading).
               </p>
-              {isMember && (
+              {isMember && channelPerms?.connect !== false && (
                 <Button className="mt-4" variant={joinedVoice ? "secondary" : "primary"} onClick={() => void toggleVoice()}>
                   {joinedVoice ? "Leave voice" : "Join voice"}
                 </Button>

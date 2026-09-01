@@ -188,6 +188,7 @@ export interface CommunityServerMember {
   roleName: string;
   roleColor: string;
   rolePosition: number;
+  roleHoist: boolean;
   displayName: string | null;
   communityUsername: string | null;
   joinedAt: string;

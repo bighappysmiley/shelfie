@@ -1,5 +1,4 @@
 import { supabase } from "./supabase";
-import { getActiveLibraryId } from "./library-storage";
 import { compressCover } from "./cover-upload";
 import type {
   CommunityCategory,
@@ -29,6 +28,8 @@ import { normalizeGroupKind } from "./community-types";
 import { getBoostLevel } from "./pro";
 import { bumpCommunityRail } from "./community-events";
 import { isBlockedImageFile, moderateImageContent, moderateTextContent } from "./content-moderation";
+import { getChannelNotificationLevel } from "./community-notification-prefs";
+import { loadResolvedChannelPermissions } from "./community-permissions";
 
 function normalizeDescription(value: string | null | undefined): string | null {
   if (value == null) return null;
@@ -652,6 +653,41 @@ export async function updateServer(
 
   const { error } = await supabase.from("community_servers").update(row).eq("id", serverId);
   if (error) throw error;
+
+  if (patch.rules !== undefined || patch.rulesChannelId !== undefined) {
+    await syncServerRulesToChannel(serverId);
+  }
+}
+
+export async function syncServerRulesToChannel(serverId: string): Promise<void> {
+  const server = await getServer(serverId);
+  if (!server?.rulesChannelId || !server.rules?.trim()) return;
+
+  const rulesBody = `**Server Rules**\n\n${server.rules.trim()}`;
+  const { data: existing } = await supabase
+    .from("community_messages")
+    .select("id")
+    .eq("group_id", server.rulesChannelId)
+    .eq("kind", "system")
+    .ilike("body", "%Server Rules%")
+    .limit(1)
+    .maybeSingle();
+
+  if (existing?.id) {
+    await supabase
+      .from("community_messages")
+      .update({ body: rulesBody, edited_at: new Date().toISOString() })
+      .eq("id", existing.id as string);
+    return;
+  }
+
+  await supabase.from("community_messages").insert({
+    group_id: server.rulesChannelId,
+    author_id: null,
+    body: rulesBody,
+    kind: "system",
+    author_name: "Server",
+  });
 }
 
 /** App owner: set ordered list of official server ids. */
@@ -825,13 +861,9 @@ export async function regenerateServerInviteCode(serverId: string): Promise<stri
   return code;
 }
 
-export async function leaveServer(serverId: string, userId: string): Promise<void> {
-  const { error } = await supabase
-    .from("community_server_members")
-    .delete()
-    .eq("server_id", serverId)
-    .eq("user_id", userId);
-  if (error) throw error;
+export async function leaveServer(serverId: string, _userId: string): Promise<void> {
+  const { error } = await supabase.rpc("leave_community_server", { p_server_id: serverId });
+  if (error) throw new Error(rpcErrorMessage(error, "Could not leave server"));
   try {
     await recomputeServerScore(serverId);
   } catch {
@@ -995,16 +1027,15 @@ export async function uploadCommunityImage(
   const token = session.session?.access_token;
   if (!token) throw new Error("Sign in to upload");
 
-  const libraryId = getActiveLibraryId();
-  if (!libraryId) throw new Error("Select a library first");
+  const endpoint = "/api/community/covers";
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  };
 
-  const res = await fetch("/api/covers", {
+  const res = await fetch(endpoint, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      "X-Library-Id": libraryId,
-    },
+    headers,
     body: JSON.stringify({ image: dataUrl, mediaType }),
   });
   if (!res.ok) {
@@ -1152,6 +1183,7 @@ export async function createCommunityGroup(input: {
   kind?: CommunityGroupKind;
   categoryId?: string | null;
   userId: string;
+  slowModeSeconds?: number;
 }): Promise<CommunityGroup> {
   const categoryId = input.categoryId ?? null;
   const kind = input.kind ?? "text";
@@ -1181,6 +1213,7 @@ export async function createCommunityGroup(input: {
       position: nextPos,
       icon: "hash",
       created_by: input.userId,
+      slow_mode_seconds: Math.max(0, input.slowModeSeconds ?? 0),
     })
     .select("*")
     .single();
@@ -1404,6 +1437,9 @@ export async function sendGroupMessage(input: {
 
   if (!input.skipAutomod) {
     await assertContentAllowed(input.serverId, trimmed);
+    await assertSlowMode(input.groupId, input.userId);
+    await assertSendAllowed(input.serverId, input.groupId, input.userId);
+    await assertMentionsAllowed(input.serverId, input.groupId, input.userId, trimmed);
   }
 
   const { data, error } = await supabase
@@ -1470,7 +1506,7 @@ export async function toggleMessageReaction(
 export async function listServerMembers(serverId: string): Promise<CommunityServerMember[]> {
   const { data, error } = await supabase
     .from("community_server_members")
-    .select("user_id, role_id, joined_at, community_server_roles(name, color, position)")
+    .select("user_id, role_id, joined_at, community_server_roles(name, color, position, hoist)")
     .eq("server_id", serverId)
     .order("joined_at");
   if (error) throw error;
@@ -1496,8 +1532,8 @@ export async function listServerMembers(serverId: string): Promise<CommunityServ
   return (data ?? [])
     .map((m) => {
       const role = m.community_server_roles as
-        | { name: string; color: string; position: number }
-        | { name: string; color: string; position: number }[]
+        | { name: string; color: string; position: number; hoist: boolean }
+        | { name: string; color: string; position: number; hoist: boolean }[]
         | null;
       const roleObj = Array.isArray(role) ? role[0] : role;
       const profile = profileByUser.get(m.user_id as string);
@@ -1507,6 +1543,7 @@ export async function listServerMembers(serverId: string): Promise<CommunityServ
         roleName: roleObj?.name ?? "Member",
         roleColor: roleObj?.color ?? "#6B7280",
         rolePosition: roleObj?.position ?? 100,
+        roleHoist: roleObj?.hoist ?? false,
         displayName: profile?.displayName ?? null,
         communityUsername: profile?.username ?? null,
         joinedAt: m.joined_at as string,
@@ -1716,15 +1753,14 @@ export async function shouldModerateCommunityImage(
   if (filter === "disabled") return false;
   if (filter === "all") return true;
 
-  const roleId = await getMyServerRoleId(serverId, userId);
-  if (!roleId) return true;
-
-  const { data: role } = await supabase
-    .from("community_server_roles")
-    .select("is_everyone")
-    .eq("id", roleId)
-    .maybeSingle();
-  return Boolean(role?.is_everyone);
+  const role = await getServerRoleForMember(serverId, userId);
+  if (!role) return true;
+  return !(
+    role.canManageServer ||
+    role.canManageChannels ||
+    role.canModerate ||
+    role.canManageMessages
+  );
 }
 
 export async function updateSuggestionStatus(
@@ -1874,6 +1910,7 @@ export async function listUnreadCounts(
 
   await Promise.all(
     groupIds.map(async (gid) => {
+      if (getChannelNotificationLevel(userId, gid) === "mute") return;
       const readAt = lastRead.get(gid) ?? "1970-01-01T00:00:00Z";
       const { count, error } = await supabase
         .from("community_messages")
@@ -1927,6 +1964,83 @@ export async function listPinnedMessages(groupId: string): Promise<CommunityMess
     .map((id) => byId.get(id))
     .filter(Boolean)
     .map((row) => mapMessage(row as MessageRow));
+}
+
+async function assertSlowMode(groupId: string, userId: string): Promise<void> {
+  const { data: group, error } = await supabase
+    .from("community_groups")
+    .select("slow_mode_seconds")
+    .eq("id", groupId)
+    .maybeSingle();
+  if (error) throw error;
+
+  const seconds = (group?.slow_mode_seconds as number | null) ?? 0;
+  if (seconds <= 0) return;
+
+  const { data: last } = await supabase
+    .from("community_messages")
+    .select("created_at")
+    .eq("group_id", groupId)
+    .eq("author_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!last?.created_at) return;
+  const elapsed = Date.now() - new Date(last.created_at as string).getTime();
+  if (elapsed < seconds * 1000) {
+    const wait = Math.ceil((seconds * 1000 - elapsed) / 1000);
+    throw new Error(`Slow mode is on. Wait ${wait}s before sending again.`);
+  }
+}
+
+async function assertSendAllowed(
+  serverId: string,
+  channelId: string,
+  userId: string,
+): Promise<void> {
+  const { data: group } = await supabase
+    .from("community_groups")
+    .select("category_id")
+    .eq("id", channelId)
+    .maybeSingle();
+
+  const role = await getServerRoleForMember(serverId, userId);
+  const perms = await loadResolvedChannelPermissions(
+    serverId,
+    channelId,
+    (group?.category_id as string | null) ?? null,
+    role,
+  );
+  if (!perms.sendMessages) {
+    throw new Error("You do not have permission to send messages in this channel.");
+  }
+}
+
+async function assertMentionsAllowed(
+  serverId: string,
+  channelId: string,
+  userId: string,
+  body: string,
+): Promise<void> {
+  if (!/@everyone|@here/i.test(body)) return;
+
+  const { data: group } = await supabase
+    .from("community_groups")
+    .select("category_id")
+    .eq("id", channelId)
+    .maybeSingle();
+
+  const role = await getServerRoleForMember(serverId, userId);
+  const perms = await loadResolvedChannelPermissions(
+    serverId,
+    channelId,
+    (group?.category_id as string | null) ?? null,
+    role,
+  );
+  if (!perms.mentionEveryone) {
+    throw new Error("You do not have permission to mention @everyone or @here in this channel.");
+  }
 }
 
 async function assertContentAllowed(serverId: string, body: string): Promise<void> {

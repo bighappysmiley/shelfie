@@ -9,14 +9,17 @@ import {
   uploadCommunityImage,
 } from "@/lib/community";
 import type { CommunityServerEmoji } from "@/lib/community-types";
+import { getEmojiSlotLimit } from "@/lib/pro";
 
 export function EmojiTab({
   serverId,
   userId,
+  boostCount = 0,
   onError,
 }: {
   serverId: string;
   userId: string;
+  boostCount?: number;
   onError: (msg: string) => void;
 }) {
   const [emoji, setEmoji] = useState<CommunityServerEmoji[]>([]);
@@ -36,9 +39,15 @@ export function EmojiTab({
     void refresh();
   }, [serverId]);
 
+  const slotLimit = getEmojiSlotLimit(boostCount);
+
   const onUpload = async (file: File) => {
     if (!name.trim()) {
       onError("Enter an emoji name first (e.g. shelf_wave)");
+      return;
+    }
+    if (emoji.length >= slotLimit) {
+      onError(`Emoji limit reached (${slotLimit}). Boost the server to unlock more slots.`);
       return;
     }
     setBusy(true);
@@ -58,7 +67,8 @@ export function EmojiTab({
   return (
     <div className="max-w-2xl space-y-4">
       <p className="text-[0.875rem] text-muted">
-        Upload custom emoji for this server. Members can type <code className="text-foreground">:name:</code> in chat.
+        Upload custom emoji for this server ({emoji.length}/{slotLimit} slots). Members can type{" "}
+        <code className="text-foreground">:name:</code> in chat.
       </p>
 
       <div className="flex flex-wrap items-end gap-3">

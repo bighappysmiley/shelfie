@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ButtonLink } from "@/components/Button";
 import { CommunityDrawer } from "@/components/CommunityDrawer";
 import { CommunityAvatar, ProBadge } from "@/components/community/CommunityAvatar";
 import { AuthedImage } from "@/components/AuthedImage";
 import { getCommunityProfile, getCommunityProfileByUsername, communityProfileLabel } from "@/lib/community-profile";
+import { openDmThread } from "@/lib/community-dms";
 import type { CommunityProfile } from "@/lib/community-types";
+import { Button } from "@/components/Button";
 
 export function CommunityProfileModal({
   open,
@@ -20,6 +22,7 @@ export function CommunityProfileModal({
   username?: string | null;
   isSelf?: boolean;
 }) {
+  const navigate = useNavigate();
   const [profile, setProfile] = useState<CommunityProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -111,6 +114,21 @@ export function CommunityProfileModal({
             )}
 
             <div className="flex flex-wrap gap-2">
+              {!isSelf && profile.userId && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    void (async () => {
+                      const threadId = await openDmThread(profile.userId);
+                      onClose();
+                      navigate(`/community/dm/${threadId}`);
+                    })();
+                  }}
+                >
+                  Message
+                </Button>
+              )}
               {profile.communityUsername && (
                   <Link
                     to={`/community/u/${profile.communityUsername}`}

@@ -9,6 +9,10 @@ function isDirectImageSrc(src: string): boolean {
   );
 }
 
+function isAuthedApiImage(src: string): boolean {
+  return src.startsWith("/api/covers") || src.startsWith("/api/community/covers");
+}
+
 /** Renders /api/covers (and similar) URLs with auth headers. */
 export function AuthedImage({
   src,
@@ -27,6 +31,10 @@ export function AuthedImage({
 
     const run = async () => {
       if (isDirectImageSrc(src)) {
+        setResolved(src);
+        return;
+      }
+      if (!isAuthedApiImage(src)) {
         setResolved(src);
         return;
       }

@@ -52,7 +52,7 @@ function MemberRow({
   );
 }
 
-function MemberGroup({
+function MemberSection({
   title,
   members,
   memberProfiles,
@@ -69,18 +69,6 @@ function MemberGroup({
   onlineUserIds: Set<string>;
   onOpenProfile?: (target: { userId?: string; username?: string | null }) => void;
 }) {
-  const grouped = useMemo(() => {
-    const map = new Map<string, CommunityServerMember[]>();
-    for (const m of members) {
-      const list = map.get(m.roleName) ?? [];
-      list.push(m);
-      map.set(m.roleName, list);
-    }
-    return [...map.entries()].sort(
-      (a, b) => (a[1][0]?.rolePosition ?? 100) - (b[1][0]?.rolePosition ?? 100),
-    );
-  }, [members]);
-
   if (members.length === 0) return null;
 
   return (
@@ -88,23 +76,16 @@ function MemberGroup({
       <p className="mb-1 px-2 text-xs font-semibold uppercase tracking-wide text-muted">
         {title} — {members.length}
       </p>
-      {grouped.map(([roleName, roleMembers]) => (
-        <div key={roleName} className="mb-2">
-          <p className="mb-0.5 px-2 text-xs font-semibold uppercase tracking-wide text-muted/80">
-            {roleName} — {roleMembers.length}
-          </p>
-          {roleMembers.map((m) => (
-            <MemberRow
-              key={m.userId}
-              member={m}
-              profile={memberProfiles?.get(m.userId)}
-              serverBoosters={serverBoosters}
-              appOwnerUserIds={appOwnerUserIds}
-              online={onlineUserIds.has(m.userId)}
-              onOpenProfile={onOpenProfile}
-            />
-          ))}
-        </div>
+      {members.map((m) => (
+        <MemberRow
+          key={m.userId}
+          member={m}
+          profile={memberProfiles?.get(m.userId)}
+          serverBoosters={serverBoosters}
+          appOwnerUserIds={appOwnerUserIds}
+          online={onlineUserIds.has(m.userId)}
+          onOpenProfile={onOpenProfile}
+        />
       ))}
     </div>
   );
@@ -138,14 +119,33 @@ export function MemberListPanel({
     });
   }, [members, query]);
 
-  const onlineMembers = useMemo(
-    () => filtered.filter((m) => onlineUserIds.has(m.userId)),
-    [filtered, onlineUserIds],
-  );
-  const offlineMembers = useMemo(
-    () => filtered.filter((m) => !onlineUserIds.has(m.userId)),
-    [filtered, onlineUserIds],
-  );
+  const { hoistedSections, onlineMembers, offlineMembers } = useMemo(() => {
+    const hoisted = filtered.filter((m) => m.roleHoist);
+    const nonHoisted = filtered.filter((m) => !m.roleHoist);
+
+    const roleOrder = new Map<string, number>();
+    for (const m of hoisted) {
+      const key = m.roleId ?? m.roleName;
+      const pos = roleOrder.get(key);
+      if (pos === undefined || m.rolePosition < pos) roleOrder.set(key, m.rolePosition);
+    }
+
+    const hoistedRoleKeys = [...new Set(hoisted.map((m) => m.roleId ?? m.roleName))].sort(
+      (a, b) => (roleOrder.get(a) ?? 100) - (roleOrder.get(b) ?? 100),
+    );
+
+    const hoistedSections = hoistedRoleKeys.map((key) => {
+      const roleMembers = hoisted.filter((m) => (m.roleId ?? m.roleName) === key);
+      const title = roleMembers[0]?.roleName ?? "Members";
+      return { key, title, members: roleMembers };
+    });
+
+    return {
+      hoistedSections,
+      onlineMembers: nonHoisted.filter((m) => onlineUserIds.has(m.userId)),
+      offlineMembers: nonHoisted.filter((m) => !onlineUserIds.has(m.userId)),
+    };
+  }, [filtered, onlineUserIds]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -166,7 +166,19 @@ export function MemberListPanel({
         </div>
       )}
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
-        <MemberGroup
+        {hoistedSections.map((section) => (
+          <MemberSection
+            key={section.key}
+            title={section.title}
+            members={section.members}
+            memberProfiles={memberProfiles}
+            serverBoosters={serverBoosters}
+            appOwnerUserIds={appOwnerUserIds}
+            onlineUserIds={onlineUserIds}
+            onOpenProfile={onOpenProfile}
+          />
+        ))}
+        <MemberSection
           title="Online"
           members={onlineMembers}
           memberProfiles={memberProfiles}
@@ -175,7 +187,7 @@ export function MemberListPanel({
           onlineUserIds={onlineUserIds}
           onOpenProfile={onOpenProfile}
         />
-        <MemberGroup
+        <MemberSection
           title="Offline"
           members={offlineMembers}
           memberProfiles={memberProfiles}

@@ -4,9 +4,9 @@ import { useAuth } from "@/lib/auth";
 import { listMyServers, listServerUnreadTotals } from "@/lib/community";
 import type { CommunityServer } from "@/lib/community-types";
 import { AuthedImage } from "@/components/AuthedImage";
-import { IconCompass, IconHome, IconList, IconPlus } from "@/components/Icons";
+import { IconCompass, IconHome, IconList, IconPlus, IconChat } from "@/components/Icons";
 
-export type CommunityPane = "list" | "discover" | "server";
+export type CommunityPane = "list" | "discover" | "server" | "dm";
 
 function ServerGlyph({
   server,
@@ -166,6 +166,10 @@ export function CommunityDiscordShell({
           <IconList size={24} />
         </RailButton>
 
+        <RailButton label="Direct messages" active={pane === "dm"} onClick={() => navigate("/community/dm")}>
+          <IconChat size={24} />
+        </RailButton>
+
         <div className="mx-auto my-2 h-0.5 w-8 rounded-full bg-[var(--community-border)]" />
 
         {servers.map((s) => (
@@ -208,6 +212,16 @@ export function CommunityDiscordShell({
           >
             <IconList size={20} />
             Servers
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate("/community/dm")}
+            className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[0.625rem] font-medium ${
+              pane === "dm" ? "text-[var(--accent)]" : "text-muted"
+            }`}
+          >
+            <IconChat size={20} />
+            Messages
           </button>
           <button
             type="button"

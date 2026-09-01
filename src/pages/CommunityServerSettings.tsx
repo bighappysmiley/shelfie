@@ -539,7 +539,7 @@ export function CommunityServerSettingsPage() {
           )}
 
           {tab === "emoji" && user && (
-            <EmojiTab serverId={serverId} userId={user.id} onError={setError} />
+            <EmojiTab serverId={serverId} userId={user.id} boostCount={server?.boostCount ?? 0} onError={setError} />
           )}
 
           {tab === "stickers" && user && (

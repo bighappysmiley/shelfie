@@ -9,10 +9,10 @@ export const CHANNEL_KIND_ORDER: CommunityGroupKind[] = [
 ];
 
 export const CHANNEL_KIND_DESCRIPTIONS: Record<CommunityGroupKind, string> = {
-  text: "Send messages, images, GIFs, emoji, opinions, and puns",
+  text: "Send messages, images, emoji, and formatted text",
   announcement: "Important updates — only people with permission can post",
   forum: "Create posts and threads for organized discussions",
-  voice: "Hang out together with voice, video, and screen share",
+  voice: "Voice chat (presence only — audio coming soon)",
 };
 
 export function canPostInChannelKind(

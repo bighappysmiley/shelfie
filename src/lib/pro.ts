@@ -103,6 +103,14 @@ export function canShowProfileRing(opts: {
   return isProEnabled(opts) || Boolean(opts.isServerBooster);
 }
 
+export function getEmojiSlotLimit(boostLevel: number): number {
+  const level = getBoostLevel(boostLevel);
+  if (level >= 3) return 250;
+  if (level >= 2) return 100;
+  if (level >= 1) return 75;
+  return 50;
+}
+
 export function profileRingClass(ring: string | null | undefined): string | null {
   const normalized = normalizeProfileRing(ring);
   if (!normalized) return null;

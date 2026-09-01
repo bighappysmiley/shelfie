@@ -213,6 +213,65 @@ export async function clearPermissionOverride(
   if (error) throw error;
 }
 
+export async function batchLoadResolvedChannelPermissions(
+  _serverId: string,
+  channels: Array<{ id: string; categoryId: string | null }>,
+  role: CommunityServerRole | null,
+  opts?: { isAppOwner?: boolean; canConfigure?: boolean },
+): Promise<Map<string, ResolvedChannelPermissions>> {
+  const map = new Map<string, ResolvedChannelPermissions>();
+  const elevated = Boolean(opts?.isAppOwner || opts?.canConfigure);
+  if (elevated) {
+    const all: ResolvedChannelPermissions = {
+      view: true,
+      sendMessages: true,
+      manageMessages: true,
+      manageChannel: true,
+      connect: true,
+      mentionEveryone: true,
+    };
+    for (const ch of channels) map.set(ch.id, all);
+    return map;
+  }
+
+  const categoryIds = [...new Set(channels.map((c) => c.categoryId).filter(Boolean))] as string[];
+  const channelIds = channels.map((c) => c.id);
+
+  const [categoryResult, channelResult] = await Promise.all([
+    categoryIds.length > 0
+      ? supabase
+          .from("community_permission_overrides")
+          .select("*")
+          .eq("target_type", "category")
+          .in("target_id", categoryIds)
+      : Promise.resolve({ data: [] as OverrideRow[], error: null }),
+    channelIds.length > 0
+      ? supabase
+          .from("community_permission_overrides")
+          .select("*")
+          .eq("target_type", "channel")
+          .in("target_id", channelIds)
+      : Promise.resolve({ data: [] as OverrideRow[], error: null }),
+  ]);
+
+  const categoryOverrides = ((categoryResult.data ?? []) as OverrideRow[]).map(mapOverride);
+  const channelOverrides = ((channelResult.data ?? []) as OverrideRow[]).map(mapOverride);
+
+  for (const ch of channels) {
+    const categoryOverride = role
+      ? categoryOverrides.find((o) => o.targetId === ch.categoryId && o.roleId === role.id)
+      : undefined;
+    const channelOverride = role
+      ? channelOverrides.find((o) => o.targetId === ch.id && o.roleId === role.id)
+      : undefined;
+    map.set(
+      ch.id,
+      resolveChannelPermissions({ role, categoryOverride, channelOverride }),
+    );
+  }
+  return map;
+}
+
 export async function loadResolvedChannelPermissions(
   _serverId: string,
   channelId: string,

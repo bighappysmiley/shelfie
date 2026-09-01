@@ -39,7 +39,7 @@ export type MarkdownContext = {
 const URL_RE =
   /https?:\/\/[^\s<>)}\]]+/gi;
 const IMAGE_URL_RE =
-  /^(https?:\/\/[^\s]+\.(?:png|jpe?g|gif|webp|avif)(?:\?[^\s]*)?|data:image\/[^\s]+|\/api\/covers\?[^\s]+)$/i;
+  /^(https?:\/\/[^\s]+\.(?:png|jpe?g|gif|webp|avif)(?:\?[^\s]*)?|data:image\/[^\s]+|\/api\/(?:community\/)?covers\?[^\s]+)$/i;
 const MARKDOWN_IMAGE_RE = /^!\[[^\]]*\]\(([^)]+)\)$/;
 
 export function isRenderableImageUrl(url: string): boolean {
@@ -52,7 +52,9 @@ export function extractImageUrl(line: string): string | null {
   if (IMAGE_URL_RE.test(trimmed)) return trimmed;
   const markdown = MARKDOWN_IMAGE_RE.exec(trimmed);
   if (markdown?.[1] && IMAGE_URL_RE.test(markdown[1].trim())) return markdown[1].trim();
-  if (markdown?.[1]?.startsWith("/api/covers")) return markdown[1].trim();
+  if (markdown?.[1]?.startsWith("/api/covers") || markdown?.[1]?.startsWith("/api/community/covers")) {
+    return markdown[1].trim();
+  }
   return null;
 }
 

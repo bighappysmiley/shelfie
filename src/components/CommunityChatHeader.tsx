@@ -15,7 +15,7 @@ export function CommunityChatHeader({
   canManageChannel?: boolean;
   memberCount: number;
   onOpenChannels: () => void;
-  onOpenMembers: () => void;
+  onOpenMembers?: () => void;
   onOpenChannelSettings?: () => void;
 }) {
   const inChannel = Boolean(channelName);
@@ -49,7 +49,7 @@ export function CommunityChatHeader({
           <IconSettings size={18} />
         </button>
       )}
-      {memberCount > 0 && (
+      {memberCount > 0 && onOpenMembers && (
         <button
           type="button"
           onClick={onOpenMembers}
