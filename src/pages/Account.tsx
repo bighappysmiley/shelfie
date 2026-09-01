@@ -20,6 +20,8 @@ export function AccountPage() {
   const navigate = useNavigate();
 
   const [displayName, setDisplayName] = useState("");
+  const [communityUsername, setCommunityUsername] = useState("");
+  const [communityDisplayName, setCommunityDisplayName] = useState("");
   const [profilePhone, setProfilePhone] = useState("");
   const [require2fa, setRequire2fa] = useState(false);
   const [preferredAuth, setPreferredAuth] = useState<PreferredAuth>("email");
@@ -30,6 +32,8 @@ export function AccountPage() {
   useEffect(() => {
     if (userProfile) {
       setDisplayName(userProfile.displayName ?? "");
+      setCommunityUsername(userProfile.communityUsername ?? "");
+      setCommunityDisplayName(userProfile.communityDisplayName ?? "");
       setProfilePhone(userProfile.phone ?? "");
       setRequire2fa(userProfile.require2fa);
       setPreferredAuth(userProfile.preferredAuth);
@@ -42,6 +46,8 @@ export function AccountPage() {
     try {
       await updateProfile({
         displayName: displayName.trim() || null,
+        communityUsername: communityUsername.trim() || null,
+        communityDisplayName: communityDisplayName.trim() || null,
         phone: profilePhone.trim() || null,
         require2fa,
         preferredAuth,
@@ -76,7 +82,7 @@ export function AccountPage() {
               label="Your Name"
               grouped
               required
-              hint="Shown to teammates in shared libraries"
+              hint="Shown to teammates in shared libraries (not your Community handle)"
               placeholder="e.g. Alex Morgan"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
@@ -84,6 +90,31 @@ export function AccountPage() {
             <ListRow title="Email" trailing={user?.email ?? "—"} />
             <ListRow title="Phone" trailing={userProfile?.phone ?? user?.phone ?? "Not set"} />
           </Group>
+        </section>
+
+        <section>
+          <GroupHeader>Community identity</GroupHeader>
+          <Group>
+            <TextField
+              label="Community display name"
+              grouped
+              hint="How you appear in chats — separate from your library/team name"
+              placeholder="e.g. Alex"
+              value={communityDisplayName}
+              onChange={(e) => setCommunityDisplayName(e.target.value)}
+            />
+            <TextField
+              label="@username"
+              grouped
+              hint="Unique handle (3–24 chars: letters, numbers, _)"
+              placeholder="alex_reads"
+              value={communityUsername}
+              onChange={(e) => setCommunityUsername(e.target.value.replace(/\s/g, ""))}
+            />
+          </Group>
+          <GroupFooter>
+            Library name stays on Library Settings. Community uses @username + display name above.
+          </GroupFooter>
         </section>
 
         <section>

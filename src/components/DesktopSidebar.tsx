@@ -1,11 +1,12 @@
 import { NavLink } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { useLibrary } from "@/lib/library";
-import { isDarkMode, setDarkMode } from "@/lib/theme";
+import { isDarkMode, getThemePreference, setThemePreference, type ThemePreference } from "@/lib/theme";
 import { useEffect, useState } from "react";
 import { Logo } from "./Logo";
 import { LibrarySwitcher } from "./LibrarySwitcher";
 import { UserAvatar, userDisplayName } from "./UserAvatar";
+import { SegmentedControl } from "./layout";
 import {
   IconBell,
   IconChat,
@@ -77,10 +78,22 @@ function NavItem({
 export function DesktopSidebar() {
   const { user, userProfile, isStaff } = useAuth();
   const { pendingInvites } = useLibrary();
+  const [themePref, setThemePref] = useState<ThemePreference>(getThemePreference);
   const [isDark, setIsDark] = useState(isDarkMode);
 
   useEffect(() => {
-    setIsDark(isDarkMode());
+    const sync = () => {
+      setThemePref(getThemePreference());
+      setIsDark(isDarkMode());
+    };
+    sync();
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    mq.addEventListener("change", sync);
+    window.addEventListener("pine-theme-change", sync);
+    return () => {
+      mq.removeEventListener("change", sync);
+      window.removeEventListener("pine-theme-change", sync);
+    };
   }, []);
 
   const displayName = userDisplayName(userProfile?.displayName, user?.email, user?.phone);
@@ -138,18 +151,24 @@ export function DesktopSidebar() {
             </p>
           </div>
         </NavLink>
-        <label className="flex cursor-pointer items-center justify-between gap-3 rounded-[var(--radius-control)] px-2 py-2 text-[0.875rem] text-muted hover:bg-fill-secondary">
-          <span>Dark mode</span>
-          <input
-            type="checkbox"
-            className="h-4 w-4 accent-[var(--accent)]"
-            checked={isDark}
-            onChange={(e) => {
-              setDarkMode(e.target.checked);
-              setIsDark(e.target.checked);
+        <div className="px-2 py-2">
+          <p className="mb-1.5 px-1 text-[0.75rem] text-muted">
+            Appearance{themePref === "system" ? (isDark ? " · Dark" : " · Light") : ""}
+          </p>
+          <SegmentedControl
+            value={themePref}
+            onChange={(v) => {
+              setThemePreference(v);
+              setThemePref(v);
+              setIsDark(isDarkMode());
             }}
+            options={[
+              { value: "light", label: "Light" },
+              { value: "system", label: "Auto" },
+              { value: "dark", label: "Dark" },
+            ]}
           />
-        </label>
+        </div>
       </div>
     </aside>
   );

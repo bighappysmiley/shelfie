@@ -12,6 +12,10 @@ import { supabase } from "./supabase";
 import type { StaffMember } from "./support-types";
 import type { PreferredAuth, UserProfile } from "./library-types";
 import { normalizePhone } from "./library-storage";
+import {
+  isValidCommunityUsername,
+  normalizeCommunityUsername,
+} from "./community-identity";
 
 export const APP_URL = "https://shelfielibrary.netlify.app";
 
@@ -42,6 +46,8 @@ type AuthContextValue = {
   refreshProfile: () => Promise<void>;
   updateProfile: (patch: {
     displayName?: string | null;
+    communityUsername?: string | null;
+    communityDisplayName?: string | null;
     phone?: string | null;
     require2fa?: boolean;
     preferredAuth?: PreferredAuth;
@@ -62,7 +68,9 @@ async function loadStaffProfile(email: string): Promise<StaffMember | null> {
 async function fetchUserProfile(userId: string): Promise<UserProfile | null> {
   const { data } = await supabase
     .from("user_profiles")
-    .select("user_id, display_name, phone, require_2fa, preferred_auth")
+    .select(
+      "user_id, display_name, community_username, community_display_name, phone, require_2fa, preferred_auth",
+    )
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -71,6 +79,8 @@ async function fetchUserProfile(userId: string): Promise<UserProfile | null> {
   return {
     userId: data.user_id,
     displayName: data.display_name,
+    communityUsername: (data.community_username as string | null) ?? null,
+    communityDisplayName: (data.community_display_name as string | null) ?? null,
     phone: data.phone,
     require2fa: data.require_2fa,
     preferredAuth: data.preferred_auth as PreferredAuth,
@@ -140,6 +150,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateProfile = useCallback(
     async (patch: {
       displayName?: string | null;
+      communityUsername?: string | null;
+      communityDisplayName?: string | null;
       phone?: string | null;
       require2fa?: boolean;
       preferredAuth?: PreferredAuth;
@@ -154,12 +166,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (patch.displayName !== undefined) {
         row.display_name = patch.displayName?.trim() || null;
       }
+      if (patch.communityUsername !== undefined) {
+        const raw = patch.communityUsername?.trim() || null;
+        if (raw) {
+          const username = normalizeCommunityUsername(raw);
+          if (!isValidCommunityUsername(username)) {
+            throw new Error(
+              "Username must be 3–24 characters: letters, numbers, and underscores only.",
+            );
+          }
+          row.community_username = username;
+        } else {
+          row.community_username = null;
+        }
+      }
+      if (patch.communityDisplayName !== undefined) {
+        row.community_display_name = patch.communityDisplayName?.trim() || null;
+      }
       if (patch.phone !== undefined) row.phone = patch.phone ? normalizePhone(patch.phone) : null;
       if (patch.require2fa !== undefined) row.require_2fa = patch.require2fa;
       if (patch.preferredAuth !== undefined) row.preferred_auth = patch.preferredAuth;
 
       const { error } = await supabase.from("user_profiles").upsert(row);
-      if (error) throw error;
+      if (error) {
+        if (error.code === "23505" || /unique|duplicate/i.test(error.message)) {
+          throw new Error("That @username is already taken. Try another.");
+        }
+        throw error;
+      }
 
       if (patch.phone && patch.phone !== data.user.phone) {
         const { error: phoneErr } = await supabase.auth.updateUser({
@@ -175,6 +209,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           patch.displayName !== undefined
             ? patch.displayName?.trim() || null
             : prev?.displayName ?? null,
+        communityUsername:
+          patch.communityUsername !== undefined
+            ? patch.communityUsername
+              ? patch.communityUsername.trim().replace(/^@+/, "").toLowerCase()
+              : null
+            : prev?.communityUsername ?? null,
+        communityDisplayName:
+          patch.communityDisplayName !== undefined
+            ? patch.communityDisplayName?.trim() || null
+            : prev?.communityDisplayName ?? null,
         phone:
           patch.phone !== undefined
             ? patch.phone

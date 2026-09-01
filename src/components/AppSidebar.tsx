@@ -3,9 +3,14 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { useLibrary } from "@/lib/library";
 import { useSidebar } from "@/lib/sidebar";
-import { isDarkMode, setDarkMode } from "@/lib/theme";
+import {
+  getThemePreference,
+  isDarkMode,
+  setThemePreference,
+  type ThemePreference,
+} from "@/lib/theme";
 import { UserAvatar, userDisplayName } from "@/components/UserAvatar";
-import { ToggleRow } from "@/components/layout";
+import { SegmentedControl } from "@/components/layout";
 import { IconBell, IconChat, IconCommunity, IconUser, IconX } from "@/components/Icons";
 
 function SidebarButton({
@@ -49,6 +54,7 @@ export function AppSidebar() {
   const { user, isStaff, userProfile } = useAuth();
   const { pendingInvites } = useLibrary();
   const navigate = useNavigate();
+  const [themePref, setThemePref] = useState<ThemePreference>(getThemePreference);
   const [isDark, setIsDark] = useState(isDarkMode);
 
   useEffect(() => {
@@ -64,6 +70,21 @@ export function AppSidebar() {
     };
   }, [open, closeSidebar]);
 
+  useEffect(() => {
+    const sync = () => {
+      setThemePref(getThemePreference());
+      setIsDark(isDarkMode());
+    };
+    sync();
+    window.addEventListener("pine-theme-change", sync);
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    mq.addEventListener("change", sync);
+    return () => {
+      window.removeEventListener("pine-theme-change", sync);
+      mq.removeEventListener("change", sync);
+    };
+  }, []);
+
   const displayName = userDisplayName(userProfile?.displayName, user?.email, user?.phone);
   const avatarLabel = userProfile?.displayName || user?.email || user?.phone || displayName;
   const subtitle = user?.email ?? user?.phone ?? "";
@@ -74,11 +95,6 @@ export function AppSidebar() {
   const goAccount = () => {
     closeSidebar();
     navigate("/account");
-  };
-
-  const toggleDark = (on: boolean) => {
-    setDarkMode(on);
-    setIsDark(on);
   };
 
   return (
@@ -176,8 +192,23 @@ export function AppSidebar() {
 
         <div className="flex-1" />
 
-        <div className="hairline-t px-1 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-1">
-          <ToggleRow label="Dark Mode" checked={isDark} onChange={toggleDark} />
+        <div className="hairline-t px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+          <p className="mb-1.5 text-[0.75rem] text-muted">
+            Appearance{themePref === "system" ? (isDark ? " · Dark" : " · Light") : ""}
+          </p>
+          <SegmentedControl
+            value={themePref}
+            onChange={(v) => {
+              setThemePreference(v);
+              setThemePref(v);
+              setIsDark(isDarkMode());
+            }}
+            options={[
+              { value: "light", label: "Light" },
+              { value: "system", label: "Auto" },
+              { value: "dark", label: "Dark" },
+            ]}
+          />
         </div>
       </aside>
     </div>

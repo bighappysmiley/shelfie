@@ -32,6 +32,10 @@ export type PreferredAuth = "email" | "phone" | "both";
 export interface UserProfile {
   userId: string;
   displayName: string | null;
+  /** Community @handle (unique). Separate from library team name. */
+  communityUsername: string | null;
+  /** Name shown in Community chats. Falls back to displayName when unset. */
+  communityDisplayName: string | null;
   phone: string | null;
   require2fa: boolean;
   preferredAuth: PreferredAuth;

@@ -96,7 +96,7 @@ function filterServers(list: CommunityServer[], q: string) {
 
 export function CommunityPage() {
   const navigate = useNavigate();
-  const { user, isOwner } = useAuth();
+  const { user, userProfile, isOwner } = useAuth();
   const { activeLibrary, libraries } = useLibrary();
 
   const [tab, setTab] = useState<"discover" | "official" | "mine">("discover");
@@ -244,6 +244,21 @@ export function CommunityPage() {
       {error && (
         <div className="mb-4">
           <FormError message={error} />
+        </div>
+      )}
+
+      {user && !userProfile?.communityUsername && (
+        <div className="mb-4">
+          <Banner>
+            <p className="font-medium">Set your Community identity</p>
+            <p className="mt-1 text-[0.875rem]">
+              Choose an @username and Community display name (separate from your library name) in{" "}
+              <Link to="/account" className="underline">
+                Account
+              </Link>
+              .
+            </p>
+          </Banner>
         </div>
       )}
 

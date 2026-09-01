@@ -55,6 +55,7 @@ import { TextField, TextArea, FormError } from "@/components/form";
 import { EmptyState, SegmentedControl } from "@/components/layout";
 import { AuthedImage } from "@/components/AuthedImage";
 import { IconChat, IconPlus, IconSettings, IconX } from "@/components/Icons";
+import { communityAuthorLabel, communityShortName } from "@/lib/community-identity";
 
 type Modal =
   | null
@@ -309,7 +310,8 @@ export function CommunityServerPage() {
               group={active}
               serverId={server.id}
               userId={user.id}
-              displayName={userProfile?.displayName?.trim() || user.email || "Member"}
+              displayName={communityShortName(userProfile, user.email)}
+              authorLabel={communityAuthorLabel(userProfile, user.email)}
               isAppOwner={Boolean(isOwner)}
               canConfigure={canConfigure}
               isMember={isMember}
@@ -561,7 +563,8 @@ function ChannelRoom({
   group,
   serverId,
   userId,
-  displayName,
+  displayName: _displayName,
+  authorLabel,
   isAppOwner,
   canConfigure,
   isMember,
@@ -574,6 +577,7 @@ function ChannelRoom({
   serverId: string;
   userId: string;
   displayName: string;
+  authorLabel: string;
   isAppOwner: boolean;
   canConfigure: boolean;
   isMember: boolean;
@@ -661,7 +665,7 @@ function ChannelRoom({
         userId,
         body: draft,
         kind,
-        authorName: displayName,
+        authorName: authorLabel,
       });
       setDraft("");
       await load();
