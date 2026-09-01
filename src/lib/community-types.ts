@@ -4,6 +4,9 @@ export type CommunityMessageKind = "chat" | "suggestion" | "system";
 export type SuggestionStatus = "open" | "accepted" | "declined" | "implemented";
 export type CommunityJoinMode = "open" | "request" | "invite";
 export type JoinRequestStatus = "pending" | "approved" | "rejected" | "cancelled";
+export type VerificationLevel = "none" | "low" | "medium" | "high";
+export type ExplicitContentFilter = "disabled" | "no_role" | "all";
+export type DefaultNotifications = "all" | "mentions";
 
 export interface CommunityServer {
   id: string;
@@ -28,6 +31,13 @@ export interface CommunityServer {
   isMember?: boolean;
   canManage?: boolean;
   myJoinRequestStatus?: JoinRequestStatus | null;
+  rules?: string | null;
+  welcomeMessage?: string | null;
+  verificationLevel?: VerificationLevel;
+  explicitContentFilter?: ExplicitContentFilter;
+  defaultNotifications?: DefaultNotifications;
+  systemChannelId?: string | null;
+  rulesChannelId?: string | null;
 }
 
 export interface CommunityJoinRequest {
@@ -53,8 +63,15 @@ export interface CommunityServerRole {
   canManageServer: boolean;
   canManageChannels: boolean;
   canModerate: boolean;
+  canKickMembers: boolean;
+  canBanMembers: boolean;
+  canManageMessages: boolean;
+  canInviteUsers: boolean;
+  hoist: boolean;
+  mentionable: boolean;
   isEveryone: boolean;
   createdAt: string;
+  memberCount?: number;
 }
 
 export interface CommunityCategory {
@@ -122,6 +139,27 @@ export interface CommunityServerMember {
   displayName: string | null;
   communityUsername: string | null;
   joinedAt: string;
+}
+
+export interface CommunityServerBan {
+  userId: string;
+  reason: string | null;
+  bannedBy: string | null;
+  createdAt: string;
+  displayName: string | null;
+  communityUsername: string | null;
+}
+
+export interface CommunityServerAuditEntry {
+  id: string;
+  serverId: string;
+  actorId: string | null;
+  action: string;
+  targetUserId: string | null;
+  targetLabel: string | null;
+  details: Record<string, unknown> | null;
+  createdAt: string;
+  actorName?: string | null;
 }
 
 export const MEMBER_ROLE_LABELS: Record<CommunityMemberRole, string> = {

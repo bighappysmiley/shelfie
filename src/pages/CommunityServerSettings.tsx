@@ -1,52 +1,51 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { useLibrary } from "@/lib/library";
 import {
-  archiveCommunityGroup,
-  createCommunityCategory,
-  createCommunityGroup,
-  createServerRole,
-  deleteCommunityCategory,
   deleteServer,
-  deleteServerRole,
+  getMyServerRoleId,
   getServer,
   listCommunityCategories,
   listCommunityGroups,
   listPendingJoinRequests,
-  listServerRoles,
+  listServerAuditLog,
+  listServerBans,
+  listServerMembers,
+  listServerRolesWithCounts,
   regenerateServerInviteCode,
-  renameCommunityCategory,
-  reviewJoinRequest,
-  updateCommunityGroup,
   updateServer,
-  updateServerRole,
   uploadCommunityImage,
 } from "@/lib/community";
-import {
-  KIND_LABELS,
-  type CommunityCategory,
-  type CommunityGroup,
-  type CommunityGroupKind,
-  type CommunityJoinMode,
-  type CommunityJoinRequest,
-  type CommunityServer,
-  type CommunityServerRole,
+import type {
+  CommunityCategory,
+  CommunityGroup,
+  CommunityJoinMode,
+  CommunityJoinRequest,
+  CommunityServer,
+  CommunityServerAuditEntry,
+  CommunityServerBan,
+  CommunityServerMember,
+  CommunityServerRole,
+  DefaultNotifications,
+  ExplicitContentFilter,
+  VerificationLevel,
 } from "@/lib/community-types";
-import {
-  encodeRoleColor,
-  parseRoleColor,
-  ROLE_COLOR_PRESETS,
-  roleColorStyle,
-  type RoleColorMode,
-} from "@/lib/role-color";
 import { Button } from "@/components/Button";
-import { TextField, TextArea, FormError, SelectField } from "@/components/form";
-import { EmptyState, PageHeader, SegmentedControl, ToggleRow } from "@/components/layout";
+import { TextField, TextArea, FormError } from "@/components/form";
+import { EmptyState, PageHeader, ToggleRow } from "@/components/layout";
 import { AuthedImage } from "@/components/AuthedImage";
-import { IconPlus, IconSettings, IconX } from "@/components/Icons";
-
-type SettingsTab = "overview" | "channels" | "roles" | "members" | "danger";
+import { InvitesTab } from "@/components/community-settings/InvitesTab";
+import { MembersTab } from "@/components/community-settings/MembersTab";
+import { ModerationTab } from "@/components/community-settings/ModerationTab";
+import {
+  ChannelsPanel,
+  JoinRequestsPanel,
+  RolesPanel,
+} from "@/components/community-settings/panels";
+import { SafetyTab } from "@/components/community-settings/SafetyTab";
+import { SettingsNav } from "@/components/community-settings/SettingsNav";
+import type { SettingsNavGroup, SettingsTab } from "@/components/community-settings/types";
 
 export function CommunityServerSettingsPage() {
   const { serverId } = useParams<{ serverId: string }>();
@@ -56,12 +55,22 @@ export function CommunityServerSettingsPage() {
 
   const [server, setServer] = useState<CommunityServer | null>(null);
   const [roles, setRoles] = useState<CommunityServerRole[]>([]);
+  const [members, setMembers] = useState<CommunityServerMember[]>([]);
+  const [bans, setBans] = useState<CommunityServerBan[]>([]);
+  const [auditLog, setAuditLog] = useState<CommunityServerAuditEntry[]>([]);
   const [categories, setCategories] = useState<CommunityCategory[]>([]);
   const [channels, setChannels] = useState<CommunityGroup[]>([]);
+  const [joinRequests, setJoinRequests] = useState<CommunityJoinRequest[]>([]);
+  const [myRoleId, setMyRoleId] = useState<string | null>(null);
+
   const [tab, setTab] = useState<SettingsTab>("overview");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [regenBusy, setRegenBusy] = useState(false);
+  const iconInput = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -70,67 +79,125 @@ export function CommunityServerSettingsPage() {
   const [isOfficial, setIsOfficial] = useState(false);
   const [joinMode, setJoinMode] = useState<CommunityJoinMode>("open");
   const [inviteCode, setInviteCode] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [regenBusy, setRegenBusy] = useState(false);
-  const [joinRequests, setJoinRequests] = useState<CommunityJoinRequest[]>([]);
-  const iconInput = useRef<HTMLInputElement>(null);
+  const [rules, setRules] = useState("");
+  const [welcomeMessage, setWelcomeMessage] = useState("");
+  const [verificationLevel, setVerificationLevel] = useState<VerificationLevel>("none");
+  const [explicitContentFilter, setExplicitContentFilter] = useState<ExplicitContentFilter>("disabled");
+  const [defaultNotifications, setDefaultNotifications] = useState<DefaultNotifications>("all");
+  const [systemChannelId, setSystemChannelId] = useState("");
+  const [rulesChannelId, setRulesChannelId] = useState("");
 
   const library = libraries.find((l) => l.id === server?.libraryId);
-  const canManage = Boolean(isOwner || library?.role === "owner");
+  const myRole = roles.find((r) => r.id === myRoleId);
+  const canManage = Boolean(
+    isOwner || library?.role === "owner" || myRole?.canManageServer || myRole?.name === "Owner",
+  );
+
+  const navGroups: SettingsNavGroup[] = useMemo(
+    () => [
+      {
+        label: "Server profile",
+        items: [{ id: "overview", label: "Overview" }],
+      },
+      {
+        label: "People",
+        items: [
+          { id: "members", label: "Members", badge: members.length },
+          { id: "roles", label: "Roles" },
+          {
+            id: "requests",
+            label: "Join requests",
+            badge: joinRequests.length,
+          },
+        ],
+      },
+      {
+        label: "Customization",
+        items: [{ id: "channels", label: "Channels" }],
+      },
+      {
+        label: "Engagement",
+        items: [
+          { id: "invites", label: "Invites" },
+          { id: "safety", label: "Safety & rules" },
+        ],
+      },
+      {
+        label: "Moderation",
+        items: [{ id: "moderation", label: "Bans & audit" }],
+      },
+      {
+        label: "Danger zone",
+        items: [{ id: "danger", label: "Delete server" }],
+      },
+    ],
+    [members.length, joinRequests.length],
+  );
+
+  const applyServer = useCallback((s: CommunityServer) => {
+    setServer(s);
+    setName(s.name);
+    setDescription(s.description ?? "");
+    setIconUrl(s.iconUrl);
+    setIsPublic(s.isPublic);
+    setIsOfficial(s.isOfficial);
+    setJoinMode(s.joinMode);
+    setInviteCode(s.inviteCode || "");
+    setRules(s.rules ?? "");
+    setWelcomeMessage(s.welcomeMessage ?? "");
+    setVerificationLevel(s.verificationLevel ?? "none");
+    setExplicitContentFilter(s.explicitContentFilter ?? "disabled");
+    setDefaultNotifications(s.defaultNotifications ?? "all");
+    setSystemChannelId(s.systemChannelId ?? "");
+    setRulesChannelId(s.rulesChannelId ?? "");
+  }, []);
 
   const refresh = useCallback(async () => {
     if (!serverId || !user) return;
     setError("");
     try {
-      const [s, r, cats, groups, requests] = await Promise.all([
+      const [s, r, mems, banList, audit, cats, groups, requests, roleId] = await Promise.all([
         getServer(serverId),
-        listServerRoles(serverId),
+        listServerRolesWithCounts(serverId),
+        listServerMembers(serverId),
+        listServerBans(serverId).catch(() => [] as CommunityServerBan[]),
+        listServerAuditLog(serverId).catch(() => [] as CommunityServerAuditEntry[]),
         listCommunityCategories(serverId),
-        listCommunityGroups(user!.id, serverId),
+        listCommunityGroups(user.id, serverId),
         listPendingJoinRequests(serverId).catch(() => [] as CommunityJoinRequest[]),
+        getMyServerRoleId(serverId, user.id),
       ]);
       if (!s) throw new Error("Server not found");
-      setServer(s);
+      applyServer(s);
       setRoles(r);
+      setMembers(mems);
+      setBans(banList);
+      setAuditLog(audit);
       setCategories(cats);
       setChannels(groups);
       setJoinRequests(requests);
-      setName(s.name);
-      setDescription(s.description ?? "");
-      setIconUrl(s.iconUrl);
-      setIsPublic(s.isPublic);
-      setIsOfficial(s.isOfficial);
-      setJoinMode(s.joinMode);
-      setInviteCode(s.inviteCode || "");
+      setMyRoleId(roleId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load settings");
     } finally {
       setLoading(false);
     }
-  }, [serverId, user]);
+  }, [serverId, user, applyServer]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
-  if (!serverId) {
-    return <EmptyState title="Server not found" />;
-  }
-
-  if (loading) {
-    return <p className="text-muted">Loading settings…</p>;
-  }
-
+  if (!serverId) return <EmptyState title="Server not found" />;
+  if (loading) return <p className="text-muted">Loading settings…</p>;
   if (!server) {
     return <EmptyState title="Server not found" description="It may have been deleted." />;
   }
-
   if (!canManage || !user) {
     return (
       <EmptyState
         title="Settings locked"
-        description="Only the library owner (or Pine Owner) can configure this server."
+        description="You need Manage Server permission or library ownership to configure this server."
         action={
           <Button variant="secondary" onClick={() => navigate(`/community/s/${serverId}`)}>
             Back to server
@@ -166,8 +233,7 @@ export function CommunityServerSettingsPage() {
     setUploading(true);
     setError("");
     try {
-      const url = await uploadCommunityImage(file);
-      setIconUrl(url);
+      setIconUrl(await uploadCommunityImage(file));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
@@ -187,21 +253,20 @@ export function CommunityServerSettingsPage() {
         }
       />
 
-      <div className="mb-5 overflow-x-auto">
-        <SegmentedControl
+      <div className="mb-4 overflow-x-auto lg:hidden">
+        <select
           value={tab}
-          onChange={setTab}
-          options={[
-            { value: "overview", label: "Overview" },
-            { value: "channels", label: "Channels" },
-            { value: "roles", label: "Roles" },
-            {
-              value: "members",
-              label: joinRequests.length > 0 ? `Requests (${joinRequests.length})` : "Requests",
-            },
-            { value: "danger", label: "Visibility" },
-          ]}
-        />
+          onChange={(e) => setTab(e.target.value as SettingsTab)}
+          className="w-full rounded-[var(--radius-control)] bg-fill px-3 py-2 text-[0.9375rem]"
+        >
+          {navGroups.flatMap((g) =>
+            g.items.map((item) => (
+              <option key={item.id} value={item.id}>
+                {g.label}: {item.label}
+              </option>
+            )),
+          )}
+        </select>
       </div>
 
       {error && (
@@ -213,1165 +278,250 @@ export function CommunityServerSettingsPage() {
         <p className="mb-4 text-[0.875rem] text-accent">Saved.</p>
       )}
 
-      {tab === "overview" && (
-        <form onSubmit={saveOverview} className="max-w-lg space-y-4">
-          <div className="flex items-center gap-4">
-            {iconUrl ? (
-              <AuthedImage src={iconUrl} className="h-16 w-16 rounded-2xl object-cover bg-fill" />
-            ) : (
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-accent/15 text-lg font-bold text-accent">
-                {name.slice(0, 2).toUpperCase() || "?"}
-              </div>
-            )}
-            <div>
-              <p className="mb-2 text-[0.8125rem] text-muted">Server icon</p>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  disabled={uploading}
-                  onClick={() => iconInput.current?.click()}
-                >
-                  {uploading ? "Uploading…" : iconUrl ? "Change" : "Upload"}
-                </Button>
-                {iconUrl && (
-                  <Button type="button" size="sm" variant="ghost" onClick={() => setIconUrl(null)}>
-                    Remove
-                  </Button>
-                )}
-              </div>
-              <input
-                ref={iconInput}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) void uploadIcon(f);
-                  e.target.value = "";
-                }}
-              />
-            </div>
-          </div>
-
-          <TextField label="Server name" value={name} onChange={(e) => setName(e.target.value)} required />
-          <TextArea
-            label="Description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={3}
-            hint="Shown in Discover and Official lists"
-          />
-
-          <div className="rounded-[var(--radius-group)] bg-fill px-4 py-3">
-            <p className="text-[0.8125rem] font-medium">Invite code</p>
-            <p className="mt-1 font-mono text-[1.125rem] tracking-wide">{inviteCode || "—"}</p>
-            <p className="mt-1 text-[0.75rem] text-muted">
-              Share this code so others can join from Community → + → Join a Server.
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                disabled={!inviteCode}
-                onClick={() => {
-                  if (inviteCode) void navigator.clipboard.writeText(inviteCode);
-                }}
-              >
-                Copy
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                disabled={regenBusy}
-                onClick={async () => {
-                  setRegenBusy(true);
-                  setError("");
-                  try {
-                    const next = await regenerateServerInviteCode(serverId);
-                    setInviteCode(next);
-                  } catch (err) {
-                    setError(err instanceof Error ? err.message : "Could not regenerate");
-                  } finally {
-                    setRegenBusy(false);
-                  }
-                }}
-              >
-                {regenBusy ? "…" : "Regenerate"}
-              </Button>
-            </div>
-          </div>
-
-          <Button type="submit" disabled={busy || !name.trim()}>
-            {busy ? "Saving…" : "Save changes"}
-          </Button>
-        </form>
-      )}
-
-      {tab === "channels" && (
-        <ChannelsPanel
-          serverId={serverId}
-          userId={user.id}
-          categories={categories}
-          channels={channels}
-          onChanged={refresh}
-          onError={setError}
-        />
-      )}
-
-      {tab === "roles" && (
-        <RolesPanel serverId={serverId} roles={roles} onChanged={refresh} onError={setError} />
-      )}
-
-      {tab === "members" && (
-        <JoinRequestsPanel
-          requests={joinRequests}
-          onChanged={refresh}
-          onError={setError}
-        />
-      )}
-
-      {tab === "danger" && (
-        <div className="max-w-lg space-y-4">
-          <ToggleRow
-            label="Public server"
-            hint="Anyone signed in can find this server in Discover (ranked by popularity)."
-            checked={isPublic}
-            onChange={setIsPublic}
-          />
-          {isOwner && (
-            <ToggleRow
-              label="Official server"
-              hint="Pins this server in the Official servers list. You can reorder Official servers from Community."
-              checked={isOfficial}
-              onChange={setIsOfficial}
-            />
-          )}
-
-          <div>
-            <p className="mb-2 text-[0.8125rem] font-medium text-muted">Who can join</p>
-            <div className="space-y-2">
-              {(
-                [
-                  ["open", "Open", "Anyone can join instantly from Discover"],
-                  ["request", "Join requests", "People request access; you approve in Requests"],
-                  ["invite", "Invite only", "Only invite codes work (best for private servers)"],
-                ] as const
-              ).map(([value, label, hint]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setJoinMode(value)}
-                  className={`flex w-full flex-col rounded-[var(--radius-group)] px-3 py-2.5 text-left ring-1 transition ${
-                    joinMode === value
-                      ? "bg-accent/10 ring-accent"
-                      : "bg-surface ring-black/[0.04] hover:bg-fill/50 dark:ring-white/[0.06]"
-                  }`}
-                >
-                  <span className="font-medium">{label}</span>
-                  <span className="text-[0.75rem] text-muted">{hint}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <Button
-            disabled={busy}
-            onClick={async () => {
-              setBusy(true);
-              setError("");
-              try {
-                await updateServer(serverId, {
-                  isPublic,
-                  isOfficial: isOwner ? isOfficial : undefined,
-                  joinMode,
-                });
-                setSaved(true);
-                await refresh();
-              } catch (err) {
-                setError(err instanceof Error ? err.message : "Could not save");
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            {busy ? "Saving…" : "Save visibility"}
-          </Button>
-          <div className="rounded-[var(--radius-group)] border border-destructive/30 bg-destructive-bg/40 p-4">
-            <p className="font-medium text-destructive">Delete server</p>
-            <p className="mt-1 text-[0.8125rem] text-muted">
-              Permanently removes this server, its channels, roles, and messages. The library itself
-              is not deleted.
-            </p>
-            <Button
-              className="mt-3"
-              variant="danger"
-              size="sm"
-              disabled={busy}
-              onClick={async () => {
-                if (!confirm(`Delete server “${server.name}”? This cannot be undone.`)) return;
-                setBusy(true);
-                try {
-                  await deleteServer(serverId);
-                  navigate("/community");
-                } catch (err) {
-                  setError(err instanceof Error ? err.message : "Could not delete");
-                  setBusy(false);
-                }
-              }}
-            >
-              Delete server
-            </Button>
-          </div>
-          <p className="text-[0.8125rem] text-muted">
-            Library:{" "}
-            <Link to="/settings" className="text-link">
-              {library?.name || server.libraryId}
-            </Link>
-          </p>
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+        <div className="hidden lg:block">
+          <SettingsNav groups={navGroups} tab={tab} onChange={setTab} />
         </div>
-      )}
-    </div>
-  );
-}
 
-function JoinRequestsPanel({
-  requests,
-  onChanged,
-  onError,
-}: {
-  requests: CommunityJoinRequest[];
-  onChanged: () => Promise<void>;
-  onError: (msg: string) => void;
-}) {
-  const [busyId, setBusyId] = useState<string | null>(null);
-
-  if (requests.length === 0) {
-    return (
-      <EmptyState
-        title="No pending requests"
-        description="When join mode is “Join requests”, new applicants show up here for approval."
-      />
-    );
-  }
-
-  return (
-    <div className="max-w-lg space-y-2">
-      <p className="mb-2 text-[0.875rem] text-muted">{requests.length} waiting for approval</p>
-      {requests.map((req) => (
-        <div
-          key={req.id}
-          className="flex items-center gap-3 rounded-[var(--radius-group)] bg-surface px-3 py-3 shadow-sm ring-1 ring-black/[0.04] dark:ring-white/[0.06]"
-        >
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-medium">{req.displayName || "Member"}</p>
-            {req.message && <p className="truncate text-[0.8125rem] text-muted">{req.message}</p>}
-            <p className="text-[0.6875rem] text-muted">{new Date(req.createdAt).toLocaleString()}</p>
-          </div>
-          <Button
-            size="sm"
-            disabled={busyId === req.id}
-            onClick={async () => {
-              setBusyId(req.id);
-              onError("");
-              try {
-                await reviewJoinRequest(req.id, true);
-                await onChanged();
-              } catch (err) {
-                onError(err instanceof Error ? err.message : "Could not approve");
-              } finally {
-                setBusyId(null);
-              }
-            }}
-          >
-            Approve
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={busyId === req.id}
-            onClick={async () => {
-              setBusyId(req.id);
-              onError("");
-              try {
-                await reviewJoinRequest(req.id, false);
-                await onChanged();
-              } catch (err) {
-                onError(err instanceof Error ? err.message : "Could not reject");
-              } finally {
-                setBusyId(null);
-              }
-            }}
-          >
-            Reject
-          </Button>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ChannelsPanel({
-  serverId,
-  userId,
-  categories,
-  channels,
-  onChanged,
-  onError,
-}: {
-  serverId: string;
-  userId: string;
-  categories: CommunityCategory[];
-  channels: CommunityGroup[];
-  onChanged: () => Promise<void>;
-  onError: (msg: string) => void;
-}) {
-  const [newCategory, setNewCategory] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [editor, setEditor] = useState<
-    | null
-    | { type: "channel"; channel?: CommunityGroup; categoryId: string | null }
-    | { type: "rename-category"; category: CommunityCategory }
-  >(null);
-
-  const orderedCategories = useMemo(
-    () =>
-      [...categories].sort((a, b) => {
-        if (a.isOfficial !== b.isOfficial) return a.isOfficial ? -1 : 1;
-        return a.position - b.position || a.name.localeCompare(b.name);
-      }),
-    [categories],
-  );
-
-  const byCategory = useMemo(() => {
-    const map = new Map<string | null, CommunityGroup[]>();
-    for (const ch of channels) {
-      const key = ch.categoryId;
-      const list = map.get(key) ?? [];
-      list.push(ch);
-      map.set(key, list);
-    }
-    for (const list of map.values()) {
-      list.sort((a, b) => a.position - b.position || a.name.localeCompare(b.name));
-    }
-    return map;
-  }, [channels]);
-
-  const uncategorized = byCategory.get(null) ?? [];
-
-  return (
-    <div className="max-w-2xl space-y-4">
-      <p className="text-[0.875rem] text-muted">
-        Organize this server like Discord — categories hold channels. Official category channels are
-        pinned for all members.
-      </p>
-
-      <div className="flex gap-2">
-        <input
-          value={newCategory}
-          onChange={(e) => setNewCategory(e.target.value)}
-          placeholder="New category name"
-          className="min-w-0 flex-1 rounded-[var(--radius-control)] bg-fill px-3 py-2.5 text-[0.9375rem]"
-        />
-        <Button
-          size="sm"
-          disabled={!newCategory.trim() || busy}
-          onClick={async () => {
-            setBusy(true);
-            onError("");
-            try {
-              await createCommunityCategory({
-                serverId,
-                name: newCategory.trim(),
-                userId,
-              });
-              setNewCategory("");
-              await onChanged();
-            } catch (err) {
-              onError(err instanceof Error ? err.message : "Could not create category");
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          <IconPlus size={16} />
-          Category
-        </Button>
-      </div>
-
-      <div className="space-y-3">
-        {orderedCategories.map((cat) => {
-          const list = byCategory.get(cat.id) ?? [];
-          return (
-            <div
-              key={cat.id}
-              className="rounded-[var(--radius-group)] bg-surface p-3 shadow-sm ring-1 ring-black/[0.04] dark:ring-white/[0.06]"
-            >
-              <div className="mb-2 flex items-center gap-2">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[0.6875rem] font-bold uppercase tracking-wider text-muted">
-                    {cat.isOfficial ? "📌 " : ""}
-                    {cat.name}
-                  </p>
+        <div className="min-w-0 flex-1">
+          {tab === "overview" && (
+            <form onSubmit={saveOverview} className="max-w-lg space-y-4">
+              <div className="grid gap-3 rounded-[var(--radius-group)] bg-fill p-4 sm:grid-cols-3">
+                <div>
+                  <p className="text-[0.75rem] text-muted">Members</p>
+                  <p className="text-[1.25rem] font-semibold">{server.memberCount}</p>
                 </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setEditor({ type: "channel", categoryId: cat.id })}
-                >
-                  <IconPlus size={14} />
-                  Channel
-                </Button>
-                {!cat.isOfficial && (
-                  <>
-                    <button
-                      type="button"
-                      className="rounded p-1.5 text-muted hover:bg-fill hover:text-foreground"
-                      title="Rename category"
-                      onClick={() => setEditor({ type: "rename-category", category: cat })}
-                    >
-                      <IconSettings size={16} />
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded px-2 py-1 text-[0.75rem] text-destructive hover:bg-destructive-bg"
-                      onClick={async () => {
-                        if (
-                          !confirm(
-                            `Delete category “${cat.name}”? Channels inside should be moved or archived first if needed.`,
-                          )
-                        ) {
-                          return;
-                        }
-                        try {
-                          await deleteCommunityCategory(cat.id);
-                          await onChanged();
-                        } catch (err) {
-                          onError(err instanceof Error ? err.message : "Could not delete");
-                        }
-                      }}
-                    >
-                      Delete
-                    </button>
-                  </>
-                )}
+                <div>
+                  <p className="text-[0.75rem] text-muted">Messages</p>
+                  <p className="text-[1.25rem] font-semibold">{server.messageCount}</p>
+                </div>
+                <div>
+                  <p className="text-[0.75rem] text-muted">Activity</p>
+                  <p className="text-[1.25rem] font-semibold">{Math.round(server.activityScore)}</p>
+                </div>
               </div>
 
-              {list.length === 0 ? (
-                <p className="px-1 py-2 text-[0.8125rem] text-muted">No channels yet</p>
-              ) : (
-                <ul className="space-y-1">
-                  {list.map((ch) => (
-                    <li
-                      key={ch.id}
-                      className="flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-fill/60"
+              <div className="flex items-center gap-4">
+                {iconUrl ? (
+                  <AuthedImage src={iconUrl} className="h-16 w-16 rounded-2xl object-cover bg-fill" />
+                ) : (
+                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-accent/15 text-lg font-bold text-accent">
+                    {name.slice(0, 2).toUpperCase() || "?"}
+                  </div>
+                )}
+                <div>
+                  <p className="mb-2 text-[0.8125rem] text-muted">Server icon</p>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      disabled={uploading}
+                      onClick={() => iconInput.current?.click()}
                     >
-                      <span className="text-muted">#</span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium">{ch.name}</p>
-                        <p className="truncate text-[0.75rem] text-muted">
-                          {KIND_LABELS[ch.kind]}
-                          {ch.topic ? ` · ${ch.topic}` : ""}
-                          {ch.isOfficial ? " · Official" : ""}
-                        </p>
-                      </div>
-                      <Link
-                        to={`/community/s/${serverId}/${ch.id}`}
-                        className="text-[0.75rem] text-link"
-                      >
-                        Open
-                      </Link>
-                      <button
-                        type="button"
-                        className="rounded p-1.5 text-muted hover:bg-fill hover:text-foreground"
-                        onClick={() =>
-                          setEditor({ type: "channel", channel: ch, categoryId: ch.categoryId })
-                        }
-                      >
-                        <IconSettings size={16} />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+                      {uploading ? "Uploading…" : iconUrl ? "Change" : "Upload"}
+                    </Button>
+                    {iconUrl && (
+                      <Button type="button" size="sm" variant="ghost" onClick={() => setIconUrl(null)}>
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                  <input
+                    ref={iconInput}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) void uploadIcon(f);
+                      e.target.value = "";
+                    }}
+                  />
+                </div>
+              </div>
+
+              <TextField label="Server name" value={name} onChange={(e) => setName(e.target.value)} required />
+              <TextArea
+                label="Description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+                hint="Shown in Discover and Official lists"
+              />
+
+              {isOwner && (
+                <ToggleRow
+                  label="Official server"
+                  hint="Pins in the Official servers list on Discover"
+                  checked={isOfficial}
+                  onChange={setIsOfficial}
+                />
               )}
-            </div>
-          );
-        })}
 
-        {uncategorized.length > 0 && (
-          <div className="rounded-[var(--radius-group)] bg-surface p-3 shadow-sm ring-1 ring-black/[0.04] dark:ring-white/[0.06]">
-            <p className="mb-2 text-[0.6875rem] font-bold uppercase tracking-wider text-muted">
-              Uncategorized
-            </p>
-            <ul className="space-y-1">
-              {uncategorized.map((ch) => (
-                <li key={ch.id} className="flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-fill/60">
-                  <span className="text-muted">#</span>
-                  <p className="min-w-0 flex-1 truncate font-medium">{ch.name}</p>
-                  <button
-                    type="button"
-                    className="rounded p-1.5 text-muted hover:bg-fill"
-                    onClick={() =>
-                      setEditor({ type: "channel", channel: ch, categoryId: ch.categoryId })
-                    }
-                  >
-                    <IconSettings size={16} />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
+              <p className="text-[0.8125rem] text-muted">
+                Created {new Date(server.createdAt).toLocaleDateString()} · Library:{" "}
+                <Link to="/settings" className="text-link">
+                  {library?.name || server.libraryId}
+                </Link>
+              </p>
 
-      {orderedCategories.length === 0 && (
-        <EmptyState
-          title="No categories"
-          description="Create a category, then add channels under it."
-        />
-      )}
+              <Button type="submit" disabled={busy || !name.trim()}>
+                {busy ? "Saving…" : "Save profile"}
+              </Button>
+            </form>
+          )}
 
-      {editor?.type === "channel" && (
-        <ChannelEditorModal
-          serverId={serverId}
-          userId={userId}
-          categories={orderedCategories}
-          channel={editor.channel}
-          defaultCategoryId={editor.categoryId}
-          onClose={() => setEditor(null)}
-          onSaved={async () => {
-            setEditor(null);
-            await onChanged();
-          }}
-          onError={onError}
-        />
-      )}
+          {tab === "members" && (
+            <MembersTab
+              serverId={serverId}
+              members={members}
+              roles={roles}
+              currentUserId={user.id}
+              onChanged={refresh}
+              onError={setError}
+            />
+          )}
 
-      {editor?.type === "rename-category" && (
-        <RenameCategoryModal
-          category={editor.category}
-          onClose={() => setEditor(null)}
-          onSaved={async () => {
-            setEditor(null);
-            await onChanged();
-          }}
-          onError={onError}
-        />
-      )}
-    </div>
-  );
-}
+          {tab === "roles" && (
+            <RolesPanel serverId={serverId} roles={roles} onChanged={refresh} onError={setError} />
+          )}
 
-function ChannelEditorModal({
-  serverId,
-  userId,
-  categories,
-  channel,
-  defaultCategoryId,
-  onClose,
-  onSaved,
-  onError,
-}: {
-  serverId: string;
-  userId: string;
-  categories: CommunityCategory[];
-  channel?: CommunityGroup;
-  defaultCategoryId: string | null;
-  onClose: () => void;
-  onSaved: () => Promise<void>;
-  onError: (msg: string) => void;
-}) {
-  const editing = Boolean(channel);
-  const [name, setName] = useState(channel?.name ?? "");
-  const [topic, setTopic] = useState(channel?.topic ?? "");
-  const [description, setDescription] = useState(channel?.description ?? "");
-  const [kind, setKind] = useState<CommunityGroupKind>(channel?.kind ?? "chat");
-  const [categoryId, setCategoryId] = useState(channel?.categoryId ?? defaultCategoryId ?? "");
-  const [isOfficial, setIsOfficial] = useState(Boolean(channel?.isOfficial));
-  const [busy, setBusy] = useState(false);
+          {tab === "channels" && (
+            <ChannelsPanel
+              serverId={serverId}
+              userId={user.id}
+              categories={categories}
+              channels={channels}
+              onChanged={refresh}
+              onError={setError}
+            />
+          )}
 
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) return;
-    setBusy(true);
-    onError("");
-    try {
-      if (editing && channel) {
-        await updateCommunityGroup(channel.id, {
-          name: name.trim(),
-          topic: topic.trim() || null,
-          description: description.trim() || null,
-          kind,
-          categoryId: categoryId || null,
-          isOfficial,
-          serverId,
-        });
-      } else {
-        await createCommunityGroup({
-          serverId,
-          userId,
-          name: name.trim(),
-          topic: topic.trim() || undefined,
-          description: description.trim() || undefined,
-          kind,
-          categoryId: categoryId || null,
-          isOfficial,
-        });
-      }
-      await onSaved();
-    } catch (err) {
-      onError(err instanceof Error ? err.message : "Could not save channel");
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={onClose}>
-      <form
-        onClick={(e) => e.stopPropagation()}
-        onSubmit={submit}
-        className="w-full max-w-md space-y-3 rounded-t-2xl bg-surface p-5 shadow-xl sm:rounded-2xl"
-      >
-        <div className="flex items-center justify-between">
-          <h2 className="text-[1.125rem] font-semibold">{editing ? "Edit channel" : "Create channel"}</h2>
-          <button type="button" onClick={onClose} className="text-muted">
-            <IconX size={18} />
-          </button>
-        </div>
-        <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
-        <TextField label="Topic" value={topic} onChange={(e) => setTopic(e.target.value)} hint="Shown under the channel name" />
-        <TextArea label="Description" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
-        <SelectField label="Type" value={kind} onChange={(e) => setKind(e.target.value as CommunityGroupKind)}>
-          <option value="chat">Chat</option>
-          <option value="suggestions">Suggestions</option>
-          <option value="both">Chat & suggestions</option>
-        </SelectField>
-        <SelectField
-          label="Category"
-          value={categoryId}
-          onChange={(e) => setCategoryId(e.target.value)}
-          required={!isOfficial}
-        >
-          <option value="">Select…</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-              {c.isOfficial ? " (Official)" : ""}
-            </option>
-          ))}
-        </SelectField>
-        <ToggleRow
-          label="Official channel"
-          hint="Lives under the Official category and is visible to everyone"
-          checked={isOfficial}
-          onChange={(v) => {
-            setIsOfficial(v);
-            if (v) {
-              const official = categories.find((c) => c.isOfficial);
-              if (official) setCategoryId(official.id);
-            }
-          }}
-        />
-        <div className="flex flex-wrap justify-between gap-2 pt-1">
-          {editing && channel && (
-            <Button
-              type="button"
-              variant="danger"
-              size="sm"
-              disabled={busy}
-              onClick={async () => {
-                if (!confirm(`Archive #${channel.name}?`)) return;
-                setBusy(true);
+          {tab === "invites" && (
+            <InvitesTab
+              inviteCode={inviteCode}
+              joinMode={joinMode}
+              isPublic={isPublic}
+              regenBusy={regenBusy}
+              busy={busy}
+              onJoinModeChange={setJoinMode}
+              onPublicChange={setIsPublic}
+              onRegenerate={async () => {
+                setRegenBusy(true);
+                setError("");
                 try {
-                  await archiveCommunityGroup(channel.id);
-                  await onSaved();
+                  const next = await regenerateServerInviteCode(serverId);
+                  setInviteCode(next);
                 } catch (err) {
-                  onError(err instanceof Error ? err.message : "Could not archive");
-                  setBusy(false);
+                  setError(err instanceof Error ? err.message : "Could not regenerate");
+                } finally {
+                  setRegenBusy(false);
                 }
               }}
-            >
-              Archive
-            </Button>
-          )}
-          <div className="ml-auto flex gap-2">
-            <Button type="button" variant="ghost" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={busy || !name.trim()}>
-              {busy ? "Saving…" : editing ? "Save" : "Create"}
-            </Button>
-          </div>
-        </div>
-      </form>
-    </div>
-  );
-}
-
-function RenameCategoryModal({
-  category,
-  onClose,
-  onSaved,
-  onError,
-}: {
-  category: CommunityCategory;
-  onClose: () => void;
-  onSaved: () => Promise<void>;
-  onError: (msg: string) => void;
-}) {
-  const [name, setName] = useState(category.name);
-  const [busy, setBusy] = useState(false);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <form
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm space-y-3 rounded-2xl bg-surface p-5 shadow-xl"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          if (!name.trim()) return;
-          setBusy(true);
-          try {
-            await renameCommunityCategory(category.id, name.trim());
-            await onSaved();
-          } catch (err) {
-            onError(err instanceof Error ? err.message : "Could not rename");
-            setBusy(false);
-          }
-        }}
-      >
-        <h2 className="text-[1.125rem] font-semibold">Rename category</h2>
-        <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={busy || !name.trim()}>
-            {busy ? "Saving…" : "Save"}
-          </Button>
-        </div>
-      </form>
-    </div>
-  );
-}
-
-function RolesPanel({
-  serverId,
-  roles,
-  onChanged,
-  onError,
-}: {
-  serverId: string;
-  roles: CommunityServerRole[];
-  onChanged: () => Promise<void>;
-  onError: (msg: string) => void;
-}) {
-  const [selectedId, setSelectedId] = useState<string | null>(roles[0]?.id ?? null);
-  const [newName, setNewName] = useState("");
-  const [busy, setBusy] = useState(false);
-  const iconInput = useRef<HTMLInputElement>(null);
-
-  const selected = roles.find((r) => r.id === selectedId) ?? null;
-
-  const [editName, setEditName] = useState("");
-  const [editColor, setEditColor] = useState("#6B7280");
-  const [editIcon, setEditIcon] = useState<string | null>(null);
-  const [canManageServer, setCanManageServer] = useState(false);
-  const [canManageChannels, setCanManageChannels] = useState(false);
-  const [canModerate, setCanModerate] = useState(false);
-
-  useEffect(() => {
-    if (!selected) return;
-    setEditName(selected.name);
-    setEditColor(selected.color);
-    setEditIcon(selected.iconUrl);
-    setCanManageServer(selected.canManageServer);
-    setCanManageChannels(selected.canManageChannels);
-    setCanModerate(selected.canModerate);
-  }, [selected]);
-
-  useEffect(() => {
-    if (!selectedId && roles[0]) setSelectedId(roles[0].id);
-  }, [roles, selectedId]);
-
-  return (
-    <div className="grid gap-4 lg:grid-cols-[14rem_minmax(0,1fr)]">
-      <div className="space-y-1 rounded-[var(--radius-group)] bg-surface p-2 shadow-sm ring-1 ring-black/[0.04] dark:ring-white/[0.06]">
-        {roles.map((r) => (
-          <button
-            key={r.id}
-            type="button"
-            onClick={() => setSelectedId(r.id)}
-            className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[0.9375rem] ${
-              r.id === selectedId ? "bg-fill-secondary font-medium" : "hover:bg-fill"
-            }`}
-          >
-            <RoleBadge role={r} />
-            <span className="truncate" style={{ color: parseRoleColor(r.color).mode === "solid" ? r.color : undefined }}>
-              {r.name}
-            </span>
-          </button>
-        ))}
-        <div className="border-t border-black/[0.06] pt-2 dark:border-white/[0.08]">
-          <div className="flex gap-1">
-            <input
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="New role"
-              className="min-w-0 flex-1 rounded-[var(--radius-control)] bg-fill px-2 py-1.5 text-[0.8125rem]"
-            />
-            <button
-              type="button"
-              className="rounded-lg p-1.5 text-accent hover:bg-fill"
-              title="Add role"
-              disabled={!newName.trim() || busy}
-              onClick={async () => {
+              onSave={async () => {
                 setBusy(true);
-                onError("");
+                setError("");
                 try {
-                  const role = await createServerRole(serverId, { name: newName.trim() });
-                  setNewName("");
-                  await onChanged();
-                  setSelectedId(role.id);
+                  await updateServer(serverId, { isPublic, joinMode });
+                  await refresh();
                 } catch (err) {
-                  onError(err instanceof Error ? err.message : "Could not create role");
+                  setError(err instanceof Error ? err.message : "Could not save");
                 } finally {
                   setBusy(false);
                 }
               }}
-            >
-              <IconPlus size={16} />
-            </button>
-          </div>
-        </div>
-      </div>
+            />
+          )}
 
-      {selected ? (
-        <form
-          className="space-y-4 rounded-[var(--radius-group)] bg-surface p-4 shadow-sm ring-1 ring-black/[0.04] dark:ring-white/[0.06]"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            setBusy(true);
-            onError("");
-            try {
-              await updateServerRole(selected.id, {
-                name: editName,
-                color: editColor,
-                iconUrl: editIcon,
-                canManageServer,
-                canManageChannels,
-                canModerate,
-              });
-              await onChanged();
-            } catch (err) {
-              onError(err instanceof Error ? err.message : "Could not save role");
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => iconInput.current?.click()}
-              className="relative"
-              title="Upload role icon"
-            >
-              {editIcon ? (
-                <AuthedImage src={editIcon} className="h-12 w-12 rounded-full object-cover" />
-              ) : (
-                <div
-                  className="flex h-12 w-12 items-center justify-center rounded-full text-sm font-bold text-white"
-                  style={roleColorStyle(editColor)}
-                >
-                  {editName.slice(0, 1).toUpperCase() || "?"}
-                </div>
-              )}
-              <span className="absolute -bottom-1 -right-1 rounded-full bg-surface p-0.5 text-[0.625rem] text-muted ring-1 ring-black/10">
-                ✎
-              </span>
-            </button>
-            <input
-              ref={iconInput}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={async (e) => {
-                const f = e.target.files?.[0];
-                e.target.value = "";
-                if (!f) return;
+          {tab === "requests" && (
+            <JoinRequestsPanel requests={joinRequests} onChanged={refresh} onError={setError} />
+          )}
+
+          {tab === "safety" && (
+            <SafetyTab
+              server={server}
+              channels={channels}
+              rules={rules}
+              welcomeMessage={welcomeMessage}
+              verificationLevel={verificationLevel}
+              explicitContentFilter={explicitContentFilter}
+              defaultNotifications={defaultNotifications}
+              systemChannelId={systemChannelId}
+              rulesChannelId={rulesChannelId}
+              busy={busy}
+              onRulesChange={setRules}
+              onWelcomeChange={setWelcomeMessage}
+              onVerificationChange={setVerificationLevel}
+              onContentFilterChange={setExplicitContentFilter}
+              onNotificationsChange={setDefaultNotifications}
+              onSystemChannelChange={setSystemChannelId}
+              onRulesChannelChange={setRulesChannelId}
+              onSave={async () => {
+                setBusy(true);
+                setError("");
                 try {
-                  setEditIcon(await uploadCommunityImage(f));
+                  await updateServer(serverId, {
+                    rules,
+                    welcomeMessage,
+                    verificationLevel,
+                    explicitContentFilter,
+                    defaultNotifications,
+                    systemChannelId: systemChannelId || null,
+                    rulesChannelId: rulesChannelId || null,
+                  });
+                  await refresh();
                 } catch (err) {
-                  onError(err instanceof Error ? err.message : "Upload failed");
+                  setError(err instanceof Error ? err.message : "Could not save");
+                } finally {
+                  setBusy(false);
                 }
               }}
             />
-            <div className="min-w-0 flex-1">
-              <p className="font-semibold" style={
-                parseRoleColor(editColor).mode === "solid"
-                  ? { color: editColor }
-                  : ({
-                      ...roleColorStyle(editColor),
-                      WebkitBackgroundClip: "text",
-                      backgroundClip: "text",
-                      color: "transparent",
-                      WebkitTextFillColor: "transparent",
-                    } as CSSProperties)
-              }>
-                @{editName || "role"}
-              </p>
-              <p className="text-[0.75rem] text-muted">Role icon (optional upload)</p>
-              {editIcon && (
-                <button type="button" className="text-[0.75rem] text-link" onClick={() => setEditIcon(null)}>
-                  Remove icon
-                </button>
-              )}
-            </div>
-          </div>
+          )}
 
-          <TextField
-            label="Role name"
-            value={editName}
-            onChange={(e) => setEditName(e.target.value)}
-            disabled={selected.isEveryone}
-            required
-          />
-
-          <RoleColorPicker value={editColor} onChange={setEditColor} />
-
-          <div className="space-y-2">
-            <p className="text-[0.8125rem] font-medium text-muted">Permissions</p>
-            <ToggleRow
-              label="Manage server"
-              hint="Change settings, visibility, and roles"
-              checked={canManageServer}
-              onChange={setCanManageServer}
+          {tab === "moderation" && (
+            <ModerationTab
+              serverId={serverId}
+              bans={bans}
+              auditLog={auditLog}
+              onChanged={refresh}
+              onError={setError}
             />
-            <ToggleRow
-              label="Manage channels"
-              hint="Create and edit categories & channels"
-              checked={canManageChannels}
-              onChange={setCanManageChannels}
-            />
-            <ToggleRow
-              label="Moderate"
-              hint="Delete messages and review suggestions"
-              checked={canModerate}
-              onChange={setCanModerate}
-            />
-          </div>
+          )}
 
-          <div className="flex items-center gap-2">
-            {!selected.isEveryone && selected.name !== "Owner" && (
-              <button
-                type="button"
-                className="text-[0.875rem] text-destructive"
-                onClick={async () => {
-                  if (!confirm(`Delete role “${selected.name}”?`)) return;
-                  try {
-                    await deleteServerRole(selected.id);
-                    setSelectedId(null);
-                    await onChanged();
-                  } catch (err) {
-                    onError(err instanceof Error ? err.message : "Could not delete");
-                  }
-                }}
-              >
-                Delete role
-              </button>
-            )}
-            <div className="flex-1" />
-            <Button type="submit" disabled={busy || !editName.trim()}>
-              {busy ? "Saving…" : "Save role"}
-            </Button>
-          </div>
-        </form>
-      ) : (
-        <EmptyState title="Select a role" description="Or create a new one from the list." />
-      )}
-    </div>
-  );
-}
-
-function RoleColorPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const parsed = parseRoleColor(value);
-  const [mode, setMode] = useState<RoleColorMode>(parsed.mode);
-  const [solid, setSolid] = useState(parsed.mode === "solid" ? parsed.hex : "#8B5CF6");
-  const [stops, setStops] = useState<string[]>(
-    parsed.mode === "solid" ? ["#f97316", "#ec4899", "#8b5cf6"] : parsed.stops,
-  );
-
-  useEffect(() => {
-    const next = parseRoleColor(value);
-    setMode(next.mode);
-    if (next.mode === "solid") setSolid(next.hex);
-    else setStops(next.stops);
-  }, [value]);
-
-  const pushEncoded = (nextMode: RoleColorMode, nextSolid: string, nextStops: string[]) => {
-    if (nextMode === "solid") onChange(encodeRoleColor({ mode: "solid", hex: nextSolid }));
-    else if (nextMode === "gradient")
-      onChange(encodeRoleColor({ mode: "gradient", stops: nextStops }));
-    else onChange(encodeRoleColor({ mode: "holo", stops: nextStops }));
-  };
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-[0.8125rem] font-medium text-muted">Color</p>
-        <div
-          className="h-8 w-24 rounded-full ring-1 ring-black/10 dark:ring-white/15"
-          style={roleColorStyle(value, { animate: true })}
-          title="Preview"
-        />
-      </div>
-
-      <div className="flex flex-wrap gap-1.5">
-        {(
-          [
-            ["solid", "Solid"],
-            ["gradient", "Gradient"],
-            ["holo", "Holo"],
-          ] as const
-        ).map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => {
-              setMode(id);
-              pushEncoded(id, solid, stops);
-            }}
-            className={`rounded-full px-3 py-1 text-[0.8125rem] font-medium transition ${
-              mode === id ? "bg-accent text-accent-contrast" : "bg-fill text-muted hover:text-foreground"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        {ROLE_COLOR_PRESETS.map((preset) => (
-          <button
-            key={preset.label}
-            type="button"
-            title={preset.label}
-            onClick={() => onChange(preset.value)}
-            className="h-8 w-8 rounded-full ring-2 ring-offset-2 ring-offset-surface transition hover:scale-105"
-            style={{
-              ...roleColorStyle(preset.value),
-              boxShadow: value === preset.value ? "0 0 0 2px var(--accent)" : undefined,
-            }}
-          />
-        ))}
-      </div>
-
-      {mode === "solid" ? (
-        <label className="block text-[0.8125rem] text-muted">
-          Custom hex
-          <div className="mt-1 flex gap-2">
-            <input
-              type="color"
-              value={solid}
-              onChange={(e) => {
-                setSolid(e.target.value);
-                pushEncoded("solid", e.target.value, stops);
-              }}
-              className="h-10 w-14 cursor-pointer rounded-[var(--radius-control)] bg-fill"
-            />
-            <input
-              value={solid}
-              onChange={(e) => {
-                const v = e.target.value;
-                setSolid(v);
-                if (/^#[0-9a-fA-F]{6}$/.test(v)) pushEncoded("solid", v, stops);
-              }}
-              className="min-w-0 flex-1 rounded-[var(--radius-control)] bg-fill px-3 py-2 font-mono text-[0.9375rem]"
-            />
-          </div>
-        </label>
-      ) : (
-        <div className="space-y-2">
-          <p className="text-[0.75rem] text-muted">
-            {mode === "holo"
-              ? "Holo animates across these stops. Edit or add colors."
-              : "Gradient blends these stops. Need at least two."}
-          </p>
-          {stops.map((stop, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <input
-                type="color"
-                value={/^#[0-9a-fA-F]{6}$/.test(stop) ? stop : "#888888"}
-                onChange={(e) => {
-                  const next = [...stops];
-                  next[i] = e.target.value;
-                  setStops(next);
-                  pushEncoded(mode, solid, next);
-                }}
-                className="h-9 w-12 cursor-pointer rounded bg-fill"
-              />
-              <input
-                value={stop}
-                onChange={(e) => {
-                  const next = [...stops];
-                  next[i] = e.target.value;
-                  setStops(next);
-                  if (next.every((s) => /^#[0-9a-fA-F]{6}$/.test(s))) {
-                    pushEncoded(mode, solid, next);
-                  }
-                }}
-                className="min-w-0 flex-1 rounded-[var(--radius-control)] bg-fill px-2 py-1.5 font-mono text-[0.8125rem]"
-              />
-              {stops.length > 2 && (
-                <button
-                  type="button"
-                  className="text-[0.75rem] text-destructive"
-                  onClick={() => {
-                    const next = stops.filter((_, j) => j !== i);
-                    setStops(next);
-                    pushEncoded(mode, solid, next);
+          {tab === "danger" && (
+            <div className="max-w-lg">
+              <div className="rounded-[var(--radius-group)] border border-destructive/30 bg-destructive-bg/40 p-4">
+                <p className="font-medium text-destructive">Delete server</p>
+                <p className="mt-1 text-[0.8125rem] text-muted">
+                  Permanently removes this server, its channels, roles, members, and messages. The
+                  library itself is not deleted.
+                </p>
+                <Button
+                  className="mt-3"
+                  variant="danger"
+                  size="sm"
+                  disabled={busy}
+                  onClick={async () => {
+                    if (!confirm(`Delete server “${server.name}”? This cannot be undone.`)) return;
+                    setBusy(true);
+                    try {
+                      await deleteServer(serverId);
+                      navigate("/community");
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : "Could not delete");
+                      setBusy(false);
+                    }
                   }}
                 >
-                  Remove
-                </button>
-              )}
+                  Delete server
+                </Button>
+              </div>
             </div>
-          ))}
-          {stops.length < 6 && (
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              onClick={() => {
-                const next = [...stops, "#ffffff"];
-                setStops(next);
-                pushEncoded(mode, solid, next);
-              }}
-            >
-              <IconPlus size={14} />
-              Add stop
-            </Button>
           )}
         </div>
-      )}
+      </div>
     </div>
-  );
-}
-
-function RoleBadge({ role }: { role: CommunityServerRole }) {
-  if (role.iconUrl) {
-    return <AuthedImage src={role.iconUrl} className="h-6 w-6 rounded-full object-cover" />;
-  }
-  return (
-    <span
-      className="flex h-6 w-6 items-center justify-center rounded-full text-[0.625rem] font-bold text-white"
-      style={roleColorStyle(role.color)}
-    >
-      {role.name.slice(0, 1).toUpperCase()}
-    </span>
   );
 }

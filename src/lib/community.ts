@@ -12,10 +12,15 @@ import type {
   CommunityMessage,
   CommunityMessageKind,
   CommunityServer,
+  CommunityServerAuditEntry,
+  CommunityServerBan,
   CommunityServerMember,
   CommunityServerRole,
+  DefaultNotifications,
+  ExplicitContentFilter,
   JoinRequestStatus,
   SuggestionStatus,
+  VerificationLevel,
 } from "./community-types";
 import { bumpCommunityRail } from "./community-events";
 
@@ -37,6 +42,13 @@ type ServerRow = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  rules?: string | null;
+  welcome_message?: string | null;
+  verification_level?: string | null;
+  explicit_content_filter?: string | null;
+  default_notifications?: string | null;
+  system_channel_id?: string | null;
+  rules_channel_id?: string | null;
 };
 
 function generateInviteCode(): string {
@@ -63,6 +75,12 @@ type RoleRow = {
   can_manage_server: boolean;
   can_manage_channels: boolean;
   can_moderate: boolean;
+  can_kick_members?: boolean;
+  can_ban_members?: boolean;
+  can_manage_messages?: boolean;
+  can_invite_users?: boolean;
+  hoist?: boolean;
+  mentionable?: boolean;
   is_everyone: boolean;
   created_at: string;
 };
@@ -105,6 +123,20 @@ type MessageRow = {
   created_at: string;
 };
 
+function normalizeVerificationLevel(raw: string | null | undefined): VerificationLevel {
+  if (raw === "low" || raw === "medium" || raw === "high") return raw;
+  return "none";
+}
+
+function normalizeContentFilter(raw: string | null | undefined): ExplicitContentFilter {
+  if (raw === "no_role" || raw === "all") return raw;
+  return "disabled";
+}
+
+function normalizeDefaultNotifications(raw: string | null | undefined): DefaultNotifications {
+  return raw === "mentions" ? "mentions" : "all";
+}
+
 function mapServer(row: ServerRow, extra?: Partial<CommunityServer>): CommunityServer {
   return {
     id: row.id,
@@ -124,6 +156,13 @@ function mapServer(row: ServerRow, extra?: Partial<CommunityServer>): CommunityS
     createdBy: row.created_by,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    rules: row.rules ?? null,
+    welcomeMessage: row.welcome_message ?? null,
+    verificationLevel: normalizeVerificationLevel(row.verification_level),
+    explicitContentFilter: normalizeContentFilter(row.explicit_content_filter),
+    defaultNotifications: normalizeDefaultNotifications(row.default_notifications),
+    systemChannelId: row.system_channel_id ?? null,
+    rulesChannelId: row.rules_channel_id ?? null,
     ...extra,
   };
 }
@@ -173,6 +212,12 @@ function mapRole(row: RoleRow): CommunityServerRole {
     canManageServer: row.can_manage_server,
     canManageChannels: row.can_manage_channels,
     canModerate: row.can_moderate,
+    canKickMembers: row.can_kick_members ?? false,
+    canBanMembers: row.can_ban_members ?? false,
+    canManageMessages: row.can_manage_messages ?? false,
+    canInviteUsers: row.can_invite_users ?? false,
+    hoist: row.hoist ?? false,
+    mentionable: row.mentionable ?? true,
     isEveryone: row.is_everyone,
     createdAt: row.created_at,
   };
@@ -227,10 +272,66 @@ function mapMessage(row: MessageRow, extra?: Partial<CommunityMessage>): Communi
 
 async function seedDefaultRoles(serverId: string): Promise<void> {
   const defaults = [
-    { name: "Owner", position: 0, color: "#E11D48", can_manage_server: true, can_manage_channels: true, can_moderate: true, is_everyone: false },
-    { name: "Admin", position: 10, color: "#F59E0B", can_manage_server: true, can_manage_channels: true, can_moderate: true, is_everyone: false },
-    { name: "Moderator", position: 20, color: "#3B82F6", can_manage_server: false, can_manage_channels: false, can_moderate: true, is_everyone: false },
-    { name: "Member", position: 100, color: "#6B7280", can_manage_server: false, can_manage_channels: false, can_moderate: false, is_everyone: true },
+    {
+      name: "Owner",
+      position: 0,
+      color: "#E11D48",
+      can_manage_server: true,
+      can_manage_channels: true,
+      can_moderate: true,
+      can_kick_members: true,
+      can_ban_members: true,
+      can_manage_messages: true,
+      can_invite_users: true,
+      hoist: true,
+      mentionable: true,
+      is_everyone: false,
+    },
+    {
+      name: "Admin",
+      position: 10,
+      color: "#F59E0B",
+      can_manage_server: true,
+      can_manage_channels: true,
+      can_moderate: true,
+      can_kick_members: true,
+      can_ban_members: true,
+      can_manage_messages: true,
+      can_invite_users: true,
+      hoist: true,
+      mentionable: true,
+      is_everyone: false,
+    },
+    {
+      name: "Moderator",
+      position: 20,
+      color: "#3B82F6",
+      can_manage_server: false,
+      can_manage_channels: false,
+      can_moderate: true,
+      can_kick_members: true,
+      can_ban_members: true,
+      can_manage_messages: true,
+      can_invite_users: true,
+      hoist: true,
+      mentionable: true,
+      is_everyone: false,
+    },
+    {
+      name: "Member",
+      position: 100,
+      color: "#6B7280",
+      can_manage_server: false,
+      can_manage_channels: false,
+      can_moderate: false,
+      can_kick_members: false,
+      can_ban_members: false,
+      can_manage_messages: false,
+      can_invite_users: true,
+      hoist: false,
+      mentionable: true,
+      is_everyone: true,
+    },
   ];
   for (const role of defaults) {
     await supabase.from("community_server_roles").upsert(
@@ -492,6 +593,13 @@ export async function updateServer(
     isOfficial?: boolean;
     officialPosition?: number | null;
     joinMode?: CommunityJoinMode;
+    rules?: string | null;
+    welcomeMessage?: string | null;
+    verificationLevel?: VerificationLevel;
+    explicitContentFilter?: ExplicitContentFilter;
+    defaultNotifications?: DefaultNotifications;
+    systemChannelId?: string | null;
+    rulesChannelId?: string | null;
   },
 ): Promise<void> {
   const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -500,6 +608,13 @@ export async function updateServer(
   if (patch.iconUrl !== undefined) row.icon_url = patch.iconUrl || null;
   if (patch.isPublic !== undefined) row.is_public = patch.isPublic;
   if (patch.joinMode !== undefined) row.join_mode = patch.joinMode;
+  if (patch.rules !== undefined) row.rules = patch.rules?.trim() || null;
+  if (patch.welcomeMessage !== undefined) row.welcome_message = patch.welcomeMessage?.trim() || null;
+  if (patch.verificationLevel !== undefined) row.verification_level = patch.verificationLevel;
+  if (patch.explicitContentFilter !== undefined) row.explicit_content_filter = patch.explicitContentFilter;
+  if (patch.defaultNotifications !== undefined) row.default_notifications = patch.defaultNotifications;
+  if (patch.systemChannelId !== undefined) row.system_channel_id = patch.systemChannelId || null;
+  if (patch.rulesChannelId !== undefined) row.rules_channel_id = patch.rulesChannelId || null;
   if (patch.isOfficial !== undefined) {
     row.is_official = patch.isOfficial;
     if (patch.isOfficial && patch.officialPosition === undefined) {
@@ -740,6 +855,12 @@ export async function updateServerRole(
     canManageServer?: boolean;
     canManageChannels?: boolean;
     canModerate?: boolean;
+    canKickMembers?: boolean;
+    canBanMembers?: boolean;
+    canManageMessages?: boolean;
+    canInviteUsers?: boolean;
+    hoist?: boolean;
+    mentionable?: boolean;
   },
 ): Promise<void> {
   const row: Record<string, unknown> = {};
@@ -750,6 +871,12 @@ export async function updateServerRole(
   if (patch.canManageServer !== undefined) row.can_manage_server = patch.canManageServer;
   if (patch.canManageChannels !== undefined) row.can_manage_channels = patch.canManageChannels;
   if (patch.canModerate !== undefined) row.can_moderate = patch.canModerate;
+  if (patch.canKickMembers !== undefined) row.can_kick_members = patch.canKickMembers;
+  if (patch.canBanMembers !== undefined) row.can_ban_members = patch.canBanMembers;
+  if (patch.canManageMessages !== undefined) row.can_manage_messages = patch.canManageMessages;
+  if (patch.canInviteUsers !== undefined) row.can_invite_users = patch.canInviteUsers;
+  if (patch.hoist !== undefined) row.hoist = patch.hoist;
+  if (patch.mentionable !== undefined) row.mentionable = patch.mentionable;
   const { error } = await supabase.from("community_server_roles").update(row).eq("id", roleId);
   if (error) throw error;
 }
@@ -1233,6 +1360,186 @@ export async function listServerMembers(serverId: string): Promise<CommunityServ
           b.displayName ?? b.communityUsername ?? "",
         ),
     );
+}
+
+export async function listServerRolesWithCounts(serverId: string): Promise<CommunityServerRole[]> {
+  const roles = await listServerRoles(serverId);
+  const { data } = await supabase
+    .from("community_server_members")
+    .select("role_id")
+    .eq("server_id", serverId);
+  const counts = new Map<string, number>();
+  for (const row of data ?? []) {
+    const roleId = row.role_id as string | null;
+    if (roleId) counts.set(roleId, (counts.get(roleId) ?? 0) + 1);
+  }
+  return roles.map((role) => ({ ...role, memberCount: counts.get(role.id) ?? 0 }));
+}
+
+export async function assignServerMemberRole(
+  serverId: string,
+  userId: string,
+  roleId: string,
+): Promise<void> {
+  const { error } = await supabase.rpc("assign_server_member_role", {
+    p_server_id: serverId,
+    p_user_id: userId,
+    p_role_id: roleId,
+  });
+  if (error) throw new Error(rpcErrorMessage(error, "Could not update role"));
+}
+
+export async function kickServerMember(serverId: string, userId: string): Promise<void> {
+  const { error } = await supabase.rpc("kick_server_member", {
+    p_server_id: serverId,
+    p_user_id: userId,
+  });
+  if (error) throw new Error(rpcErrorMessage(error, "Could not kick member"));
+  bumpCommunityRail();
+}
+
+export async function banServerMember(
+  serverId: string,
+  userId: string,
+  reason?: string,
+): Promise<void> {
+  const { error } = await supabase.rpc("ban_server_member", {
+    p_server_id: serverId,
+    p_user_id: userId,
+    p_reason: reason?.trim() || null,
+  });
+  if (error) throw new Error(rpcErrorMessage(error, "Could not ban member"));
+  bumpCommunityRail();
+}
+
+export async function unbanServerMember(serverId: string, userId: string): Promise<void> {
+  const { error } = await supabase.rpc("unban_server_member", {
+    p_server_id: serverId,
+    p_user_id: userId,
+  });
+  if (error) throw new Error(rpcErrorMessage(error, "Could not unban member"));
+}
+
+export async function listServerBans(serverId: string): Promise<CommunityServerBan[]> {
+  const { data, error } = await supabase
+    .from("community_server_bans")
+    .select("user_id, reason, banned_by, created_at")
+    .eq("server_id", serverId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+
+  const userIds = (data ?? []).map((b) => b.user_id as string);
+  const profileByUser = new Map<string, { displayName: string | null; username: string | null }>();
+  if (userIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from("user_profiles")
+      .select("user_id, display_name, community_display_name, community_username")
+      .in("user_id", userIds);
+    for (const p of profiles ?? []) {
+      profileByUser.set(p.user_id as string, {
+        displayName:
+          (p.community_display_name as string | null) ||
+          (p.display_name as string | null) ||
+          null,
+        username: (p.community_username as string | null) ?? null,
+      });
+    }
+  }
+
+  return (data ?? []).map((b) => {
+    const profile = profileByUser.get(b.user_id as string);
+    return {
+      userId: b.user_id as string,
+      reason: (b.reason as string | null) ?? null,
+      bannedBy: (b.banned_by as string | null) ?? null,
+      createdAt: b.created_at as string,
+      displayName: profile?.displayName ?? null,
+      communityUsername: profile?.username ?? null,
+    };
+  });
+}
+
+export async function listServerAuditLog(
+  serverId: string,
+  limit = 50,
+): Promise<CommunityServerAuditEntry[]> {
+  const { data, error } = await supabase
+    .from("community_server_audit_log")
+    .select("id, server_id, actor_id, action, target_user_id, target_label, details, created_at")
+    .eq("server_id", serverId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+
+  const actorIds = [...new Set((data ?? []).map((e) => e.actor_id as string | null).filter(Boolean))];
+  const actorNames = new Map<string, string | null>();
+  if (actorIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from("user_profiles")
+      .select("user_id, display_name, community_display_name, community_username")
+      .in("user_id", actorIds as string[]);
+    for (const p of profiles ?? []) {
+      actorNames.set(
+        p.user_id as string,
+        (p.community_display_name as string | null) ||
+          (p.display_name as string | null) ||
+          (p.community_username as string | null) ||
+          null,
+      );
+    }
+  }
+
+  return (data ?? []).map((e) => ({
+    id: e.id as string,
+    serverId: e.server_id as string,
+    actorId: (e.actor_id as string | null) ?? null,
+    action: e.action as string,
+    targetUserId: (e.target_user_id as string | null) ?? null,
+    targetLabel: (e.target_label as string | null) ?? null,
+    details: (e.details as Record<string, unknown> | null) ?? null,
+    createdAt: e.created_at as string,
+    actorName: e.actor_id ? actorNames.get(e.actor_id as string) ?? null : null,
+  }));
+}
+
+export async function reorderServerRoles(serverId: string, orderedRoleIds: string[]): Promise<void> {
+  for (let i = 0; i < orderedRoleIds.length; i++) {
+    const { error } = await supabase
+      .from("community_server_roles")
+      .update({ position: i * 10 })
+      .eq("id", orderedRoleIds[i])
+      .eq("server_id", serverId);
+    if (error) throw error;
+  }
+}
+
+export async function updateCategoryPosition(categoryId: string, position: number): Promise<void> {
+  const { error } = await supabase
+    .from("community_categories")
+    .update({ position })
+    .eq("id", categoryId);
+  if (error) throw error;
+}
+
+export async function updateChannelPosition(channelId: string, position: number): Promise<void> {
+  const { error } = await supabase
+    .from("community_groups")
+    .update({ position, updated_at: new Date().toISOString() })
+    .eq("id", channelId);
+  if (error) throw error;
+}
+
+export async function getMyServerRoleId(
+  serverId: string,
+  userId: string,
+): Promise<string | null> {
+  const { data } = await supabase
+    .from("community_server_members")
+    .select("role_id")
+    .eq("server_id", serverId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  return (data?.role_id as string | null) ?? null;
 }
 
 export async function updateSuggestionStatus(
