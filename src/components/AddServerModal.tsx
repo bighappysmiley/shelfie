@@ -99,7 +99,7 @@ export function AddServerModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="community-discord-shell w-full max-w-md rounded-t-2xl bg-[#313338] p-5 text-[#f2f3f5] shadow-xl sm:rounded-2xl"
+        className="community-discord-shell w-full max-w-md rounded-t-2xl bg-[var(--community-panel)] p-5 text-foreground shadow-xl sm:rounded-2xl"
       >
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-[1.125rem] font-semibold text-white">
@@ -122,7 +122,7 @@ export function AddServerModal({
                   setName(libraryName);
                   setMode("create");
                 }}
-                className="flex w-full items-center gap-3 rounded-xl bg-[#1e1f22] px-4 py-3 text-left transition hover:bg-black/40"
+                className="flex w-full items-center gap-3 rounded-xl bg-fill px-4 py-3 text-left transition hover:bg-[var(--community-hover)]"
               >
                 <span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400">
                   <IconPlus size={20} />
@@ -135,7 +135,7 @@ export function AddServerModal({
                 </span>
               </button>
             ) : (
-              <p className="rounded-xl bg-[#1e1f22] px-4 py-3 text-[0.8125rem] text-white/55">
+              <p className="rounded-xl bg-fill px-4 py-3 text-[0.8125rem] text-muted">
                 Only the library owner can create a server for {libraryName}. You can still join with an
                 invite.
               </p>
@@ -143,9 +143,9 @@ export function AddServerModal({
             <button
               type="button"
               onClick={() => setMode("invite")}
-              className="flex w-full items-center gap-3 rounded-xl bg-[#1e1f22] px-4 py-3 text-left transition hover:bg-black/40"
+              className="flex w-full items-center gap-3 rounded-xl bg-fill px-4 py-3 text-left transition hover:bg-[var(--community-hover)]"
             >
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#5865f2]/25 text-[#c9cdfb]">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/25 text-accent">
                 <IconCompass size={20} />
               </span>
               <span>

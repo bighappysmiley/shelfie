@@ -23,7 +23,7 @@ import {
   IconCompass,
 } from "@/components/Icons";
 import { AuthedImage } from "@/components/AuthedImage";
-import { CommunityDiscordShell, CommunityPanelHeader } from "@/components/CommunityRail";
+import { CommunityDiscordShell, CommunityPanelHeader, CommunityScrollBody } from "@/components/CommunityRail";
 import { AddServerModal } from "@/components/AddServerModal";
 
 function ServerIcon({ server, size = "md" }: { server: CommunityServer; size?: "sm" | "md" | "lg" }) {
@@ -33,7 +33,7 @@ function ServerIcon({ server, size = "md" }: { server: CommunityServer; size?: "
       <AuthedImage
         src={server.iconUrl}
         alt=""
-        className={`${dims} shrink-0 rounded-2xl object-cover bg-[#1e1f22]`}
+        className={`${dims} shrink-0 rounded-2xl object-cover bg-fill`}
       />
     );
   }
@@ -244,9 +244,9 @@ export function CommunityPage() {
             subtitle="Find public & Official servers"
             trailing={<IconCompass size={18} className="text-white/40" />}
           />
-          <div className="flex-1 overflow-y-auto px-3 py-3 text-white [&_h2]:text-white [&_.text-muted]:!text-white/50">
+          <CommunityScrollBody className="px-3 py-3 text-foreground [&_h2]:text-foreground [&_.text-muted]:!text-muted">
             {user && !userProfile?.communityUsername && (
-              <div className="mb-3 rounded-xl bg-[#1e1f22] px-3 py-3 text-[0.8125rem] text-white/70">
+              <div className="mb-3 rounded-xl bg-fill px-3 py-3 text-[0.8125rem] text-white/70">
                 Set your Community @username in{" "}
                 <Link to="/account" className="text-accent underline">
                   Account
@@ -275,7 +275,7 @@ export function CommunityPage() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Explore communities…"
-                className="w-full rounded-lg bg-[#1e1f22] py-2.5 pl-9 pr-3 text-[0.9375rem] text-white outline-none ring-accent placeholder:text-white/35 focus:ring-2"
+                className="w-full rounded-lg bg-fill py-2.5 pl-9 pr-3 text-[0.9375rem] text-white outline-none ring-accent placeholder:text-white/35 focus:ring-2"
               />
             </label>
 
@@ -379,7 +379,7 @@ export function CommunityPage() {
                 ) : (
                   filteredPublic.map((s, i) => (
                     <div key={s.id} className="relative pl-7">
-                      <span className="absolute left-1 top-4 flex h-5 w-5 items-center justify-center rounded-full bg-[#1e1f22] text-[0.625rem] font-bold text-white/45">
+                      <span className="absolute left-1 top-4 flex h-5 w-5 items-center justify-center rounded-full bg-fill text-[0.625rem] font-bold text-white/45">
                         {i + 1}
                       </span>
                       <ServerRow server={s} onOpen={() => openServer(s)} trailing={joinBtn(s)} />
@@ -388,7 +388,7 @@ export function CommunityPage() {
                 )}
               </div>
             )}
-          </div>
+          </CommunityScrollBody>
         </>
       ) : (
         <>
@@ -397,9 +397,9 @@ export function CommunityPage() {
             subtitle={`${myServers.length} joined`}
             trailing={<IconCommunity size={18} className="text-white/40" />}
           />
-          <div className="flex-1 overflow-y-auto px-3 py-3 text-white [&_h2]:text-white [&_.text-muted]:!text-white/50">
+          <CommunityScrollBody className="px-3 py-3 text-foreground [&_h2]:text-foreground [&_.text-muted]:!text-muted">
             {user && !userProfile?.communityUsername && (
-              <div className="mb-3 rounded-xl bg-[#1e1f22] px-3 py-3 text-[0.8125rem] text-white/70">
+              <div className="mb-3 rounded-xl bg-fill px-3 py-3 text-[0.8125rem] text-white/70">
                 Choose an @username for Community chat in{" "}
                 <Link to="/account" className="text-accent underline">
                   Account
@@ -423,7 +423,7 @@ export function CommunityPage() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Find a server…"
-                className="w-full rounded-lg bg-[#1e1f22] py-2.5 pl-9 pr-3 text-[0.9375rem] text-white outline-none ring-accent placeholder:text-white/35 focus:ring-2"
+                className="w-full rounded-lg bg-fill py-2.5 pl-9 pr-3 text-[0.9375rem] text-white outline-none ring-accent placeholder:text-white/35 focus:ring-2"
               />
             </label>
 
@@ -485,7 +485,7 @@ export function CommunityPage() {
                 </Button>
               </div>
             )}
-          </div>
+          </CommunityScrollBody>
         </>
       )}
 

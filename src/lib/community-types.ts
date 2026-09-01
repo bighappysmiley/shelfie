@@ -93,6 +93,12 @@ export interface CommunityMember {
   email: string | null;
 }
 
+export interface CommunityMessageReaction {
+  emoji: string;
+  count: number;
+  reactedByMe: boolean;
+}
+
 export interface CommunityMessage {
   id: string;
   groupId: string;
@@ -101,7 +107,21 @@ export interface CommunityMessage {
   kind: CommunityMessageKind;
   suggestionStatus: SuggestionStatus | null;
   authorName: string | null;
+  replyToId: string | null;
+  replyPreview?: { authorName: string | null; body: string } | null;
+  reactions: CommunityMessageReaction[];
   createdAt: string;
+}
+
+export interface CommunityServerMember {
+  userId: string;
+  roleId: string | null;
+  roleName: string;
+  roleColor: string;
+  rolePosition: number;
+  displayName: string | null;
+  communityUsername: string | null;
+  joinedAt: string;
 }
 
 export const MEMBER_ROLE_LABELS: Record<CommunityMemberRole, string> = {

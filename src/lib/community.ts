@@ -12,6 +12,7 @@ import type {
   CommunityMessage,
   CommunityMessageKind,
   CommunityServer,
+  CommunityServerMember,
   CommunityServerRole,
   JoinRequestStatus,
   SuggestionStatus,
@@ -100,6 +101,7 @@ type MessageRow = {
   kind: CommunityMessageKind;
   suggestion_status: SuggestionStatus | null;
   author_name: string | null;
+  reply_to_id: string | null;
   created_at: string;
 };
 
@@ -207,7 +209,7 @@ function mapGroup(row: GroupRow, extra?: Partial<CommunityGroup>): CommunityGrou
   };
 }
 
-function mapMessage(row: MessageRow): CommunityMessage {
+function mapMessage(row: MessageRow, extra?: Partial<CommunityMessage>): CommunityMessage {
   return {
     id: row.id,
     groupId: row.group_id,
@@ -216,7 +218,10 @@ function mapMessage(row: MessageRow): CommunityMessage {
     kind: row.kind,
     suggestionStatus: row.suggestion_status,
     authorName: row.author_name,
+    replyToId: row.reply_to_id,
+    reactions: [],
     createdAt: row.created_at,
+    ...extra,
   };
 }
 
@@ -1067,14 +1072,56 @@ export async function removeGroupMember(groupId: string, userId: string): Promis
   if (error) throw error;
 }
 
-export async function listGroupMessages(groupId: string): Promise<CommunityMessage[]> {
+export async function listGroupMessages(groupId: string, userId?: string): Promise<CommunityMessage[]> {
   const { data, error } = await supabase
     .from("community_messages")
     .select("*")
     .eq("group_id", groupId)
     .order("created_at");
   if (error) throw error;
-  return ((data ?? []) as MessageRow[]).map(mapMessage);
+  const rows = (data ?? []) as MessageRow[];
+  const byId = new Map(rows.map((r) => [r.id, r]));
+
+  const messageIds = rows.map((r) => r.id);
+  const reactionRows: { message_id: string; emoji: string; user_id: string }[] = [];
+  if (messageIds.length > 0) {
+    const { data: rx } = await supabase
+      .from("community_message_reactions")
+      .select("message_id, emoji, user_id")
+      .in("message_id", messageIds);
+    if (rx) reactionRows.push(...(rx as typeof reactionRows));
+  }
+
+  const reactionsByMessage = new Map<string, Map<string, { count: number; mine: boolean }>>();
+  for (const rx of reactionRows) {
+    const map = reactionsByMessage.get(rx.message_id) ?? new Map();
+    const entry = map.get(rx.emoji) ?? { count: 0, mine: false };
+    entry.count += 1;
+    if (userId && rx.user_id === userId) entry.mine = true;
+    map.set(rx.emoji, entry);
+    reactionsByMessage.set(rx.message_id, map);
+  }
+
+  return rows.map((row) => {
+    const replySource = row.reply_to_id ? byId.get(row.reply_to_id) : null;
+    const rxMap = reactionsByMessage.get(row.id);
+    const reactions = rxMap
+      ? [...rxMap.entries()].map(([emoji, v]) => ({
+          emoji,
+          count: v.count,
+          reactedByMe: v.mine,
+        }))
+      : [];
+    return mapMessage(row, {
+      replyPreview: replySource
+        ? {
+            authorName: replySource.author_name,
+            body: replySource.body.slice(0, 160),
+          }
+        : null,
+      reactions,
+    });
+  });
 }
 
 export async function sendGroupMessage(input: {
@@ -1084,6 +1131,7 @@ export async function sendGroupMessage(input: {
   body: string;
   kind: CommunityMessageKind;
   authorName: string;
+  replyToId?: string | null;
 }): Promise<CommunityMessage> {
   const { data, error } = await supabase
     .from("community_messages")
@@ -1094,12 +1142,97 @@ export async function sendGroupMessage(input: {
       kind: input.kind,
       suggestion_status: input.kind === "suggestion" ? "open" : null,
       author_name: input.authorName,
+      reply_to_id: input.replyToId ?? null,
     })
     .select("*")
     .single();
   if (error || !data) throw error ?? new Error("Could not send");
   void recomputeServerScore(input.serverId);
   return mapMessage(data as MessageRow);
+}
+
+export async function toggleMessageReaction(
+  messageId: string,
+  userId: string,
+  emoji: string,
+): Promise<void> {
+  const { data: existing } = await supabase
+    .from("community_message_reactions")
+    .select("emoji")
+    .eq("message_id", messageId)
+    .eq("user_id", userId)
+    .eq("emoji", emoji)
+    .maybeSingle();
+  if (existing) {
+    const { error } = await supabase
+      .from("community_message_reactions")
+      .delete()
+      .eq("message_id", messageId)
+      .eq("user_id", userId)
+      .eq("emoji", emoji);
+    if (error) throw error;
+    return;
+  }
+  const { error } = await supabase.from("community_message_reactions").insert({
+    message_id: messageId,
+    user_id: userId,
+    emoji,
+  });
+  if (error) throw error;
+}
+
+export async function listServerMembers(serverId: string): Promise<CommunityServerMember[]> {
+  const { data, error } = await supabase
+    .from("community_server_members")
+    .select("user_id, role_id, joined_at, community_server_roles(name, color, position)")
+    .eq("server_id", serverId)
+    .order("joined_at");
+  if (error) throw error;
+
+  const userIds = (data ?? []).map((m) => m.user_id as string);
+  const profileByUser = new Map<string, { displayName: string | null; username: string | null }>();
+  if (userIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from("user_profiles")
+      .select("user_id, display_name, community_display_name, community_username")
+      .in("user_id", userIds);
+    for (const p of profiles ?? []) {
+      profileByUser.set(p.user_id as string, {
+        displayName:
+          (p.community_display_name as string | null) ||
+          (p.display_name as string | null) ||
+          null,
+        username: (p.community_username as string | null) ?? null,
+      });
+    }
+  }
+
+  return (data ?? [])
+    .map((m) => {
+      const role = m.community_server_roles as
+        | { name: string; color: string; position: number }
+        | { name: string; color: string; position: number }[]
+        | null;
+      const roleObj = Array.isArray(role) ? role[0] : role;
+      const profile = profileByUser.get(m.user_id as string);
+      return {
+        userId: m.user_id as string,
+        roleId: (m.role_id as string | null) ?? null,
+        roleName: roleObj?.name ?? "Member",
+        roleColor: roleObj?.color ?? "#6B7280",
+        rolePosition: roleObj?.position ?? 100,
+        displayName: profile?.displayName ?? null,
+        communityUsername: profile?.username ?? null,
+        joinedAt: m.joined_at as string,
+      };
+    })
+    .sort(
+      (a, b) =>
+        a.rolePosition - b.rolePosition ||
+        (a.displayName ?? a.communityUsername ?? "").localeCompare(
+          b.displayName ?? b.communityUsername ?? "",
+        ),
+    );
 }
 
 export async function updateSuggestionStatus(

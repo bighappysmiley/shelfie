@@ -29,7 +29,9 @@ import {
   requestJoinServer,
   removeGroupMember,
   renameCommunityCategory,
+  listServerMembers,
   sendGroupMessage,
+  toggleMessageReaction,
   updateCommunityGroup,
   updateMemberRole,
   updateSuggestionStatus,
@@ -50,16 +52,20 @@ import {
   type CommunityMessage,
   type CommunityMessageKind,
   type CommunityServer,
+  type CommunityServerMember,
   type SuggestionStatus,
 } from "@/lib/community-types";
 import { Button } from "@/components/Button";
 import { TextField, TextArea, FormError } from "@/components/form";
 import { EmptyState, SegmentedControl } from "@/components/layout";
 import { AuthedImage } from "@/components/AuthedImage";
-import { IconChat, IconPlus, IconSettings, IconX } from "@/components/Icons";
+import { IconChat, IconPeople, IconPlus, IconSearch, IconSettings, IconX } from "@/components/Icons";
 import { communityAuthorLabel, communityShortName } from "@/lib/community-identity";
-import { CommunityDiscordShell } from "@/components/CommunityRail";
+import { roleColorStyle } from "@/lib/role-color";
+import { CommunityDiscordShell, CommunityScrollBody } from "@/components/CommunityRail";
 import { AddServerModal } from "@/components/AddServerModal";
+
+const QUICK_EMOJIS = ["👍", "❤️", "😂", "🔥", "🎉", "👀"];
 
 type Modal =
   | null
@@ -120,6 +126,9 @@ export function CommunityServerPage() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [joinRequestStatus, setJoinRequestStatus] = useState<string | null>(null);
+  const [channelSearch, setChannelSearch] = useState("");
+  const [showMembers, setShowMembers] = useState(true);
+  const [serverMembers, setServerMembers] = useState<CommunityServerMember[]>([]);
 
   const library = libraries.find((l) => l.id === server?.libraryId);
   const canConfigure = Boolean(isOwner || library?.role === "owner" || server?.canManage);
@@ -134,9 +143,10 @@ export function CommunityServerPage() {
       setIsMember(member);
       const pending = member ? null : await getMyJoinRequestStatus(serverId, user.id);
       setJoinRequestStatus(pending);
-      const [cats, groups] = await Promise.all([
+      const [cats, groups, srvMembers] = await Promise.all([
         listCommunityCategories(serverId),
         listCommunityGroups(user.id, serverId),
+        member ? listServerMembers(serverId) : Promise.resolve([] as CommunityServerMember[]),
       ]);
       setServer({
         ...s,
@@ -146,6 +156,7 @@ export function CommunityServerPage() {
       });
       setCategories(cats);
       setChannels(groups);
+      setServerMembers(srvMembers);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load server");
     } finally {
@@ -179,6 +190,17 @@ export function CommunityServerPage() {
     }
     return map;
   }, [channels]);
+
+  const filteredChannelsByCategory = useMemo(() => {
+    const q = channelSearch.trim().toLowerCase();
+    if (!q) return channelsByCategory;
+    const map = new Map<string | null, CommunityGroup[]>();
+    for (const [key, list] of channelsByCategory) {
+      const filtered = list.filter((c) => c.name.toLowerCase().includes(q));
+      if (filtered.length > 0) map.set(key, filtered);
+    }
+    return map;
+  }, [channelsByCategory, channelSearch]);
 
   const active = channels.find((g) => g.id === channelId) ?? null;
 
@@ -229,7 +251,7 @@ export function CommunityServerPage() {
   const sidebar = serverId ? (
     <ChannelSidebar
       categories={orderedCategories}
-      channelsByCategory={channelsByCategory}
+      channelsByCategory={filteredChannelsByCategory}
       collapsed={collapsed}
       onToggle={(id) => setCollapsed((prev) => ({ ...prev, [id]: !prev[id] }))}
       activeId={channelId}
@@ -258,8 +280,8 @@ export function CommunityServerPage() {
       onAdd={() => setAddOpen(true)}
     >
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        <aside className="hidden w-[15.25rem] shrink-0 flex-col border-r border-black/30 bg-[#2b2d31] md:flex">
-          <div className="flex h-12 items-center gap-2 border-b border-black/30 px-3">
+        <aside className="hidden w-[15.25rem] shrink-0 flex-col border-r border-[var(--community-border)] bg-[var(--community-panel)] min-h-0 md:flex">
+          <div className="flex h-12 shrink-0 items-center gap-2 border-b border-[var(--community-border)] px-3">
             {server?.iconUrl ? (
               <AuthedImage src={server.iconUrl} className="h-7 w-7 rounded-lg object-cover" />
             ) : (
@@ -284,7 +306,7 @@ export function CommunityServerPage() {
             )}
           </div>
           {!isMember && server && (server.isPublic || server.isOfficial || server.joinMode === "invite") && (
-            <div className="border-b border-black/30 bg-accent/15 px-3 py-2">
+            <div className="shrink-0 border-b border-[var(--community-border)] bg-accent/15 px-3 py-2">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-[0.75rem] text-white/55">
                   {joinRequestStatus === "pending"
@@ -303,11 +325,26 @@ export function CommunityServerPage() {
               </div>
             </div>
           )}
-          <div className="flex-1 overflow-y-auto px-2 py-3">{sidebar}</div>
+          <div className="shrink-0 px-2 py-2">
+            <label className="relative block">
+              <IconSearch
+                size={14}
+                className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"
+              />
+              <input
+                value={channelSearch}
+                onChange={(e) => setChannelSearch(e.target.value)}
+                placeholder="Search channels"
+                className="w-full rounded-lg bg-fill py-1.5 pl-8 pr-2 text-[0.8125rem] outline-none ring-accent placeholder:text-muted focus:ring-2"
+              />
+            </label>
+          </div>
+          <CommunityScrollBody className="px-2 py-2">{sidebar}</CommunityScrollBody>
         </aside>
 
-        <div className="flex min-w-0 flex-1 flex-col bg-[#313338] text-[#dbdee1] [&_.text-muted]:!text-[#949ba4] [&_.text-foreground]:!text-[#f2f3f5] [&_h2]:text-white">
-          <div className="flex items-center gap-2 border-b border-black/30 px-3 py-2 md:hidden">
+        <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--community-chat)] text-foreground [&_.text-muted]:!text-muted [&_.text-foreground]:!text-foreground [&_h2]:text-foreground">
+          <div className="flex shrink-0 items-center gap-2 border-b border-[var(--community-border)] px-3 py-2 md:hidden">
             <button
               type="button"
               onClick={() => setMobileNavOpen((v) => !v)}
@@ -322,14 +359,26 @@ export function CommunityServerPage() {
               </p>
             )}
             {canConfigure && (
-              <Link to={`/community/s/${serverId}/settings`} className="p-1.5 text-white/45">
+              <Link to={`/community/s/${serverId}/settings`} className="p-1.5 text-muted">
                 <IconSettings size={18} />
               </Link>
+            )}
+            {isMember && (
+              <button
+                type="button"
+                onClick={() => setShowMembers((v) => !v)}
+                className={`rounded-lg p-1.5 ${showMembers ? "bg-fill text-foreground" : "text-muted"}`}
+                title="Toggle member list"
+              >
+                <IconPeople size={18} />
+              </button>
             )}
           </div>
 
           {mobileNavOpen && (
-            <div className="border-b border-black/30 bg-[#2b2d31] px-2 py-3 md:hidden">{sidebar}</div>
+            <div className="shrink-0 border-b border-[var(--community-border)] bg-[var(--community-panel)] px-2 py-3 md:hidden">
+              {sidebar}
+            </div>
           )}
 
           {error && (
@@ -339,7 +388,7 @@ export function CommunityServerPage() {
           )}
 
           {loading ? (
-            <p className="p-6 text-white/50">Loading server…</p>
+            <p className="p-6 text-muted">Loading server…</p>
           ) : active && user && server ? (
             <ChannelRoom
               group={active}
@@ -356,6 +405,9 @@ export function CommunityServerPage() {
               joinDisabled={joinRequestStatus === "pending"}
               onOpenSettings={() => setModal({ type: "edit-channel", channel: active })}
               onChanged={refresh}
+              showServerMembers={showMembers}
+              onToggleServerMembers={() => setShowMembers((v) => !v)}
+              serverMemberCount={serverMembers.length}
             />
           ) : (
             <div className="flex flex-1 items-center justify-center p-8">
@@ -368,6 +420,11 @@ export function CommunityServerPage() {
                 }
               />
             </div>
+          )}
+          </div>
+
+          {showMembers && isMember && serverMembers.length > 0 && (
+            <ServerMemberSidebar members={serverMembers} />
           )}
         </div>
       </div>
@@ -605,6 +662,9 @@ function ChannelRoom({
   joinDisabled = false,
   onOpenSettings,
   onChanged,
+  showServerMembers = true,
+  onToggleServerMembers,
+  serverMemberCount = 0,
 }: {
   group: CommunityGroup;
   serverId: string;
@@ -620,11 +680,15 @@ function ChannelRoom({
   joinDisabled?: boolean;
   onOpenSettings: () => void;
   onChanged: () => void;
+  showServerMembers?: boolean;
+  onToggleServerMembers?: () => void;
+  serverMemberCount?: number;
 }) {
   const [tab, setTab] = useState<"room" | "members">("room");
   const [messages, setMessages] = useState<CommunityMessage[]>([]);
   const [members, setMembers] = useState<CommunityMember[]>([]);
   const [draft, setDraft] = useState("");
+  const [replyTo, setReplyTo] = useState<CommunityMessage | null>(null);
   const [composeKind, setComposeKind] = useState<CommunityMessageKind>("chat");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -639,12 +703,12 @@ function ChannelRoom({
 
   const load = useCallback(async () => {
     const [msgs, mems] = await Promise.all([
-      listGroupMessages(group.id),
+      listGroupMessages(group.id, userId),
       listGroupMembers(group.id),
     ]);
     setMessages(msgs);
     setMembers(mems);
-  }, [group.id]);
+  }, [group.id, userId]);
 
   useEffect(() => {
     void load().catch((err) =>
@@ -667,6 +731,17 @@ function ChannelRoom({
           void load();
         },
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "community_message_reactions",
+        },
+        () => {
+          void load();
+        },
+      )
       .subscribe();
     return () => {
       void supabase.removeChannel(channel);
@@ -680,6 +755,7 @@ function ChannelRoom({
   useEffect(() => {
     setComposeKind(group.kind === "suggestions" ? "suggestion" : "chat");
     setTab("room");
+    setReplyTo(null);
   }, [group.id, group.kind]);
 
   const onSend = async (e: FormEvent) => {
@@ -701,8 +777,10 @@ function ChannelRoom({
         body: draft,
         kind,
         authorName: authorLabel,
+        replyToId: replyTo?.id ?? null,
       });
       setDraft("");
+      setReplyTo(null);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not send");
@@ -713,7 +791,7 @@ function ChannelRoom({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="flex flex-wrap items-start justify-between gap-3 border-b border-black/[0.06] px-4 py-3 dark:border-white/[0.08]">
+      <header className="flex shrink-0 flex-wrap items-start justify-between gap-3 border-b border-[var(--community-border)] px-4 py-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="flex items-center gap-1.5 truncate text-[1.0625rem] font-semibold">
@@ -729,6 +807,18 @@ function ChannelRoom({
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {isMember && onToggleServerMembers && serverMemberCount > 0 && (
+            <button
+              type="button"
+              onClick={onToggleServerMembers}
+              className={`hidden rounded-[var(--radius-control)] p-2 md:inline-flex ${
+                showServerMembers ? "bg-fill text-foreground" : "text-muted hover:bg-fill hover:text-foreground"
+              }`}
+              title="Toggle member list"
+            >
+              <IconPeople size={18} />
+            </button>
+          )}
           <SegmentedControl
             value={tab}
             onChange={setTab}
@@ -763,35 +853,60 @@ function ChannelRoom({
         />
       ) : (
         <>
-          <ul className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
-            {messages.length === 0 && (
-              <li className="py-12 text-center text-muted">
-                Welcome to #{group.name}. Say hello!
-              </li>
-            )}
-            {messages.map((m) => (
-              <MessageRow
-                key={m.id}
-                message={m}
-                isMine={m.authorId === userId}
-                canModerate={moderate}
-                onStatus={async (status) => {
-                  await updateSuggestionStatus(m.id, status);
-                  await load();
-                }}
-                onDelete={async () => {
-                  await deleteGroupMessage(m.id);
-                  await load();
-                }}
-              />
-            ))}
-            <div ref={bottomRef} />
-          </ul>
+          <CommunityScrollBody className="px-4 py-4">
+            <ul className="space-y-1">
+              {messages.length === 0 && (
+                <li className="py-12 text-center text-muted">
+                  Welcome to #{group.name}. Say hello!
+                </li>
+              )}
+              {messages.map((m) => (
+                <MessageRow
+                  key={m.id}
+                  message={m}
+                  isMine={m.authorId === userId}
+                  canModerate={moderate}
+                  userId={userId}
+                  onReply={() => setReplyTo(m)}
+                  onReact={async (emoji) => {
+                    await toggleMessageReaction(m.id, userId, emoji);
+                    await load();
+                  }}
+                  onStatus={async (status) => {
+                    await updateSuggestionStatus(m.id, status);
+                    await load();
+                  }}
+                  onDelete={async () => {
+                    await deleteGroupMessage(m.id);
+                    await load();
+                  }}
+                />
+              ))}
+              <div ref={bottomRef} />
+            </ul>
+          </CommunityScrollBody>
 
           <form
             onSubmit={onSend}
-            className="border-t border-black/[0.06] p-3 dark:border-white/[0.08]"
+            className="shrink-0 border-t border-[var(--community-border)] p-3"
           >
+            {replyTo && (
+              <div className="mb-2 flex items-center gap-2 rounded-lg border-l-2 border-accent bg-fill px-3 py-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[0.75rem] font-medium text-accent">
+                    Replying to {replyTo.authorName || "Member"}
+                  </p>
+                  <p className="truncate text-[0.75rem] text-muted">{replyTo.body}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReplyTo(null)}
+                  className="shrink-0 rounded p-1 text-muted hover:text-foreground"
+                >
+                  <IconX size={14} />
+                </button>
+              </div>
+            )}
             {allowsChat && allowsSuggestions && canPost && (
               <div className="mb-2">
                 <SegmentedControl
@@ -843,62 +958,197 @@ function MessageRow({
   message,
   isMine,
   canModerate: canMod,
+  userId: _userId,
+  onReply,
+  onReact,
   onStatus,
   onDelete,
 }: {
   message: CommunityMessage;
   isMine: boolean;
   canModerate: boolean;
+  userId: string;
+  onReply: () => void;
+  onReact: (emoji: string) => Promise<void>;
   onStatus: (s: SuggestionStatus) => Promise<void>;
   onDelete: () => Promise<void>;
 }) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+
   if (message.kind === "system") {
     return <li className="text-center text-[0.75rem] text-muted">{message.body}</li>;
   }
   const isSuggestion = message.kind === "suggestion";
+  const initial = (message.authorName || "?")[0]?.toUpperCase();
+
   return (
-    <li className={`group flex flex-col ${isMine ? "items-end" : "items-start"}`}>
-      <p className="mb-1 px-1 text-[0.75rem] text-muted">
-        {isMine ? "You" : message.authorName || "Member"} · {formatCommunityTime(message.createdAt)}
-        {isSuggestion && message.suggestionStatus && (
-          <> · {SUGGESTION_STATUS_LABELS[message.suggestionStatus]}</>
+    <li className="group relative flex gap-3 rounded px-2 py-1 hover:bg-[var(--community-hover)]">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/20 text-sm font-semibold text-accent">
+        {initial}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-baseline gap-2">
+          <span className="text-[0.875rem] font-semibold">
+            {isMine ? "You" : message.authorName || "Member"}
+          </span>
+          <span className="text-[0.6875rem] text-muted">{formatCommunityTime(message.createdAt)}</span>
+          {isSuggestion && message.suggestionStatus && (
+            <span className="text-[0.6875rem] text-muted">
+              · {SUGGESTION_STATUS_LABELS[message.suggestionStatus]}
+            </span>
+          )}
+        </div>
+
+        {message.replyPreview && (
+          <div className="mb-1 flex items-center gap-1 border-l-2 border-accent/50 pl-2 text-[0.75rem] text-muted">
+            <span className="font-medium text-accent">{message.replyPreview.authorName || "Member"}</span>
+            <span className="truncate">{message.replyPreview.body}</span>
+          </div>
         )}
-      </p>
-      <div
-        className={`max-w-[85%] rounded-[1.125rem] px-3.5 py-2 text-[1.0625rem] leading-snug ${
-          isMine
-            ? "rounded-br-[0.375rem] bg-chat-mine text-accent-contrast"
-            : "rounded-bl-[0.375rem] bg-chat-theirs text-foreground"
-        }`}
-      >
+
         {isSuggestion && (
-          <p className="mb-1 text-[0.6875rem] font-semibold uppercase tracking-wide opacity-80">
+          <p className="mb-0.5 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted">
             Suggestion
           </p>
         )}
-        <p className="whitespace-pre-wrap">{message.body}</p>
+        <p className="whitespace-pre-wrap break-words text-[0.9375rem]">{message.body}</p>
+
+        {message.reactions.length > 0 && (
+          <div className="mt-1 flex flex-wrap gap-1">
+            {message.reactions.map((r) => (
+              <button
+                key={r.emoji}
+                type="button"
+                onClick={() => void onReact(r.emoji)}
+                className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition ${
+                  r.reactedByMe
+                    ? "border-accent/50 bg-accent/15"
+                    : "border-[var(--community-border)] bg-fill hover:border-accent/30"
+                }`}
+              >
+                <span>{r.emoji}</span>
+                <span className="text-muted">{r.count}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {(canMod || isMine) && isSuggestion && canMod && message.suggestionStatus === "open" && (
+          <div className="mt-1 flex flex-wrap gap-2">
+            <button type="button" className="text-[0.75rem] text-link" onClick={() => void onStatus("accepted")}>
+              Accept
+            </button>
+            <button type="button" className="text-[0.75rem] text-link" onClick={() => void onStatus("declined")}>
+              Decline
+            </button>
+            <button type="button" className="text-[0.75rem] text-link" onClick={() => void onStatus("implemented")}>
+              Mark implemented
+            </button>
+          </div>
+        )}
       </div>
-      {(canMod || isMine) && (
-        <div className="mt-1 flex flex-wrap gap-2 px-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
-          {isSuggestion && canMod && message.suggestionStatus === "open" && (
-            <>
-              <button type="button" className="text-[0.75rem] text-link" onClick={() => void onStatus("accepted")}>
-                Accept
-              </button>
-              <button type="button" className="text-[0.75rem] text-link" onClick={() => void onStatus("declined")}>
-                Decline
-              </button>
-              <button type="button" className="text-[0.75rem] text-link" onClick={() => void onStatus("implemented")}>
-                Mark implemented
-              </button>
-            </>
-          )}
-          <button type="button" className="text-[0.75rem] text-muted" onClick={() => void onDelete()}>
+
+      <div className="absolute -top-3 right-2 hidden items-center gap-0.5 rounded border border-[var(--community-border)] bg-[var(--community-panel)] p-0.5 shadow-sm group-hover:flex">
+        {QUICK_EMOJIS.slice(0, 3).map((emoji) => (
+          <button
+            key={emoji}
+            type="button"
+            onClick={() => void onReact(emoji)}
+            className="rounded p-1 text-sm hover:bg-[var(--community-hover)]"
+          >
+            {emoji}
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={() => setPickerOpen((v) => !v)}
+          className="rounded p-1 text-[0.75rem] text-muted hover:bg-[var(--community-hover)]"
+        >
+          +
+        </button>
+        <button
+          type="button"
+          onClick={onReply}
+          className="rounded px-1.5 py-1 text-[0.6875rem] text-muted hover:bg-[var(--community-hover)]"
+        >
+          Reply
+        </button>
+        {(canMod || isMine) && (
+          <button
+            type="button"
+            onClick={() => void onDelete()}
+            className="rounded px-1.5 py-1 text-[0.6875rem] text-muted hover:text-destructive"
+          >
             Delete
           </button>
+        )}
+      </div>
+
+      {pickerOpen && (
+        <div className="absolute -top-10 right-2 z-10 flex gap-1 rounded border border-[var(--community-border)] bg-[var(--community-panel)] p-1.5 shadow-lg">
+          {QUICK_EMOJIS.map((emoji) => (
+            <button
+              key={emoji}
+              type="button"
+              onClick={() => {
+                void onReact(emoji);
+                setPickerOpen(false);
+              }}
+              className="rounded p-1 text-lg hover:bg-[var(--community-hover)]"
+            >
+              {emoji}
+            </button>
+          ))}
         </div>
       )}
     </li>
+  );
+}
+
+function ServerMemberSidebar({ members }: { members: CommunityServerMember[] }) {
+  const grouped = useMemo(() => {
+    const map = new Map<string, CommunityServerMember[]>();
+    for (const m of members) {
+      const list = map.get(m.roleName) ?? [];
+      list.push(m);
+      map.set(m.roleName, list);
+    }
+    return [...map.entries()].sort((a, b) => {
+      const posA = a[1][0]?.rolePosition ?? 100;
+      const posB = b[1][0]?.rolePosition ?? 100;
+      return posA - posB;
+    });
+  }, [members]);
+
+  return (
+    <aside className="hidden w-52 shrink-0 flex-col border-l border-[var(--community-border)] bg-[var(--community-panel)] min-h-0 md:flex">
+      <CommunityScrollBody className="px-2 py-3">
+        {grouped.map(([roleName, roleMembers]) => (
+          <div key={roleName} className="mb-4">
+            <p className="mb-1 px-2 text-[0.6875rem] font-bold uppercase tracking-wider text-muted">
+              {roleName} — {roleMembers.length}
+            </p>
+            {roleMembers.map((m) => {
+              const label = m.displayName || m.communityUsername || "Member";
+              const colorStyle = m.roleColor ? roleColorStyle(m.roleColor) : undefined;
+              return (
+                <div
+                  key={m.userId}
+                  className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-[var(--community-hover)]"
+                >
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/20 text-xs font-medium text-accent">
+                    {label[0]?.toUpperCase()}
+                  </div>
+                  <span className="truncate text-[0.875rem]" style={colorStyle}>
+                    {label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </CommunityScrollBody>
+    </aside>
   );
 }
 
@@ -930,7 +1180,8 @@ function MembersPanel({
   }, [userId, members]);
 
   return (
-    <div className="space-y-4 overflow-y-auto p-4">
+    <CommunityScrollBody className="p-4">
+      <div className="space-y-4">
       <ul className="space-y-2">
         {members.map((m) => (
           <li
@@ -1026,7 +1277,8 @@ function MembersPanel({
           {error && <FormError message={error} />}
         </div>
       )}
-    </div>
+      </div>
+    </CommunityScrollBody>
   );
 }
 

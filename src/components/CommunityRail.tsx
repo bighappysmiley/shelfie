@@ -27,8 +27,8 @@ function ServerGlyph({
       className="group relative flex w-full items-center justify-center py-1"
     >
       <span
-        className={`absolute left-0 w-1 rounded-r-full bg-white transition-all duration-200 ${
-          active ? "h-9 opacity-100" : "h-2 opacity-0 group-hover:h-5 group-hover:opacity-60"
+        className={`absolute left-0 w-1 rounded-r-full bg-accent transition-all duration-200 ${
+          active ? "h-9 opacity-100" : "h-2 opacity-0 group-hover:h-5 group-hover:opacity-70"
         }`}
       />
       {server.iconUrl ? (
@@ -41,7 +41,7 @@ function ServerGlyph({
         />
       ) : (
         <span
-          className={`flex h-11 w-11 items-center justify-center bg-[#5865f2]/35 text-[0.75rem] font-bold text-[#c9cdfb] transition-all duration-200 ${
+          className={`flex h-11 w-11 items-center justify-center bg-accent/25 text-[0.75rem] font-bold text-accent transition-all duration-200 ${
             active ? "rounded-[0.9rem]" : "rounded-full group-hover:rounded-[0.9rem]"
           }`}
         >
@@ -68,15 +68,15 @@ function RailButton({
   const toneClass =
     tone === "add"
       ? active
-        ? "rounded-[0.9rem] bg-emerald-500 text-white"
-        : "rounded-full bg-[#313338] text-emerald-400 hover:rounded-[0.9rem] hover:bg-emerald-500 hover:text-white"
+        ? "rounded-[0.9rem] bg-emerald-600 text-white"
+        : "rounded-full bg-[var(--community-panel)] text-emerald-400 hover:rounded-[0.9rem] hover:bg-emerald-600 hover:text-white"
       : tone === "discover"
         ? active
-          ? "rounded-[0.9rem] bg-[#5865f2] text-white"
-          : "rounded-full bg-[#313338] text-[#949ba4] hover:rounded-[0.9rem] hover:bg-[#5865f2] hover:text-white"
+          ? "rounded-[0.9rem] bg-accent text-accent-contrast"
+          : "rounded-full bg-[var(--community-panel)] text-muted hover:rounded-[0.9rem] hover:bg-accent/20 hover:text-accent"
         : active
-          ? "rounded-[0.9rem] bg-[#5865f2] text-white"
-          : "rounded-full bg-[#313338] text-[#949ba4] hover:rounded-[0.9rem] hover:bg-[#404249] hover:text-white";
+          ? "rounded-[0.9rem] bg-accent text-accent-contrast"
+          : "rounded-full bg-[var(--community-panel)] text-muted hover:rounded-[0.9rem] hover:bg-accent/15 hover:text-accent";
 
   return (
     <button
@@ -88,8 +88,8 @@ function RailButton({
       className="group relative flex w-full items-center justify-center py-1"
     >
       <span
-        className={`absolute left-0 w-1 rounded-r-full bg-white transition-all duration-200 ${
-          active ? "h-9 opacity-100" : "h-2 opacity-0 group-hover:h-5 group-hover:opacity-60"
+        className={`absolute left-0 w-1 rounded-r-full bg-accent transition-all duration-200 ${
+          active ? "h-9 opacity-100" : "h-2 opacity-0 group-hover:h-5 group-hover:opacity-70"
         }`}
       />
       <span className={`flex h-11 w-11 items-center justify-center transition-all duration-200 ${toneClass}`}>
@@ -137,10 +137,10 @@ export function CommunityDiscordShell({
   }, [user, railTick, pane, activeServerId]);
 
   return (
-    <div className="community-discord-shell -mx-4 -my-4 flex min-h-[calc(100dvh-4.5rem)] overflow-hidden bg-[#1e1f22] text-[#f2f3f5] sm:-mx-5 sm:-my-5 lg:-mx-8 lg:-my-7 lg:min-h-[calc(100dvh-3.5rem)] lg:rounded-[var(--radius-group)]">
+    <div className="community-discord-shell flex h-full min-h-0 flex-1 overflow-hidden rounded-[var(--radius-group)] bg-[var(--community-rail)] text-foreground">
       <nav
         aria-label="Servers"
-        className="flex w-[4.5rem] shrink-0 flex-col items-stretch gap-0.5 overflow-y-auto bg-[#1e1f22] py-3"
+        className="community-scroll flex w-[4.5rem] shrink-0 flex-col items-stretch gap-0.5 overflow-y-auto bg-[var(--community-rail)] py-3"
       >
         <RailButton label="Server list" active={pane === "list"} onClick={() => navigate("/community")}>
           <IconList size={22} />
@@ -173,14 +173,14 @@ export function CommunityDiscordShell({
         <div className="mt-auto px-2 pt-3">
           <Link
             to="/account"
-            className="block truncate text-center text-[0.625rem] text-white/40 hover:text-white/70"
+            className="block truncate text-center text-[0.625rem] text-muted hover:text-foreground"
           >
             Profile
           </Link>
         </div>
       </nav>
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-tl-2xl bg-[#2b2d31] text-[#f2f3f5] shadow-inner">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-tl-2xl bg-[var(--community-panel)] shadow-inner">
         {children}
       </div>
     </div>
@@ -199,10 +199,16 @@ export function CommunityPanelHeader({
   return (
     <header className="flex h-12 shrink-0 items-center gap-3 border-b border-black/20 px-4">
       <div className="min-w-0 flex-1">
-        <h1 className="truncate text-[1rem] font-semibold tracking-tight text-white">{title}</h1>
-        {subtitle && <p className="truncate text-[0.75rem] text-white/50">{subtitle}</p>}
+        <h1 className="truncate text-[1rem] font-semibold tracking-tight text-foreground">{title}</h1>
+        {subtitle && <p className="truncate text-[0.75rem] text-muted">{subtitle}</p>}
       </div>
       {trailing}
     </header>
+  );
+}
+
+export function CommunityScrollBody({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={`community-scroll min-h-0 flex-1 overflow-y-auto ${className}`}>{children}</div>
   );
 }
