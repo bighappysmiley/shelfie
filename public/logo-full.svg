@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 64" fill="none" role="img" aria-label="Pine Bookkeeping">
+  <title>Pine Bookkeeping</title>
+  <g transform="translate(0, 4) scale(1.1667)">
+    <path fill="#8fa898" d="M24 8 40 34a2 2 0 0 1-1.8 2H9.8A2 2 0 0 1 8 34L24 8Z"/>
+    <path fill="#7a5c44" d="M21.25 36.5h5.5v6.25a1.5 1.5 0 0 1-1.5 1.5h-2.5a1.5 1.5 0 0 1-1.5-1.5V36.5Z"/>
+  </g>
+  <text
+    x="70"
+    y="27"
+    fill="#1a2426"
+    font-family="&quot;Open Sauce Sans&quot;, system-ui, -apple-system, sans-serif"
+    font-size="27"
+    font-weight="400"
+    letter-spacing="0.008em"
+  >Pine</text>
+  <text
+    x="70"
+    y="54"
+    fill="#1a2426"
+    font-family="&quot;Open Sauce Sans&quot;, system-ui, -apple-system, sans-serif"
+    font-size="27"
+    font-weight="400"
+    letter-spacing="0.008em"
+  >Bookkeeping</text>
+</svg>
