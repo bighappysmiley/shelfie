@@ -9,6 +9,7 @@ import {
   listMyServers,
   listOfficialServers,
   listPublicServers,
+  pinOfficialServerToTop,
   reorderOfficialServers,
   requestJoinServer,
 } from "@/lib/community";
@@ -172,6 +173,21 @@ export function CommunityPage() {
     }
   };
 
+  const pinOfficial = async (serverId: string) => {
+    const index = officialServers.findIndex((s) => s.id === serverId);
+    if (index <= 0) return;
+    const next = [...officialServers];
+    const [pinned] = next.splice(index, 1);
+    next.unshift(pinned!);
+    setOfficialServers(next);
+    try {
+      await pinOfficialServerToTop(serverId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not pin server");
+      void refresh();
+    }
+  };
+
   const joinBtn = (s: CommunityServer, opts?: { showLeave?: boolean }) => (
     <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
       {s.isMember ? (
@@ -251,6 +267,7 @@ export function CommunityPage() {
               joinBtn={joinBtn}
               onOpen={openServer}
               onMoveOfficial={(i, dir) => void moveOfficial(i, dir)}
+              onPinOfficial={(id) => void pinOfficial(id)}
             />
           </CommunityScrollBody>
         </>

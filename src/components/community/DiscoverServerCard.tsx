@@ -51,7 +51,7 @@ export function DiscoverServerCard({
           </div>
           {server.isOfficial && (
             <span className="absolute right-2 top-2 rounded-full bg-accent/25 px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-wide text-accent">
-              Official
+              {isHero ? "Pinned" : "Official"}
             </span>
           )}
           {rank != null && !server.isOfficial && (
@@ -64,7 +64,11 @@ export function DiscoverServerCard({
           <h3 className={`truncate font-semibold text-foreground ${isHero ? "text-[1.0625rem]" : "text-[0.9375rem]"}`}>
             {server.name}
           </h3>
-          <p className={`text-muted ${isHero ? "line-clamp-2 text-[0.8125rem]" : "line-clamp-2 text-[0.75rem]"}`}>
+          <p
+            className={`whitespace-pre-wrap break-words text-muted ${
+              isHero ? "line-clamp-4 text-[0.8125rem] leading-relaxed" : "line-clamp-3 text-[0.75rem] leading-snug"
+            }`}
+          >
             {server.description || formatPopularity(server)}
           </p>
           <p className="mt-auto text-[0.6875rem] text-muted/80">{formatPopularity(server)}</p>

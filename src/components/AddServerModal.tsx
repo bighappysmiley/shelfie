@@ -182,7 +182,8 @@ export function AddServerModal({
             label="Description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            rows={2}
+            rows={3}
+            hint="Line breaks are preserved in Discover."
           />
           <ToggleRow
             label="Make public"

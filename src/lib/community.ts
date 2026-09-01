@@ -29,6 +29,16 @@ import { normalizeGroupKind } from "./community-types";
 import { getBoostLevel } from "./nitro";
 import { bumpCommunityRail } from "./community-events";
 
+function normalizeDescription(value: string | null | undefined): string | null {
+  if (value == null) return null;
+  const trimmed = value
+    .split(/\r?\n/)
+    .map((line) => line.trimEnd())
+    .join("\n")
+    .trim();
+  return trimmed || null;
+}
+
 type ServerRow = {
   id: string;
   library_id: string;
@@ -417,7 +427,7 @@ export async function createLibraryServer(input: {
     .insert({
       library_id: input.libraryId,
       name: input.name.trim() || "My Server",
-      description: input.description?.trim() || null,
+      description: normalizeDescription(input.description),
       is_public: Boolean(input.isPublic),
       is_official: false,
       official_position: null,
@@ -599,7 +609,7 @@ export async function updateServer(
 ): Promise<void> {
   const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (patch.name !== undefined) row.name = patch.name.trim();
-  if (patch.description !== undefined) row.description = patch.description?.trim() || null;
+  if (patch.description !== undefined) row.description = normalizeDescription(patch.description);
   if (patch.iconUrl !== undefined) row.icon_url = patch.iconUrl || null;
   if (patch.isPublic !== undefined) row.is_public = patch.isPublic;
   if (patch.joinMode !== undefined) row.join_mode = patch.joinMode;
@@ -647,6 +657,17 @@ export async function reorderOfficialServers(orderedIds: string[]): Promise<void
       .eq("id", orderedIds[i]);
     if (error) throw error;
   }
+}
+
+/** App owner: move one official server to the top of the Discover list. */
+export async function pinOfficialServerToTop(serverId: string): Promise<void> {
+  const servers = await listOfficialServers();
+  const orderedIds = servers.map((s) => s.id);
+  const index = orderedIds.indexOf(serverId);
+  if (index <= 0) return;
+  orderedIds.splice(index, 1);
+  orderedIds.unshift(serverId);
+  await reorderOfficialServers(orderedIds);
 }
 
 export type JoinOutcome = {

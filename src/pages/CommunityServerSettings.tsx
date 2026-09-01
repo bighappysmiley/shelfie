@@ -14,6 +14,7 @@ import {
   listServerBans,
   listServerMembers,
   listServerRolesWithCounts,
+  pinOfficialServerToTop,
   regenerateServerInviteCode,
   updateServer,
   uploadCommunityImage,
@@ -87,6 +88,7 @@ export function CommunityServerSettingsPage() {
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [regenBusy, setRegenBusy] = useState(false);
+  const [pinBusy, setPinBusy] = useState(false);
   const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
   const iconInput = useRef<HTMLInputElement>(null);
 
@@ -291,6 +293,22 @@ export function CommunityServerSettingsPage() {
     }
   };
 
+  const pinToOfficialTop = async () => {
+    if (!isOwner || !isOfficial) return;
+    setPinBusy(true);
+    setError("");
+    try {
+      await pinOfficialServerToTop(serverId);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not pin server");
+    } finally {
+      setPinBusy(false);
+    }
+  };
+
+  const isPinnedOfficial = (server.officialPosition ?? 0) === 0;
+
   const uploadIcon = async (file: File) => {
     setUploading(true);
     setError("");
@@ -411,17 +429,27 @@ export function CommunityServerSettingsPage() {
                 label="Description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                rows={3}
-                hint="Shown in Discover and Official lists"
+                rows={4}
+                hint="Line breaks are preserved. Shown in Discover and Official lists."
               />
 
               {isOwner && (
-                <ToggleRow
-                  label="Official server"
-                  hint="Pins in the Official servers list on Discover"
-                  checked={isOfficial}
-                  onChange={setIsOfficial}
-                />
+                <div className="space-y-2">
+                  <ToggleRow
+                    label="Official server"
+                    hint="Featured in the Official servers list on Discover"
+                    checked={isOfficial}
+                    onChange={setIsOfficial}
+                  />
+                  {isOfficial && !isPinnedOfficial && (
+                    <Button type="button" size="sm" variant="secondary" disabled={pinBusy} onClick={() => void pinToOfficialTop()}>
+                      {pinBusy ? "Pinning…" : "Pin to top of Official list"}
+                    </Button>
+                  )}
+                  {isOfficial && isPinnedOfficial && (
+                    <p className="text-[0.8125rem] text-muted">Pinned at the top of the Official list.</p>
+                  )}
+                </div>
               )}
 
               <p className="text-[0.8125rem] text-muted">

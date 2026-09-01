@@ -25,6 +25,7 @@ export function CommunityDiscover({
   joinBtn,
   onOpen,
   onMoveOfficial,
+  onPinOfficial,
 }: {
   officialServers: CommunityServer[];
   publicServers: CommunityServer[];
@@ -34,9 +35,61 @@ export function CommunityDiscover({
   joinBtn: (s: CommunityServer, opts?: { showLeave?: boolean }) => ReactNode;
   onOpen: (s: CommunityServer) => void;
   onMoveOfficial: (index: number, dir: -1 | 1) => void;
+  onPinOfficial: (serverId: string) => void;
 }) {
   const [reorderMode, setReorderMode] = useState(false);
   const [officialOpen, setOfficialOpen] = useState(true);
+
+  const officialTrailing = (server: CommunityServer, index: number) => {
+    if (reorderMode && isOwner) {
+      return (
+        <div className="flex flex-wrap items-center justify-end gap-1">
+          {index > 0 && (
+            <button
+              type="button"
+              className="rounded px-2 py-1 text-xs text-accent hover:bg-[var(--community-hover)]"
+              onClick={() => onPinOfficial(server.id)}
+            >
+              Pin to top
+            </button>
+          )}
+          <button
+            type="button"
+            className="rounded px-2 py-1 text-xs text-muted hover:bg-[var(--community-hover)]"
+            disabled={index === 0}
+            onClick={() => onMoveOfficial(index, -1)}
+          >
+            ↑
+          </button>
+          <button
+            type="button"
+            className="rounded px-2 py-1 text-xs text-muted hover:bg-[var(--community-hover)]"
+            disabled={index === officialServers.length - 1}
+            onClick={() => onMoveOfficial(index, 1)}
+          >
+            ↓
+          </button>
+        </div>
+      );
+    }
+
+    if (isOwner && index > 0) {
+      return (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <button
+            type="button"
+            className="text-[0.75rem] text-accent hover:underline"
+            onClick={() => onPinOfficial(server.id)}
+          >
+            Pin to top
+          </button>
+          {joinBtn(server)}
+        </div>
+      );
+    }
+
+    return joinBtn(server);
+  };
 
   if (loading) {
     return <p className="text-muted">Loading communities…</p>;
@@ -86,29 +139,7 @@ export function CommunityDiscover({
                 server={hero}
                 variant="hero"
                 onOpen={() => onOpen(hero)}
-                trailing={
-                  reorderMode && isOwner ? (
-                    <div className="flex justify-end gap-1">
-                      <button
-                        type="button"
-                        className="rounded px-2 py-1 text-xs text-muted hover:bg-[var(--community-hover)]"
-                        disabled
-                      >
-                        ↑
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded px-2 py-1 text-xs text-muted hover:bg-[var(--community-hover)]"
-                        disabled={officialServers.length < 2}
-                        onClick={() => onMoveOfficial(0, 1)}
-                      >
-                        ↓
-                      </button>
-                    </div>
-                  ) : (
-                    joinBtn(hero)
-                  )
-                }
+                trailing={officialTrailing(hero, 0)}
               />
             )}
             {restOfficial.length > 0 && (
@@ -121,30 +152,7 @@ export function CommunityDiscover({
                       server={s}
                       variant="featured"
                       onOpen={() => onOpen(s)}
-                      trailing={
-                        reorderMode && isOwner ? (
-                          <div className="flex justify-end gap-1">
-                            <button
-                              type="button"
-                              className="rounded px-2 py-1 text-xs text-muted hover:bg-[var(--community-hover)]"
-                              disabled={index === 0}
-                              onClick={() => onMoveOfficial(index, -1)}
-                            >
-                              ↑
-                            </button>
-                            <button
-                              type="button"
-                              className="rounded px-2 py-1 text-xs text-muted hover:bg-[var(--community-hover)]"
-                              disabled={index === officialServers.length - 1}
-                              onClick={() => onMoveOfficial(index, 1)}
-                            >
-                              ↓
-                            </button>
-                          </div>
-                        ) : (
-                          joinBtn(s)
-                        )
-                      }
+                      trailing={officialTrailing(s, index)}
                     />
                   );
                 })}
