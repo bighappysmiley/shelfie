@@ -14,7 +14,7 @@ import {
   boostsToNextLevel,
   getBoostLevel,
   type BoostLevel,
-} from "@/lib/nitro";
+} from "@/lib/pro";
 
 export function BoostTab({
   server,
@@ -95,7 +95,7 @@ export function BoostTab({
           {busy ? "Updating…" : isBooster ? "Remove your boost" : "Boost this server (test)"}
         </Button>
         <p className="mt-2 text-[0.75rem] text-muted">
-          No payment — boosts are for testing server perks and Nitro-style features.
+          No payment — boosts are for testing server perks and Pro-style features.
         </p>
       </div>
 
@@ -139,8 +139,8 @@ export function BoostTab({
                     communityDisplayName: b.displayName ?? null,
                     displayName: b.displayName ?? null,
                     communityUsername: b.communityUsername ?? null,
-                    nitroEnabled: false,
-                    profileRing: "nitro",
+                    proEnabled: false,
+                    profileRing: "pro",
                   }}
                 />
                 <span className="text-[0.875rem]">

@@ -62,7 +62,7 @@ import { SettingsNav } from "@/components/community-settings/SettingsNav";
 import type { SettingsNavGroup, SettingsTab } from "@/components/community-settings/types";
 import { parseSettingsTab } from "@/components/community-settings/types";
 import { getCommunityProfile } from "@/lib/community-profile";
-import { canUseHoloRoles } from "@/lib/nitro";
+import { canUseHoloRoles } from "@/lib/pro";
 
 export function CommunityServerSettingsPage() {
   const { serverId } = useParams<{ serverId: string }>();
@@ -108,7 +108,7 @@ export function CommunityServerSettingsPage() {
   const [rulesChannelId, setRulesChannelId] = useState("");
   const [automodEnabled, setAutomodEnabled] = useState(false);
   const [automodKeywords, setAutomodKeywords] = useState<string[]>([]);
-  const [userNitro, setUserNitro] = useState(false);
+  const [userPro, setUserPro] = useState(false);
 
   const library = libraries.find((l) => l.id === server?.libraryId);
   const myRole = roles.find((r) => r.id === myRoleId);
@@ -208,7 +208,7 @@ export function CommunityServerSettingsPage() {
   }, []);
 
   const canUseHolo = canUseHoloRoles({
-    nitroEnabled: userNitro,
+    proEnabled: userPro,
     boostLevel: server?.boostLevel ?? 0,
   });
 
@@ -239,7 +239,7 @@ export function CommunityServerSettingsPage() {
       setMyRoleId(roleId);
       if (user) {
         const profile = await getCommunityProfile(user.id);
-        setUserNitro(Boolean(profile?.nitroEnabled));
+        setUserPro(Boolean(profile?.proEnabled ?? profile?.nitroEnabled));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load settings");
@@ -492,6 +492,7 @@ export function CommunityServerSettingsPage() {
               userId={user.id}
               categories={categories}
               channels={channels}
+              roles={roles}
               onChanged={refresh}
               onError={setError}
             />

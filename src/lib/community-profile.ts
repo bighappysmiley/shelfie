@@ -16,11 +16,12 @@ type ProfileRow = {
   current_reading_title: string | null;
   current_reading_author: string | null;
   nitro_enabled: boolean | null;
+  pro_enabled?: boolean | null;
   profile_ring: string | null;
 };
 
 const PROFILE_SELECT =
-  "user_id, display_name, community_username, community_display_name, community_bio, community_avatar_url, community_banner_url, community_status_emoji, community_status_text, books_read_count, current_reading_title, current_reading_author, nitro_enabled, profile_ring";
+  "user_id, display_name, community_username, community_display_name, community_bio, community_avatar_url, community_banner_url, community_status_emoji, community_status_text, books_read_count, current_reading_title, current_reading_author, nitro_enabled, pro_enabled, profile_ring";
 
 function mapProfile(row: ProfileRow): CommunityProfile {
   return {
@@ -36,7 +37,8 @@ function mapProfile(row: ProfileRow): CommunityProfile {
     booksReadCount: row.books_read_count ?? 0,
     currentReadingTitle: row.current_reading_title,
     currentReadingAuthor: row.current_reading_author,
-    nitroEnabled: Boolean(row.nitro_enabled),
+    nitroEnabled: Boolean(row.pro_enabled ?? row.nitro_enabled),
+    proEnabled: Boolean(row.pro_enabled ?? row.nitro_enabled),
     profileRing: row.profile_ring,
   };
 }
@@ -98,6 +100,7 @@ export async function updateCommunityProfile(
     currentReadingTitle?: string | null;
     currentReadingAuthor?: string | null;
     nitroEnabled?: boolean;
+    proEnabled?: boolean;
     profileRing?: string | null;
   },
 ): Promise<void> {
@@ -114,8 +117,18 @@ export async function updateCommunityProfile(
   if (patch.currentReadingAuthor !== undefined) {
     row.current_reading_author = patch.currentReadingAuthor?.trim() || null;
   }
-  if (patch.nitroEnabled !== undefined) row.nitro_enabled = patch.nitroEnabled;
-  if (patch.profileRing !== undefined) row.profile_ring = patch.profileRing || null;
+  if (patch.nitroEnabled !== undefined) {
+    row.nitro_enabled = patch.nitroEnabled;
+    row.pro_enabled = patch.nitroEnabled;
+  }
+  if (patch.proEnabled !== undefined) {
+    row.pro_enabled = patch.proEnabled;
+    row.nitro_enabled = patch.proEnabled;
+  }
+  if (patch.profileRing !== undefined) {
+    const ring = patch.profileRing === "nitro" ? "pro" : patch.profileRing;
+    row.profile_ring = ring || null;
+  }
 
   const { error } = await supabase.from("user_profiles").upsert(row);
   if (error) throw error;

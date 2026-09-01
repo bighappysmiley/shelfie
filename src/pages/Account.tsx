@@ -21,7 +21,7 @@ import {
   updateCommunityProfile,
   uploadCommunityProfileImage,
 } from "@/lib/community-profile";
-import { NITRO_PERKS, PROFILE_RINGS, type ProfileRingId } from "@/lib/nitro";
+import { PRO_PERKS, PROFILE_RINGS, type ProfileRingId } from "@/lib/pro";
 
 export function AccountPage() {
   const { user, signOut, userProfile, updateProfile } = useAuth();
@@ -45,8 +45,8 @@ export function AccountPage() {
   const [booksReadCount, setBooksReadCount] = useState(0);
   const [currentReadingTitle, setCurrentReadingTitle] = useState("");
   const [currentReadingAuthor, setCurrentReadingAuthor] = useState("");
-  const [nitroEnabled, setNitroEnabled] = useState(false);
-  const [profileRing, setProfileRing] = useState<ProfileRingId | "">("nitro");
+  const [proEnabled, setProEnabled] = useState(false);
+  const [profileRing, setProfileRing] = useState<ProfileRingId | "">("pro");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const avatarInput = useRef<HTMLInputElement>(null);
@@ -76,8 +76,8 @@ export function AccountPage() {
         setBooksReadCount(p.booksReadCount);
         setCurrentReadingTitle(p.currentReadingTitle ?? "");
         setCurrentReadingAuthor(p.currentReadingAuthor ?? "");
-        setNitroEnabled(Boolean(p.nitroEnabled));
-        setProfileRing((p.profileRing as ProfileRingId) || "nitro");
+        setProEnabled(Boolean(p.proEnabled ?? p.nitroEnabled));
+        setProfileRing((p.profileRing === "nitro" ? "pro" : (p.profileRing as ProfileRingId)) || "pro");
       })
       .catch(() => {});
   }, [user]);
@@ -104,8 +104,8 @@ export function AccountPage() {
         booksReadCount,
         currentReadingTitle: currentReadingTitle.trim() || null,
         currentReadingAuthor: currentReadingAuthor.trim() || null,
-        nitroEnabled,
-        profileRing: nitroEnabled ? profileRing || "nitro" : null,
+        proEnabled,
+        profileRing: proEnabled ? profileRing || "pro" : null,
       });
       setProfileMsg("Settings saved");
     } catch (err) {
@@ -145,8 +145,9 @@ export function AccountPage() {
     displayName,
     communityUsername,
     avatarUrl,
-    nitroEnabled,
-    profileRing: nitroEnabled ? profileRing || "nitro" : null,
+    proEnabled,
+    nitroEnabled: proEnabled,
+    profileRing: proEnabled ? profileRing || "pro" : null,
   };
 
   return (
@@ -169,7 +170,7 @@ export function AccountPage() {
                     profile={previewProfile}
                     size="lg"
                     className="ring-4 ring-surface"
-                    previewRing={nitroEnabled}
+                    previewRing={proEnabled}
                   />
                 </div>
                 <div className="flex flex-1 flex-wrap gap-2 pb-1">
@@ -259,15 +260,15 @@ export function AccountPage() {
         </section>
 
         <section>
-          <GroupHeader>Pine Nitro (test)</GroupHeader>
+          <GroupHeader>Pine Pro (test)</GroupHeader>
           <Group>
             <ToggleRow
-              label="Enable Pine Nitro"
+              label="Enable Pine Pro"
               hint="No subscription — toggle to test premium profile and role features"
-              checked={nitroEnabled}
-              onChange={setNitroEnabled}
+              checked={proEnabled}
+              onChange={setProEnabled}
             />
-            {nitroEnabled && (
+            {proEnabled && (
               <div className="space-y-3 px-4 py-3 hairline-b">
                 <p className="text-[0.8125rem] font-medium text-muted">Animated profile ring</p>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -286,6 +287,7 @@ export function AccountPage() {
                         profile={{
                           ...previewProfile,
                           profileRing: ring.id,
+                          proEnabled: true,
                           nitroEnabled: true,
                         }}
                         size="md"
@@ -298,9 +300,9 @@ export function AccountPage() {
               </div>
             )}
             <div className="px-4 py-3">
-              <p className="text-[0.8125rem] font-medium text-muted">Nitro perks (test)</p>
+              <p className="text-[0.8125rem] font-medium text-muted">Pro perks (test)</p>
               <ul className="mt-2 space-y-1">
-                {NITRO_PERKS.map((perk) => (
+                {PRO_PERKS.map((perk) => (
                   <li key={perk} className="text-[0.875rem] text-foreground">
                     <span className="text-accent">✦</span> {perk}
                   </li>

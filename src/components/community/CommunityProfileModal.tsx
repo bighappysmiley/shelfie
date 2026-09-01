@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ButtonLink } from "@/components/Button";
 import { CommunityDrawer } from "@/components/CommunityDrawer";
-import { CommunityAvatar, NitroBadge } from "@/components/community/CommunityAvatar";
+import { CommunityAvatar, ProBadge } from "@/components/community/CommunityAvatar";
 import { AuthedImage } from "@/components/AuthedImage";
 import { getCommunityProfile, getCommunityProfileByUsername, communityProfileLabel } from "@/lib/community-profile";
 import type { CommunityProfile } from "@/lib/community-types";
@@ -70,11 +70,11 @@ export function CommunityProfileModal({
               )}
               <div className="relative px-4 pb-4">
                 <div className="-mt-8">
-                  <CommunityAvatar profile={profile} size="lg" previewRing={profile.nitroEnabled} />
+                  <CommunityAvatar profile={profile} size="lg" previewRing={profile.proEnabled ?? profile.nitroEnabled} />
                 </div>
                 <h2 className="mt-2 flex flex-wrap items-center gap-2 text-[1.125rem] font-semibold">
                   {label}
-                  {profile.nitroEnabled && <NitroBadge />}
+                  {(profile.proEnabled ?? profile.nitroEnabled) && <ProBadge />}
                 </h2>
                 {handle && <p className="text-[0.8125rem] text-muted">{handle}</p>}
                 {(profile.statusEmoji || profile.statusText) && (

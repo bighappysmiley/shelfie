@@ -330,6 +330,7 @@ h1, h2, h3 {
   background-size: 200% 200%;
 }
 
+.profile-ring--pro,
 .profile-ring--nitro {
   background-image: linear-gradient(135deg, #f47fff, #7b61ff, #5865f2, #f47fff);
   animation: profile-ring-shimmer 3s linear infinite;
