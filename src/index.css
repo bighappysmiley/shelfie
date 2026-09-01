@@ -390,27 +390,48 @@ h1, h2, h3 {
   }
 }
 
-/* Isolate Community shell from app light-theme tokens — Pine green dark palette */
+/* Isolate Community shell from app light-theme tokens — Discord dark palette */
 .community-discord-shell {
-  --foreground: #f0f2e8;
-  --muted: #9aa8a0;
-  --surface: #222d2f;
-  --fill: rgba(168, 192, 173, 0.1);
-  --fill-secondary: rgba(168, 192, 173, 0.14);
-  --accent: #a8c0ad;
-  --accent-contrast: #1a2426;
-  --accent-hover: #bdd0c2;
-  --link: #a8c0ad;
-  --chat-mine: #4a6358;
-  --chat-theirs: #2a3436;
-  --destructive: #d47a72;
-  --community-rail: #1a2426;
-  --community-panel: #222d2f;
-  --community-chat: #2a3436;
-  --community-input: #1f2a2c;
-  --community-border: rgba(240, 242, 232, 0.09);
-  --community-hover: rgba(168, 192, 173, 0.1);
+  --foreground: #f2f3f5;
+  --muted: #949ba4;
+  --surface: #2b2d31;
+  --fill: rgba(79, 84, 92, 0.32);
+  --fill-secondary: rgba(79, 84, 92, 0.48);
+  --accent: #5865f2;
+  --accent-contrast: #ffffff;
+  --accent-hover: #4752c4;
+  --link: #00a8fc;
+  --chat-mine: #5865f2;
+  --chat-theirs: #383a40;
+  --destructive: #f23f43;
+  --community-rail: #1e1f22;
+  --community-panel: #2b2d31;
+  --community-chat: #313338;
+  --community-input: #383a40;
+  --community-border: rgba(255, 255, 255, 0.06);
+  --community-hover: rgba(79, 84, 92, 0.32);
+  --community-channel-hover: rgba(79, 84, 92, 0.16);
+  --community-channel-active: rgba(79, 84, 92, 0.48);
   color-scheme: dark;
+}
+
+.community-message-grouped {
+  margin-top: 0.125rem;
+}
+
+.community-message-grouped .community-message-avatar-spacer {
+  width: 2.5rem;
+  flex-shrink: 0;
+}
+
+.community-message-timestamp-hover {
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+
+.group:hover .community-message-timestamp-hover,
+.group:focus-within .community-message-timestamp-hover {
+  opacity: 1;
 }
 
 .community-discord-shell input,

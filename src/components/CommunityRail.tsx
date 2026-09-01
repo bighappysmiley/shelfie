@@ -75,8 +75,8 @@ function RailButton({
   const toneClass =
     tone === "add"
       ? active
-        ? "rounded-[0.9rem] bg-emerald-600 text-white"
-        : "rounded-full bg-[var(--community-panel)] text-emerald-400 hover:rounded-[0.9rem] hover:bg-emerald-600 hover:text-white"
+        ? "rounded-[0.9rem] bg-[#23a559] text-white"
+        : "rounded-full bg-[var(--community-panel)] text-[#23a559] hover:rounded-[0.9rem] hover:bg-[#23a559] hover:text-white"
       : tone === "discover"
         ? active
           ? "rounded-[0.9rem] bg-accent text-accent-contrast"

@@ -26,6 +26,7 @@ import {
   requestJoinServer,
   renameCommunityCategory,
   listServerMembers,
+  listServerRoles,
   listServerBoosts,
   markChannelRead,
   listUnreadCounts,
@@ -52,6 +53,7 @@ import {
   type CommunityServer,
   type CommunityServerMember,
   type CommunityServerEmoji,
+  type CommunityServerRole,
   type CommunityServerSticker,
   type SuggestionStatus,
 } from "@/lib/community-types";
@@ -61,7 +63,8 @@ import { EmptyState } from "@/components/layout";
 import { AuthedImage } from "@/components/AuthedImage";
 import { IconChat, IconPlus, IconSearch, IconSettings } from "@/components/Icons";
 import { communityAuthorLabel, communityShortName } from "@/lib/community-identity";
-import { roleColorStyle } from "@/lib/role-color";
+import { isAppOwnerUser, listAppOwnerUserIds } from "@/lib/app-owner";
+import { roleColorTextStyle } from "@/lib/role-color";
 import { CommunityDiscordShell, CommunityScrollBody } from "@/components/CommunityRail";
 import { CommunityChatHeader } from "@/components/CommunityChatHeader";
 import { CommunityDrawer } from "@/components/CommunityDrawer";
@@ -71,7 +74,9 @@ import { ChannelKindGlyph, channelKindBanner, canPostInChannelKind } from "@/com
 import { ChannelMessageComposer } from "@/components/community/ChannelMessageComposer";
 import { ChannelToolbar } from "@/components/community/ChannelToolbar";
 import { ChannelWelcome } from "@/components/community/ChannelWelcome";
-import { CommunityAvatar, NitroBadge } from "@/components/community/CommunityAvatar";
+import { ChatAuthorBadge } from "@/components/community/ChatAuthorBadge";
+import { CommunityAvatar } from "@/components/community/CommunityAvatar";
+import { CommunityUserPanel } from "@/components/community/CommunityUserPanel";
 import { CommunityProfileModal } from "@/components/community/CommunityProfileModal";
 import { ChannelFormModal, CategoryFormModal } from "@/components/community-server-modals";
 import { AddServerModal } from "@/components/AddServerModal";
@@ -88,6 +93,21 @@ import { listCommunityProfiles } from "@/lib/community-profile";
 import type { CommunityProfile } from "@/lib/community-types";
 
 const QUICK_EMOJIS = ["👍", "❤️", "😂", "🔥", "🎉", "👀"];
+const MESSAGE_GROUP_MS = 7 * 60 * 1000;
+
+function shouldGroupMessages(prev: CommunityMessage | null, curr: CommunityMessage): boolean {
+  if (!prev || !curr.authorId || prev.authorId !== curr.authorId) return false;
+  if (prev.kind !== "chat" || curr.kind !== "chat") return false;
+  const prevTime = new Date(prev.createdAt).getTime();
+  const currTime = new Date(curr.createdAt).getTime();
+  return currTime - prevTime < MESSAGE_GROUP_MS;
+}
+
+function channelHashPrefix(kind: CommunityGroup["kind"]): string {
+  if (kind === "voice") return "";
+  if (kind === "forum") return "";
+  return "#";
+}
 
 type Modal =
   | null
@@ -138,6 +158,8 @@ export function CommunityServerPage() {
   } | null>(null);
   const [memberProfiles, setMemberProfiles] = useState<Map<string, CommunityProfile>>(new Map());
   const [serverBoosters, setServerBoosters] = useState<Set<string>>(new Set());
+  const [serverRoles, setServerRoles] = useState<CommunityServerRole[]>([]);
+  const [appOwnerUserIds, setAppOwnerUserIds] = useState<Set<string>>(new Set());
 
   const openProfile = useCallback((target: { userId?: string; username?: string | null }) => {
     setProfileTarget(target);
@@ -156,10 +178,12 @@ export function CommunityServerPage() {
       setIsMember(member);
       const pending = member ? null : await getMyJoinRequestStatus(serverId, user.id);
       setJoinRequestStatus(pending);
-      const [cats, groups, srvMembers] = await Promise.all([
+      const [cats, groups, srvMembers, roles, ownerIds] = await Promise.all([
         listCommunityCategories(serverId),
         listCommunityGroups(user.id, serverId),
         member ? listServerMembers(serverId) : Promise.resolve([] as CommunityServerMember[]),
+        member ? listServerRoles(serverId) : Promise.resolve([] as CommunityServerRole[]),
+        listAppOwnerUserIds().catch(() => new Set<string>()),
       ]);
       setServer({
         ...s,
@@ -170,6 +194,8 @@ export function CommunityServerPage() {
       setCategories(cats);
       setChannels(groups);
       setServerMembers(srvMembers);
+      setServerRoles(roles);
+      setAppOwnerUserIds(ownerIds);
       if (srvMembers.length > 0) {
         const profiles = await listCommunityProfiles(srvMembers.map((m) => m.userId));
         setMemberProfiles(profiles);
@@ -240,6 +266,9 @@ export function CommunityServerPage() {
   const canManageActiveChannel = Boolean(
     active && (canConfigure || canManageMembers(activeChannelRole, isOwner || canConfigure)),
   );
+
+  const roleById = useMemo(() => new Map(serverRoles.map((r) => [r.id, r])), [serverRoles]);
+  const myCommunityProfile = user ? memberProfiles.get(user.id) ?? null : null;
 
   useEffect(() => {
     if (loading || !serverId || channels.length === 0 || channelId) return;
@@ -316,7 +345,7 @@ export function CommunityServerPage() {
     >
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <aside className="hidden w-[15.25rem] shrink-0 flex-col border-r border-[var(--community-border)] bg-[var(--community-panel)] min-h-0 md:flex">
-          <div className="flex h-12 shrink-0 items-center gap-2 border-b border-[var(--community-border)] px-3">
+          <div className="flex h-12 shrink-0 items-center gap-2 border-b border-[var(--community-border)] px-3 shadow-sm">
             {server?.iconUrl ? (
               <AuthedImage src={server.iconUrl} className="h-7 w-7 rounded-lg object-cover" />
             ) : (
@@ -325,9 +354,9 @@ export function CommunityServerPage() {
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[0.875rem] font-semibold text-white">{server?.name || "Server"}</p>
+              <p className="truncate text-[0.875rem] font-semibold text-foreground">{server?.name || "Server"}</p>
               {server && (
-                <p className="truncate text-[0.625rem] text-white/45">{formatPopularity(server)}</p>
+                <p className="truncate text-[0.625rem] text-muted">{formatPopularity(server)}</p>
               )}
             </div>
             {canConfigure && (
@@ -375,6 +404,12 @@ export function CommunityServerPage() {
             </label>
           </div>
           <CommunityScrollBody className="px-2 py-2">{sidebar}</CommunityScrollBody>
+          {user && (
+            <CommunityUserPanel
+              profile={myCommunityProfile}
+              fallbackName={communityShortName(userProfile, user.email)}
+            />
+          )}
         </aside>
 
         <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
@@ -425,6 +460,8 @@ export function CommunityServerPage() {
               serverMembers={serverMembers}
               memberProfiles={memberProfiles}
               serverBoosters={serverBoosters}
+              roleById={roleById}
+              appOwnerUserIds={appOwnerUserIds}
               onOpenProfile={openProfile}
               onMarkRead={user ? () => void markChannelRead(user.id, active.id) : undefined}
             />
@@ -466,6 +503,7 @@ export function CommunityServerPage() {
               members={serverMembers}
               memberProfiles={memberProfiles}
               serverBoosters={serverBoosters}
+              appOwnerUserIds={appOwnerUserIds}
               onOpenProfile={openProfile}
             />
           )}
@@ -670,7 +708,7 @@ function ChannelSidebar({
               <button
                 type="button"
                 onClick={() => onToggle(cat.id)}
-                className="flex min-w-0 flex-1 items-center gap-1 rounded px-1 py-1 text-[0.6875rem] font-bold uppercase tracking-wider text-white/40 hover:text-white/80"
+                className="flex min-w-0 flex-1 items-center gap-1 rounded px-1 py-1 text-[0.6875rem] font-bold uppercase tracking-wider text-muted hover:text-foreground"
               >
                 <Chevron open={open} />
                 <span className="flex min-w-0 items-center gap-1 truncate">{cat.name}</span>
@@ -702,18 +740,23 @@ function ChannelSidebar({
                   key={ch.id}
                   type="button"
                   onClick={() => onSelect(ch.id)}
-                  className={`mb-0.5 flex w-full items-center gap-1.5 rounded-[0.5rem] px-2 py-1.5 text-left text-[0.9375rem] transition ${
+                  className={`mb-0.5 flex w-full items-center gap-1 rounded-[0.25rem] px-2 py-[0.3125rem] text-left text-[0.9375rem] transition ${
                     ch.id === activeId
-                      ? "bg-white/10 font-medium text-white"
-                      : "text-white/55 hover:bg-white/[0.06] hover:text-white/90"
+                      ? "bg-[var(--community-channel-active)] font-medium text-foreground"
+                      : "text-muted hover:bg-[var(--community-channel-hover)] hover:text-foreground"
                   }`}
                 >
-                  <ChannelKindGlyph kind={ch.kind} className="h-4 w-4 shrink-0 opacity-70" />
-                  <span className={`truncate ${unreadCounts?.get(ch.id) ? "font-semibold text-white" : ""}`}>
-                    {ch.name}
+                  <ChannelKindGlyph kind={ch.kind} className="h-4 w-4 shrink-0 opacity-60" />
+                  <span className="truncate">
+                    {channelHashPrefix(ch.kind)}
+                    <span className={unreadCounts?.get(ch.id) ? "font-semibold text-foreground" : ""}>
+                      {ch.name}
+                    </span>
                   </span>
                   {unreadCounts?.get(ch.id) ? (
-                    <span className="ml-auto h-2 w-2 shrink-0 rounded-full bg-accent" />
+                    <span className="ml-auto flex h-[0.6875rem] min-w-[0.6875rem] shrink-0 items-center justify-center rounded-full bg-destructive px-1 text-[0.625rem] font-bold text-white">
+                      {unreadCounts.get(ch.id)! > 9 ? "9+" : unreadCounts.get(ch.id)}
+                    </span>
                   ) : null}
                 </button>
               ))}
@@ -727,14 +770,17 @@ function ChannelSidebar({
             key={ch.id}
             type="button"
             onClick={() => onSelect(ch.id)}
-            className={`mb-0.5 flex w-full items-center gap-1.5 rounded-[0.5rem] px-2 py-1.5 text-left text-[0.9375rem] ${
+            className={`mb-0.5 flex w-full items-center gap-1 rounded-[0.25rem] px-2 py-[0.3125rem] text-left text-[0.9375rem] ${
               ch.id === activeId
-                ? "bg-white/10 font-medium text-white"
-                : "text-white/55 hover:bg-white/[0.06]"
+                ? "bg-[var(--community-channel-active)] font-medium text-foreground"
+                : "text-muted hover:bg-[var(--community-channel-hover)] hover:text-foreground"
             }`}
           >
-            <ChannelKindGlyph kind={ch.kind} className="h-4 w-4 shrink-0 opacity-70" />
-            <span className="truncate">{ch.name}</span>
+            <ChannelKindGlyph kind={ch.kind} className="h-4 w-4 shrink-0 opacity-60" />
+            <span className="truncate">
+              {channelHashPrefix(ch.kind)}
+              {ch.name}
+            </span>
           </button>
         ))}
 
@@ -783,6 +829,8 @@ function ChannelRoom({
   serverMembers = [],
   memberProfiles = new Map(),
   serverBoosters = new Set<string>(),
+  roleById = new Map<string, CommunityServerRole>(),
+  appOwnerUserIds = new Set<string>(),
   onOpenProfile,
   onMarkRead,
 }: {
@@ -806,6 +854,8 @@ function ChannelRoom({
   serverMembers?: CommunityServerMember[];
   memberProfiles?: Map<string, CommunityProfile>;
   serverBoosters?: Set<string>;
+  roleById?: Map<string, CommunityServerRole>;
+  appOwnerUserIds?: Set<string>;
   onOpenProfile?: (target: { userId?: string; username?: string | null }) => void;
   onMarkRead?: () => void;
 }) {
@@ -829,6 +879,11 @@ function ChannelRoom({
   const messageRefs = useRef<Map<string, HTMLLIElement>>(new Map());
   const presenceRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const voiceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  const memberByUserId = useMemo(
+    () => new Map(serverMembers.map((m) => [m.userId, m])),
+    [serverMembers],
+  );
 
   const mentionMembers = useMemo<MentionMember[]>(
     () =>
@@ -1194,7 +1249,12 @@ function ChannelRoom({
                       </button>
                     </li>
                   ))
-                : visibleMessages.map((m) => (
+                : visibleMessages.map((m, index) => {
+                const prev = index > 0 ? visibleMessages[index - 1] : null;
+                const grouped = shouldGroupMessages(prev, m);
+                const member = m.authorId ? memberByUserId.get(m.authorId) : undefined;
+                const role = member?.roleId ? roleById.get(member.roleId) : undefined;
+                return (
                 <MessageRow
                   key={m.id}
                   ref={(el) => {
@@ -1202,9 +1262,13 @@ function ChannelRoom({
                     else messageRefs.current.delete(m.id);
                   }}
                   message={m}
+                  grouped={grouped}
                   mentionMembers={mentionMembers}
                   authorProfile={m.authorId ? memberProfiles.get(m.authorId) : null}
                   isServerBooster={m.authorId ? serverBoosters.has(m.authorId) : false}
+                  isAppOwnerAuthor={isAppOwnerUser(m.authorId, appOwnerUserIds)}
+                  roleColor={member?.roleColor}
+                  roleIconUrl={role?.iconUrl ?? null}
                   isMine={m.authorId === userId}
                   canModerate={moderate}
                   canPin={moderate || manage}
@@ -1214,7 +1278,7 @@ function ChannelRoom({
                       ? () =>
                           onOpenProfile?.({
                             userId: m.authorId!,
-                            username: serverMembers.find((sm) => sm.userId === m.authorId)?.communityUsername,
+                            username: member?.communityUsername,
                           })
                       : undefined
                   }
@@ -1244,7 +1308,8 @@ function ChannelRoom({
                     await load();
                   }}
                 />
-              ))}
+              );
+              })}
               <div ref={bottomRef} />
             </ul>
           </CommunityScrollBody>
@@ -1334,9 +1399,13 @@ function ChannelRoom({
 const MessageRow = forwardRef(function MessageRow(
   {
     message,
+    grouped = false,
     mentionMembers,
     authorProfile,
     isServerBooster = false,
+    isAppOwnerAuthor = false,
+    roleColor,
+    roleIconUrl,
     isMine,
     canModerate: canMod,
     canPin = false,
@@ -1350,9 +1419,13 @@ const MessageRow = forwardRef(function MessageRow(
     onDelete,
   }: {
     message: CommunityMessage;
+    grouped?: boolean;
     mentionMembers: MentionMember[];
     authorProfile?: CommunityProfile | null;
     isServerBooster?: boolean;
+    isAppOwnerAuthor?: boolean;
+    roleColor?: string;
+    roleIconUrl?: string | null;
     isMine: boolean;
     canModerate: boolean;
     canPin?: boolean;
@@ -1401,11 +1474,14 @@ const MessageRow = forwardRef(function MessageRow(
     return <li ref={ref} className="text-center text-[0.75rem] text-muted">{message.body}</li>;
   }
   const isSuggestion = message.kind === "suggestion";
+  const nameStyle = roleColor ? roleColorTextStyle(roleColor) : undefined;
 
   return (
     <li
       ref={ref}
-      className="group relative flex gap-3 rounded px-2 py-1 hover:bg-[var(--community-hover)]"
+      className={`group relative flex gap-4 rounded px-2 hover:bg-[var(--community-hover)] ${
+        grouped ? "community-message-grouped py-0.5" : "py-0.5"
+      }`}
       onTouchStart={() => {
         longPressRef.current = setTimeout(openSheet, 500);
       }}
@@ -1417,37 +1493,48 @@ const MessageRow = forwardRef(function MessageRow(
         openSheet();
       }}
     >
-      <button
-        type="button"
-        onClick={onOpenProfile}
-        disabled={!onOpenProfile}
-        className="shrink-0 disabled:cursor-default"
-      >
-        <CommunityAvatar
-          profile={authorProfile}
-          fallbackName={message.authorName}
-          size="md"
-          isServerBooster={isServerBooster}
-        />
-      </button>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-baseline gap-2">
-          <button
-            type="button"
-            onClick={onOpenProfile}
-            disabled={!onOpenProfile}
-            className="text-left text-[0.875rem] font-semibold disabled:cursor-default hover:underline"
-          >
-            {isMine ? "You" : message.authorName || "Member"}
-          </button>
-          {authorProfile?.nitroEnabled && <NitroBadge />}
-          <span className="text-[0.6875rem] text-muted">{formatCommunityTime(message.createdAt)}</span>
-          {isSuggestion && message.suggestionStatus && (
-            <span className="text-[0.6875rem] text-muted">
-              · {SUGGESTION_STATUS_LABELS[message.suggestionStatus]}
-            </span>
-          )}
+      {grouped ? (
+        <div className="community-message-avatar-spacer flex shrink-0 items-start justify-end pt-0.5">
+          <span className="community-message-timestamp-hover text-[0.625rem] leading-none text-muted">
+            {formatCommunityTime(message.createdAt)}
+          </span>
         </div>
+      ) : (
+        <button
+          type="button"
+          onClick={onOpenProfile}
+          disabled={!onOpenProfile}
+          className="mt-0.5 shrink-0 disabled:cursor-default"
+        >
+          <CommunityAvatar
+            profile={authorProfile}
+            fallbackName={message.authorName}
+            size="md"
+            isServerBooster={isServerBooster}
+          />
+        </button>
+      )}
+      <div className="min-w-0 flex-1">
+        {!grouped && (
+          <div className="flex flex-wrap items-baseline gap-1.5 leading-none">
+            <button
+              type="button"
+              onClick={onOpenProfile}
+              disabled={!onOpenProfile}
+              className="text-left text-[0.9375rem] font-medium disabled:cursor-default hover:underline"
+              style={nameStyle}
+            >
+              {isMine ? "You" : message.authorName || "Member"}
+            </button>
+            <ChatAuthorBadge isAppOwner={isAppOwnerAuthor} roleIconUrl={roleIconUrl} />
+            <span className="text-[0.6875rem] text-muted">{formatCommunityTime(message.createdAt)}</span>
+            {isSuggestion && message.suggestionStatus && (
+              <span className="text-[0.6875rem] text-muted">
+                · {SUGGESTION_STATUS_LABELS[message.suggestionStatus]}
+              </span>
+            )}
+          </div>
+        )}
 
         {message.replyPreview && (
           <div className="mb-1 flex items-center gap-1 border-l-2 border-accent/50 pl-2 text-[0.75rem] text-muted">
@@ -1572,11 +1659,13 @@ function ServerMemberSidebar({
   members,
   memberProfiles,
   serverBoosters,
+  appOwnerUserIds = new Set<string>(),
   onOpenProfile,
 }: {
   members: CommunityServerMember[];
   memberProfiles?: Map<string, CommunityProfile>;
   serverBoosters?: Set<string>;
+  appOwnerUserIds?: Set<string>;
   onOpenProfile?: (target: { userId?: string; username?: string | null }) => void;
 }) {
   const grouped = useMemo(() => {
@@ -1594,7 +1683,10 @@ function ServerMemberSidebar({
   }, [members]);
 
   return (
-    <aside className="hidden w-52 shrink-0 flex-col border-l border-[var(--community-border)] bg-[var(--community-panel)] min-h-0 md:flex">
+    <aside className="hidden w-[15rem] shrink-0 flex-col border-l border-[var(--community-border)] bg-[var(--community-panel)] min-h-0 md:flex">
+      <div className="flex h-12 shrink-0 items-center border-b border-[var(--community-border)] px-4 shadow-sm">
+        <p className="text-[0.8125rem] font-semibold text-muted">Members — {members.length}</p>
+      </div>
       <CommunityScrollBody className="px-2 py-3">
         {grouped.map(([roleName, roleMembers]) => (
           <div key={roleName} className="mb-4">
@@ -1603,7 +1695,7 @@ function ServerMemberSidebar({
             </p>
             {roleMembers.map((m) => {
               const label = m.displayName || m.communityUsername || "Member";
-              const colorStyle = m.roleColor ? roleColorStyle(m.roleColor) : undefined;
+              const colorStyle = m.roleColor ? roleColorTextStyle(m.roleColor) : undefined;
               const profile = memberProfiles?.get(m.userId);
               return (
                 <button
@@ -1620,8 +1712,11 @@ function ServerMemberSidebar({
                     size="sm"
                     isServerBooster={serverBoosters?.has(m.userId)}
                   />
-                  <span className="truncate text-[0.875rem]" style={colorStyle}>
-                    {label}
+                  <span className="flex min-w-0 flex-1 items-center gap-1 truncate text-[0.875rem]" style={colorStyle}>
+                    <span className="truncate">{label}</span>
+                    {isAppOwnerUser(m.userId, appOwnerUserIds) && (
+                      <ChatAuthorBadge isAppOwner />
+                    )}
                   </span>
                 </button>
               );

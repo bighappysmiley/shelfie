@@ -63,7 +63,10 @@ export function ChannelToolbar({
       <div className="flex h-12 items-center gap-2 px-4">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <ChannelKindGlyph kind={group.kind} className="h-5 w-5 shrink-0 text-muted" />
-          <h2 className="truncate text-[0.9375rem] font-semibold text-foreground">{group.name}</h2>
+          <h2 className="truncate text-[0.9375rem] font-semibold text-foreground">
+            <span className="text-muted">#</span>
+            {group.name}
+          </h2>
           <span className="hidden text-[var(--community-border)] sm:inline">|</span>
           <p className="hidden min-w-0 truncate text-[0.8125rem] text-muted sm:block">
             {group.topic || group.description || KIND_LABELS[group.kind]}
