@@ -29,11 +29,12 @@ import {
   roleColorStyle,
   type RoleColorMode,
 } from "@/lib/role-color";
+import { CommunityModal } from "@/components/CommunityModal";
 import { Button } from "@/components/Button";
 import { TextField, TextArea, SelectField } from "@/components/form";
 import { EmptyState, ToggleRow } from "@/components/layout";
 import { AuthedImage } from "@/components/AuthedImage";
-import { IconPlus, IconSettings, IconX } from "@/components/Icons";
+import { IconPlus, IconSettings } from "@/components/Icons";
 export function JoinRequestsPanel({
   requests,
   onChanged,
@@ -135,10 +136,7 @@ export function ChannelsPanel({
 
   const orderedCategories = useMemo(
     () =>
-      [...categories].sort((a, b) => {
-        if (a.isOfficial !== b.isOfficial) return a.isOfficial ? -1 : 1;
-        return a.position - b.position || a.name.localeCompare(b.name);
-      }),
+      [...categories].sort((a, b) => a.position - b.position || a.name.localeCompare(b.name)),
     [categories],
   );
 
@@ -161,8 +159,7 @@ export function ChannelsPanel({
   return (
     <div className="max-w-2xl space-y-4">
       <p className="text-[0.875rem] text-muted">
-        Organize this server like Discord — categories hold channels. Official category channels are
-        pinned for all members.
+        Organize channels into categories — just like Discord. Create a category, then add channels under it.
       </p>
 
       <div className="flex gap-2">
@@ -208,10 +205,7 @@ export function ChannelsPanel({
             >
               <div className="mb-2 flex items-center gap-2">
                 <div className="min-w-0 flex-1">
-                  <p className="text-[0.6875rem] font-bold uppercase tracking-wider text-muted">
-                    {cat.isOfficial ? "📌 " : ""}
-                    {cat.name}
-                  </p>
+                  <p className="text-[0.6875rem] font-bold uppercase tracking-wider text-muted">{cat.name}</p>
                 </div>
                 <Button
                   size="sm"
@@ -221,39 +215,35 @@ export function ChannelsPanel({
                   <IconPlus size={14} />
                   Channel
                 </Button>
-                {!cat.isOfficial && (
-                  <>
-                    <button
-                      type="button"
-                      className="rounded p-1.5 text-muted hover:bg-fill hover:text-foreground"
-                      title="Rename category"
-                      onClick={() => setEditor({ type: "rename-category", category: cat })}
-                    >
-                      <IconSettings size={16} />
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded px-2 py-1 text-[0.75rem] text-destructive hover:bg-destructive-bg"
-                      onClick={async () => {
-                        if (
-                          !confirm(
-                            `Delete category “${cat.name}”? Channels inside should be moved or archived first if needed.`,
-                          )
-                        ) {
-                          return;
-                        }
-                        try {
-                          await deleteCommunityCategory(cat.id);
-                          await onChanged();
-                        } catch (err) {
-                          onError(err instanceof Error ? err.message : "Could not delete");
-                        }
-                      }}
-                    >
-                      Delete
-                    </button>
-                  </>
-                )}
+                <button
+                  type="button"
+                  className="rounded p-1.5 text-muted hover:bg-fill hover:text-foreground"
+                  title="Rename category"
+                  onClick={() => setEditor({ type: "rename-category", category: cat })}
+                >
+                  <IconSettings size={16} />
+                </button>
+                <button
+                  type="button"
+                  className="rounded px-2 py-1 text-[0.75rem] text-destructive hover:bg-destructive-bg"
+                  onClick={async () => {
+                    if (
+                      !confirm(
+                        `Delete category “${cat.name}”? Channels inside should be moved or archived first if needed.`,
+                      )
+                    ) {
+                      return;
+                    }
+                    try {
+                      await deleteCommunityCategory(cat.id);
+                      await onChanged();
+                    } catch (err) {
+                      onError(err instanceof Error ? err.message : "Could not delete");
+                    }
+                  }}
+                >
+                  Delete
+                </button>
               </div>
 
               {list.length === 0 ? (
@@ -271,7 +261,6 @@ export function ChannelsPanel({
                         <p className="truncate text-[0.75rem] text-muted">
                           {KIND_LABELS[ch.kind]}
                           {ch.topic ? ` · ${ch.topic}` : ""}
-                          {ch.isOfficial ? " · Official" : ""}
                         </p>
                       </div>
                       <Link
@@ -385,13 +374,16 @@ function ChannelEditorModal({
   const [topic, setTopic] = useState(channel?.topic ?? "");
   const [description, setDescription] = useState(channel?.description ?? "");
   const [kind, setKind] = useState<CommunityGroupKind>(channel?.kind ?? "chat");
-  const [categoryId, setCategoryId] = useState(channel?.categoryId ?? defaultCategoryId ?? "");
-  const [isOfficial, setIsOfficial] = useState(Boolean(channel?.isOfficial));
+  const [categoryId, setCategoryId] = useState(channel?.categoryId ?? defaultCategoryId ?? categories[0]?.id ?? "");
   const [busy, setBusy] = useState(false);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
+    if (!categoryId) {
+      onError("Create a category first.");
+      return;
+    }
     setBusy(true);
     onError("");
     try {
@@ -402,7 +394,6 @@ function ChannelEditorModal({
           description: description.trim() || null,
           kind,
           categoryId: categoryId || null,
-          isOfficial,
           serverId,
         });
       } else {
@@ -414,7 +405,6 @@ function ChannelEditorModal({
           description: description.trim() || undefined,
           kind,
           categoryId: categoryId || null,
-          isOfficial,
         });
       }
       await onSaved();
@@ -425,53 +415,13 @@ function ChannelEditorModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={onClose}>
-      <form
-        onClick={(e) => e.stopPropagation()}
-        onSubmit={submit}
-        className="w-full max-w-md space-y-3 rounded-t-2xl bg-surface p-5 shadow-xl sm:rounded-2xl"
-      >
-        <div className="flex items-center justify-between">
-          <h2 className="text-[1.125rem] font-semibold">{editing ? "Edit channel" : "Create channel"}</h2>
-          <button type="button" onClick={onClose} className="text-muted">
-            <IconX size={18} />
-          </button>
-        </div>
-        <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
-        <TextField label="Topic" value={topic} onChange={(e) => setTopic(e.target.value)} hint="Shown under the channel name" />
-        <TextArea label="Description" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
-        <SelectField label="Type" value={kind} onChange={(e) => setKind(e.target.value as CommunityGroupKind)}>
-          <option value="chat">Chat</option>
-          <option value="suggestions">Suggestions</option>
-          <option value="both">Chat & suggestions</option>
-        </SelectField>
-        <SelectField
-          label="Category"
-          value={categoryId}
-          onChange={(e) => setCategoryId(e.target.value)}
-          required={!isOfficial}
-        >
-          <option value="">Select…</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-              {c.isOfficial ? " (Official)" : ""}
-            </option>
-          ))}
-        </SelectField>
-        <ToggleRow
-          label="Official channel"
-          hint="Lives under the Official category and is visible to everyone"
-          checked={isOfficial}
-          onChange={(v) => {
-            setIsOfficial(v);
-            if (v) {
-              const official = categories.find((c) => c.isOfficial);
-              if (official) setCategoryId(official.id);
-            }
-          }}
-        />
-        <div className="flex flex-wrap justify-between gap-2 pt-1">
+    <CommunityModal
+      open
+      onClose={onClose}
+      title={editing ? "Edit channel" : "Create channel"}
+      onSubmit={submit}
+      footer={
+        <div className="flex flex-wrap justify-between gap-2">
           {editing && channel && (
             <Button
               type="button"
@@ -497,13 +447,40 @@ function ChannelEditorModal({
             <Button type="button" variant="ghost" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={busy || !name.trim()}>
+            <Button type="submit" disabled={busy || !name.trim() || !categoryId}>
               {busy ? "Saving…" : editing ? "Save" : "Create"}
             </Button>
           </div>
         </div>
-      </form>
-    </div>
+      }
+    >
+      <div className="space-y-3">
+        <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
+        <TextField label="Topic" value={topic} onChange={(e) => setTopic(e.target.value)} hint="Shown under the channel name" />
+        <TextArea label="Description" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
+        <SelectField label="Type" value={kind} onChange={(e) => setKind(e.target.value as CommunityGroupKind)}>
+          <option value="chat">Chat</option>
+          <option value="suggestions">Suggestions</option>
+          <option value="both">Chat & suggestions</option>
+        </SelectField>
+        <SelectField
+          label="Category"
+          value={categoryId}
+          onChange={(e) => setCategoryId(e.target.value)}
+          required
+        >
+          {categories.length === 0 ? (
+            <option value="">No categories — create one first</option>
+          ) : (
+            categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))
+          )}
+        </SelectField>
+      </div>
+    </CommunityModal>
   );
 }
 
@@ -522,25 +499,23 @@ function RenameCategoryModal({
   const [busy, setBusy] = useState(false);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <form
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm space-y-3 rounded-2xl bg-surface p-5 shadow-xl"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          if (!name.trim()) return;
-          setBusy(true);
-          try {
-            await renameCommunityCategory(category.id, name.trim());
-            await onSaved();
-          } catch (err) {
-            onError(err instanceof Error ? err.message : "Could not rename");
-            setBusy(false);
-          }
-        }}
-      >
-        <h2 className="text-[1.125rem] font-semibold">Rename category</h2>
-        <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
+    <CommunityModal
+      open
+      onClose={onClose}
+      title="Rename category"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (!name.trim()) return;
+        setBusy(true);
+        try {
+          await renameCommunityCategory(category.id, name.trim());
+          await onSaved();
+        } catch (err) {
+          onError(err instanceof Error ? err.message : "Could not rename");
+          setBusy(false);
+        }
+      }}
+      footer={
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancel
@@ -549,8 +524,10 @@ function RenameCategoryModal({
             {busy ? "Saving…" : "Save"}
           </Button>
         </div>
-      </form>
-    </div>
+      }
+    >
+      <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
+    </CommunityModal>
   );
 }
 

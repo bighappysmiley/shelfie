@@ -14,7 +14,6 @@ import {
   addGroupMember,
   archiveCommunityGroup,
   createCommunityCategory,
-  createCommunityGroup,
   deleteCommunityCategory,
   deleteGroupMessage,
   getServer,
@@ -32,7 +31,6 @@ import {
   listServerMembers,
   sendGroupMessage,
   toggleMessageReaction,
-  updateCommunityGroup,
   updateMemberRole,
   updateSuggestionStatus,
 } from "@/lib/community";
@@ -46,7 +44,6 @@ import {
   formatPopularity,
   type CommunityCategory,
   type CommunityGroup,
-  type CommunityGroupKind,
   type CommunityMember,
   type CommunityMemberRole,
   type CommunityMessage,
@@ -56,20 +53,21 @@ import {
   type SuggestionStatus,
 } from "@/lib/community-types";
 import { Button } from "@/components/Button";
-import { TextField, TextArea, FormError } from "@/components/form";
+import { FormError } from "@/components/form";
 import { EmptyState, SegmentedControl } from "@/components/layout";
 import { AuthedImage } from "@/components/AuthedImage";
 import { IconChat, IconPeople, IconPlus, IconSearch, IconSettings, IconX } from "@/components/Icons";
 import { communityAuthorLabel, communityShortName } from "@/lib/community-identity";
 import { roleColorStyle } from "@/lib/role-color";
 import { CommunityDiscordShell, CommunityScrollBody } from "@/components/CommunityRail";
+import { ChannelFormModal, CategoryFormModal } from "@/components/community-server-modals";
 import { AddServerModal } from "@/components/AddServerModal";
 
 const QUICK_EMOJIS = ["👍", "❤️", "😂", "🔥", "🎉", "👀"];
 
 type Modal =
   | null
-  | { type: "create-channel"; categoryId: string | null; official: boolean }
+  | { type: "create-channel"; categoryId: string | null }
   | { type: "edit-channel"; channel: CommunityGroup }
   | { type: "create-category" }
   | { type: "edit-category"; category: CommunityCategory };
@@ -83,14 +81,6 @@ function HashGlyph({ className = "h-4 w-4" }: { className?: string }) {
         strokeWidth="2"
         strokeLinecap="round"
       />
-    </svg>
-  );
-}
-
-function PinGlyph({ className = "h-3 w-3" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden>
-      <path d="M16 3a1 1 0 0 1 .8 1.6l-1.7 2.26 1.45 4.34a1 1 0 0 1-.33 1.1L13 14.7V20a1 1 0 1 1-2 0v-5.3l-3.22-2.4a1 1 0 0 1-.33-1.1l1.45-4.34L7.2 4.6A1 1 0 0 1 8 3h8Z" />
     </svg>
   );
 }
@@ -170,10 +160,7 @@ export function CommunityServerPage() {
 
   const orderedCategories = useMemo(
     () =>
-      [...categories].sort((a, b) => {
-        if (a.isOfficial !== b.isOfficial) return a.isOfficial ? -1 : 1;
-        return a.position - b.position || a.name.localeCompare(b.name);
-      }),
+      [...categories].sort((a, b) => a.position - b.position || a.name.localeCompare(b.name)),
     [categories],
   );
 
@@ -207,7 +194,6 @@ export function CommunityServerPage() {
   useEffect(() => {
     if (loading || !serverId || channels.length === 0 || channelId) return;
     const first =
-      channels.find((c) => c.isOfficial) ??
       channels.find((c) => orderedCategories[0] && c.categoryId === orderedCategories[0].id) ??
       channels[0];
     navigate(`/community/s/${serverId}/${first.id}`, { replace: true });
@@ -260,9 +246,7 @@ export function CommunityServerPage() {
         navigate(`/community/s/${serverId}/${id}`);
         setMobileNavOpen(false);
       }}
-      onCreateChannel={(categoryId, official) =>
-        setModal({ type: "create-channel", categoryId, official })
-      }
+      onCreateChannel={(categoryId) => setModal({ type: "create-channel", categoryId })}
       onEditCategory={(category) => setModal({ type: "edit-category", category })}
       onCreateCategory={() => setModal({ type: "create-category" })}
       loading={loading}
@@ -415,7 +399,7 @@ export function CommunityServerPage() {
                 title={server ? `Welcome to ${server.name}` : "Server"}
                 description={
                   canConfigure
-                    ? "Create channels under Official or Text Channels to get started."
+                    ? "Create a category, then add channels to get started."
                     : "No channels yet."
                 }
               />
@@ -433,11 +417,9 @@ export function CommunityServerPage() {
 
       {modal?.type === "create-channel" && user && (
         <ChannelFormModal
-          title={modal.official ? "Create official channel" : "Create channel"}
+          title="Create channel"
           categories={categories}
           defaultCategoryId={modal.categoryId}
-          forceOfficial={modal.official}
-          canMarkOfficial={canConfigure}
           serverId={serverId}
           userId={user.id}
           onClose={() => setModal(null)}
@@ -454,7 +436,6 @@ export function CommunityServerPage() {
           title="Channel settings"
           categories={categories}
           channel={modal.channel}
-          canMarkOfficial={canConfigure}
           serverId={serverId}
           userId={user.id}
           onClose={() => setModal(null)}
@@ -498,16 +479,12 @@ export function CommunityServerPage() {
             await refresh();
             setModal(null);
           }}
-          onDelete={
-            !modal.category.isOfficial
-              ? async () => {
-                  if (!confirm(`Delete category “${modal.category.name}”?`)) return;
-                  await deleteCommunityCategory(modal.category.id);
-                  await refresh();
-                  setModal(null);
-                }
-              : undefined
-          }
+          onDelete={async () => {
+            if (!confirm(`Delete category “${modal.category.name}”?`)) return;
+            await deleteCommunityCategory(modal.category.id);
+            await refresh();
+            setModal(null);
+          }}
         />
       )}
     </CommunityDiscordShell>
@@ -534,7 +511,7 @@ function ChannelSidebar({
   activeId?: string;
   canConfigure: boolean;
   onSelect: (id: string) => void;
-  onCreateChannel: (categoryId: string | null, official: boolean) => void;
+  onCreateChannel: (categoryId: string | null) => void;
   onEditCategory: (category: CommunityCategory) => void;
   onCreateCategory: () => void;
   loading: boolean;
@@ -556,31 +533,26 @@ function ChannelSidebar({
                 className="flex min-w-0 flex-1 items-center gap-1 rounded px-1 py-1 text-[0.6875rem] font-bold uppercase tracking-wider text-white/40 hover:text-white/80"
               >
                 <Chevron open={open} />
-                <span className="flex min-w-0 items-center gap-1 truncate">
-                  {cat.isOfficial && <PinGlyph className="h-2.5 w-2.5 shrink-0" />}
-                  {cat.name}
-                </span>
+                <span className="flex min-w-0 items-center gap-1 truncate">{cat.name}</span>
               </button>
               {canConfigure && (
                 <div className="flex opacity-100 md:opacity-0 md:group-hover:opacity-100">
                   <button
                     type="button"
                     title="Create channel"
-                    onClick={() => onCreateChannel(cat.id, cat.isOfficial)}
+                    onClick={() => onCreateChannel(cat.id)}
                     className="rounded p-0.5 text-white/40 hover:bg-white/10 hover:text-white"
                   >
                     <IconPlus size={14} />
                   </button>
-                  {!cat.isOfficial && (
-                    <button
-                      type="button"
-                      title="Edit category"
-                      onClick={() => onEditCategory(cat)}
-                      className="rounded p-0.5 text-white/40 hover:bg-white/10 hover:text-white"
-                    >
-                      <IconSettings size={14} />
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    title="Edit category"
+                    onClick={() => onEditCategory(cat)}
+                    className="rounded p-0.5 text-white/40 hover:bg-white/10 hover:text-white"
+                  >
+                    <IconSettings size={14} />
+                  </button>
                 </div>
               )}
             </div>
@@ -633,9 +605,7 @@ function ChannelSidebar({
           </button>
           <button
             type="button"
-            onClick={() =>
-              onCreateChannel(categories.find((c) => !c.isOfficial)?.id ?? null, false)
-            }
+            onClick={() => onCreateChannel(categories[0]?.id ?? null)}
             className="flex w-full items-center gap-2 rounded-[0.5rem] px-2 py-1.5 text-[0.8125rem] text-white/45 hover:bg-white/[0.06] hover:text-white"
           >
             <IconChat size={14} />
@@ -694,7 +664,7 @@ function ChannelRoom({
   const [error, setError] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const myRole = group.myRole ?? (isAppOwner || canConfigure ? "admin" : isMember || group.isOfficial ? "member" : null);
+  const myRole = group.myRole ?? (isAppOwner || canConfigure ? "admin" : isMember ? "member" : null);
   const manage = canManageMembers(myRole, isAppOwner || canConfigure);
   const moderate = canModerate(myRole, isAppOwner || canConfigure);
   const allowsChat = group.kind === "chat" || group.kind === "both";
@@ -1282,232 +1252,3 @@ function MembersPanel({
   );
 }
 
-function ChannelFormModal({
-  title,
-  categories,
-  channel,
-  defaultCategoryId,
-  forceOfficial,
-  canMarkOfficial,
-  serverId,
-  userId,
-  onClose,
-  onSaved,
-  onArchive,
-}: {
-  title: string;
-  categories: CommunityCategory[];
-  channel?: CommunityGroup;
-  defaultCategoryId?: string | null;
-  forceOfficial?: boolean;
-  canMarkOfficial: boolean;
-  serverId: string;
-  userId: string;
-  onClose: () => void;
-  onSaved: (g?: CommunityGroup) => Promise<void>;
-  onArchive?: () => Promise<void>;
-}) {
-  const officialCat = categories.find((c) => c.isOfficial);
-  const [name, setName] = useState(channel?.name ?? "");
-  const [kind, setKind] = useState<CommunityGroupKind>(channel?.kind ?? "both");
-  const [topic, setTopic] = useState(channel?.topic ?? "");
-  const [description, setDescription] = useState(channel?.description ?? "");
-  const [isOfficial, setIsOfficial] = useState(Boolean(forceOfficial || channel?.isOfficial));
-  const [categoryId, setCategoryId] = useState(
-    channel?.categoryId ||
-      defaultCategoryId ||
-      (forceOfficial ? officialCat?.id : categories.find((c) => !c.isOfficial)?.id) ||
-      "",
-  );
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (isOfficial && officialCat?.id) setCategoryId(officialCat.id);
-  }, [isOfficial, officialCat?.id]);
-
-  const onSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) {
-      setError("Give the channel a name.");
-      return;
-    }
-    setBusy(true);
-    setError("");
-    try {
-      if (channel) {
-        await updateCommunityGroup(channel.id, {
-          name,
-          kind,
-          topic,
-          description,
-          categoryId: categoryId || null,
-          isOfficial,
-          serverId,
-        });
-        await onSaved();
-      } else {
-        const g = await createCommunityGroup({
-          serverId,
-          name,
-          kind,
-          topic,
-          description,
-          categoryId: categoryId || null,
-          isOfficial,
-          userId,
-        });
-        await onSaved(g);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save");
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <form
-        onClick={(e) => e.stopPropagation()}
-        onSubmit={onSubmit}
-        className="w-full max-w-md rounded-[1.25rem] bg-surface p-5 shadow-xl ring-1 ring-black/[0.06] dark:ring-white/[0.08]"
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-[1.125rem] font-semibold">{title}</h2>
-          <button type="button" onClick={onClose} className="text-muted">
-            <IconX size={18} />
-          </button>
-        </div>
-        <div className="space-y-3">
-          <TextField label="Channel name" value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
-          <TextField label="Topic" value={topic} onChange={(e) => setTopic(e.target.value)} />
-          <TextArea label="Description" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
-          <div>
-            <p className="mb-2 text-[0.8125rem] font-medium text-muted">Type</p>
-            <SegmentedControl
-              value={kind}
-              onChange={setKind}
-              options={[
-                { value: "both", label: "Chat & suggestions" },
-                { value: "chat", label: "Chat" },
-                { value: "suggestions", label: "Suggestions" },
-              ]}
-            />
-          </div>
-          <label className="block text-[0.8125rem] font-medium text-muted">
-            Category
-            <select
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              disabled={isOfficial}
-              className="mt-1 w-full rounded-[var(--radius-control)] bg-fill px-3 py-2 text-[0.9375rem] disabled:opacity-60"
-            >
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          {canMarkOfficial && (
-            <label className="flex items-start gap-2 rounded-[var(--radius-control)] bg-fill p-3 text-[0.875rem]">
-              <input
-                type="checkbox"
-                checked={isOfficial}
-                disabled={forceOfficial}
-                onChange={(e) => setIsOfficial(e.target.checked)}
-                className="mt-0.5"
-              />
-              <span>
-                <span className="font-medium">Official channel</span>
-                <span className="mt-0.5 block text-[0.75rem] text-muted">
-                  Pins under this server’s Official category.
-                </span>
-              </span>
-            </label>
-          )}
-        </div>
-        {error && (
-          <div className="mt-3">
-            <FormError message={error} />
-          </div>
-        )}
-        <div className="mt-4 flex items-center gap-2">
-          {onArchive && (
-            <button type="button" onClick={() => void onArchive()} className="text-[0.875rem] text-destructive">
-              Archive
-            </button>
-          )}
-          <div className="flex-1" />
-          <Button type="button" variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={busy || !name.trim()}>
-            {busy ? "Saving…" : channel ? "Save" : "Create"}
-          </Button>
-        </div>
-      </form>
-    </div>
-  );
-}
-
-function CategoryFormModal({
-  title,
-  initialName = "",
-  onClose,
-  onSubmit,
-  onDelete,
-}: {
-  title: string;
-  initialName?: string;
-  onClose: () => void;
-  onSubmit: (name: string) => Promise<void>;
-  onDelete?: () => Promise<void>;
-}) {
-  const [name, setName] = useState(initialName);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <form
-        onClick={(e) => e.stopPropagation()}
-        onSubmit={async (e) => {
-          e.preventDefault();
-          if (!name.trim()) return;
-          setBusy(true);
-          setError("");
-          try {
-            await onSubmit(name.trim());
-          } catch (err) {
-            setError(err instanceof Error ? err.message : "Could not save");
-            setBusy(false);
-          }
-        }}
-        className="w-full max-w-sm rounded-[1.25rem] bg-surface p-5 shadow-xl"
-      >
-        <h2 className="mb-4 text-[1.125rem] font-semibold">{title}</h2>
-        <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
-        {error && (
-          <div className="mt-3">
-            <FormError message={error} />
-          </div>
-        )}
-        <div className="mt-4 flex items-center gap-2">
-          {onDelete && (
-            <button type="button" onClick={() => void onDelete()} className="text-[0.875rem] text-destructive">
-              Delete
-            </button>
-          )}
-          <div className="flex-1" />
-          <Button type="button" variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={busy || !name.trim()}>
-            Save
-          </Button>
-        </div>
-      </form>
-    </div>
-  );
-}

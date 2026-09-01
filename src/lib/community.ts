@@ -344,21 +344,13 @@ async function seedDefaultRoles(serverId: string): Promise<void> {
 async function seedDefaultCategories(serverId: string): Promise<void> {
   const { data: existing } = await supabase
     .from("community_categories")
-    .select("id, is_official, name")
+    .select("id, name")
     .eq("server_id", serverId);
   const rows = existing ?? [];
-  if (!rows.some((r) => r.is_official)) {
-    await supabase.from("community_categories").insert({
-      name: "Official",
-      position: 0,
-      is_official: true,
-      server_id: serverId,
-    });
-  }
-  if (!rows.some((r) => !r.is_official && r.name === "Text Channels")) {
+  if (!rows.some((r) => r.name === "Text Channels")) {
     await supabase.from("community_categories").insert({
       name: "Text Channels",
-      position: 10,
+      position: 0,
       is_official: false,
       server_id: serverId,
     });
@@ -966,17 +958,12 @@ export async function renameCommunityCategory(id: string, name: string): Promise
   const { error } = await supabase
     .from("community_categories")
     .update({ name: name.trim() })
-    .eq("id", id)
-    .eq("is_official", false);
+    .eq("id", id);
   if (error) throw error;
 }
 
 export async function deleteCommunityCategory(id: string): Promise<void> {
-  const { error } = await supabase
-    .from("community_categories")
-    .delete()
-    .eq("id", id)
-    .eq("is_official", false);
+  const { error } = await supabase.from("community_categories").delete().eq("id", id);
   if (error) throw error;
 }
 
@@ -1008,7 +995,7 @@ export async function listCommunityGroups(
         .select("*", { count: "exact", head: true })
         .eq("group_id", g.id);
       return mapGroup(g, {
-        myRole: roleByGroup.get(g.id) ?? (g.is_official ? "member" : null),
+        myRole: roleByGroup.get(g.id) ?? null,
         memberCount: count ?? 0,
       });
     }),
@@ -1022,27 +1009,16 @@ export async function createCommunityGroup(input: {
   topic?: string;
   kind: CommunityGroupKind;
   categoryId?: string | null;
-  isOfficial?: boolean;
   userId: string;
 }): Promise<CommunityGroup> {
-  const isOfficial = Boolean(input.isOfficial);
   let categoryId = input.categoryId ?? null;
 
-  if (isOfficial || !categoryId) {
+  if (!categoryId) {
     const cats = await listCommunityCategories(input.serverId);
-    const official = cats.find((c) => c.isOfficial);
-    const text =
-      cats.find((c) => !c.isOfficial && c.name === "Text Channels") ??
-      cats.find((c) => !c.isOfficial);
-    if (isOfficial) {
-      if (!official) throw new Error("Official category is missing");
-      categoryId = official.id;
-    } else if (!categoryId) {
-      categoryId = text?.id ?? official?.id ?? null;
-    }
+    categoryId = cats[0]?.id ?? null;
   }
 
-  if (!categoryId) throw new Error("Pick a category for this channel");
+  if (!categoryId) throw new Error("Create a category first, then add channels.");
 
   const { data: siblings } = await supabase
     .from("community_groups")
@@ -1061,7 +1037,7 @@ export async function createCommunityGroup(input: {
       kind: input.kind,
       category_id: categoryId,
       server_id: input.serverId,
-      is_official: isOfficial,
+      is_official: false,
       position: nextPos,
       icon: "hash",
       created_by: input.userId,
@@ -1080,9 +1056,7 @@ export async function createCommunityGroup(input: {
   await supabase.from("community_messages").insert({
     group_id: group.id,
     author_id: input.userId,
-    body: isOfficial
-      ? `Official channel #${group.name} is live.`
-      : `Welcome to #${group.name}.`,
+    body: `Welcome to #${group.name}.`,
     kind: "system",
     author_name: "Pine",
   });
@@ -1099,7 +1073,6 @@ export async function updateCommunityGroup(
     topic?: string | null;
     kind?: CommunityGroupKind;
     categoryId?: string | null;
-    isOfficial?: boolean;
     position?: number;
     serverId?: string;
   },
@@ -1110,17 +1083,7 @@ export async function updateCommunityGroup(
   if (patch.topic !== undefined) row.topic = patch.topic?.trim() || null;
   if (patch.kind !== undefined) row.kind = patch.kind;
   if (patch.position !== undefined) row.position = patch.position;
-
-  if (patch.isOfficial === true && patch.serverId) {
-    const cats = await listCommunityCategories(patch.serverId);
-    const official = cats.find((c) => c.isOfficial);
-    if (!official) throw new Error("Official category is missing");
-    row.is_official = true;
-    row.category_id = official.id;
-  } else {
-    if (patch.isOfficial === false) row.is_official = false;
-    if (patch.categoryId !== undefined) row.category_id = patch.categoryId;
-  }
+  if (patch.categoryId !== undefined) row.category_id = patch.categoryId;
 
   const { error } = await supabase.from("community_groups").update(row).eq("id", groupId);
   if (error) throw error;
