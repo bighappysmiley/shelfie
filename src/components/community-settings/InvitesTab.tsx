@@ -6,6 +6,8 @@ export function InvitesTab({
   inviteCode,
   joinMode,
   isPublic,
+  vanitySlug = "",
+  onVanitySlugChange,
   regenBusy,
   busy,
   onJoinModeChange,
@@ -16,6 +18,8 @@ export function InvitesTab({
   inviteCode: string;
   joinMode: CommunityJoinMode;
   isPublic: boolean;
+  vanitySlug?: string;
+  onVanitySlugChange?: (slug: string) => void;
   regenBusy: boolean;
   busy: boolean;
   onJoinModeChange: (mode: CommunityJoinMode) => void;
@@ -25,7 +29,9 @@ export function InvitesTab({
 }) {
   const inviteLink =
     typeof window !== "undefined" && inviteCode
-      ? `${window.location.origin}/community?invite=${encodeURIComponent(inviteCode)}`
+      ? vanitySlug?.trim()
+        ? `${window.location.origin}/community/join/${encodeURIComponent(vanitySlug.trim())}`
+        : `${window.location.origin}/community?invite=${encodeURIComponent(inviteCode)}`
       : "";
 
   return (
@@ -60,6 +66,22 @@ export function InvitesTab({
           </Button>
         </div>
       </div>
+
+      {onVanitySlugChange && (
+        <div>
+          <label className="mb-1 block text-[0.8125rem] font-medium">Vanity invite URL</label>
+          <div className="flex items-center gap-1 rounded-[var(--radius-control)] bg-fill px-3 py-2 text-[0.875rem]">
+            <span className="text-muted">/community/join/</span>
+            <input
+              value={vanitySlug}
+              onChange={(e) => onVanitySlugChange(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+              placeholder="my-server"
+              className="min-w-0 flex-1 bg-transparent outline-none"
+            />
+          </div>
+          <p className="mt-1 text-[0.75rem] text-muted">Boost Level 2+ perk. Save to apply.</p>
+        </div>
+      )}
 
       <ToggleRow
         label="Public server"

@@ -14,6 +14,7 @@ export function MembersTab({
   members,
   roles,
   currentUserId,
+  actorRole,
   onChanged,
   onError,
 }: {
@@ -21,12 +22,25 @@ export function MembersTab({
   members: CommunityServerMember[];
   roles: CommunityServerRole[];
   currentUserId: string;
+  actorRole?: CommunityServerRole | null;
   onChanged: () => Promise<void>;
   onError: (msg: string) => void;
 }) {
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  const canKick = Boolean(
+    actorRole?.canManageServer ||
+      actorRole?.canModerate ||
+      actorRole?.canKickMembers,
+  );
+  const canBan = Boolean(
+    actorRole?.canManageServer ||
+      actorRole?.canModerate ||
+      actorRole?.canBanMembers,
+  );
+  const canAssignRoles = Boolean(actorRole?.canManageServer || actorRole?.canModerate);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -97,8 +111,9 @@ export function MembersTab({
                 </div>
               </div>
 
-              {!isSelf && (
+              {!isSelf && (canAssignRoles || canKick || canBan) && (
                 <div className="flex flex-wrap items-center gap-2">
+                  {canAssignRoles && (
                   <select
                     value={m.roleId ?? ""}
                     disabled={busyId === m.userId}
@@ -122,6 +137,8 @@ export function MembersTab({
                       </option>
                     ))}
                   </select>
+                  )}
+                  {canKick && (
                   <Button
                     size="sm"
                     variant="ghost"
@@ -142,6 +159,8 @@ export function MembersTab({
                   >
                     Kick
                   </Button>
+                  )}
+                  {canBan && (
                   <Button
                     size="sm"
                     variant="danger"
@@ -163,6 +182,7 @@ export function MembersTab({
                   >
                     Ban
                   </Button>
+                  )}
                 </div>
               )}
             </li>

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { useLibrary } from "@/lib/library";
 import {
   joinServer,
   joinServerByInviteCode,
+  joinServerByVanitySlug,
   leaveServer,
   listMyServers,
   listOfficialServers,
@@ -37,6 +38,7 @@ function filterServers(list: CommunityServer[], q: string) {
 
 export function CommunityPage() {
   const navigate = useNavigate();
+  const { vanitySlug } = useParams<{ vanitySlug?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = searchParams.get("tab") === "discover" ? "discover" : "list";
 
@@ -105,6 +107,22 @@ export function CommunityPage() {
       }
     })();
   }, [user, searchParams, setSearchParams, navigate, refresh]);
+
+  useEffect(() => {
+    if (!vanitySlug || !user) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const result = await joinServerByVanitySlug(user.id, vanitySlug);
+        if (!cancelled) navigate(`/community/s/${result.server.id}`, { replace: true });
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Could not join server");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [vanitySlug, user, navigate]);
 
   const filteredPublic = useMemo(() => filterServers(publicServers, query), [publicServers, query]);
   const filteredOfficial = useMemo(() => filterServers(officialServers, query), [officialServers, query]);

@@ -69,6 +69,8 @@ type ServerRow = {
   automod_enabled?: boolean | null;
   automod_keywords?: string[] | null;
   boost_count?: number | null;
+  banner_url?: string | null;
+  vanity_slug?: string | null;
 };
 
 function generateInviteCode(): string {
@@ -142,6 +144,10 @@ type MessageRow = {
   author_name: string | null;
   reply_to_id: string | null;
   created_at: string;
+  forum_title?: string | null;
+  forum_tags?: string[] | null;
+  forum_locked?: boolean | null;
+  forum_pinned?: boolean | null;
 };
 
 function normalizeVerificationLevel(raw: string | null | undefined): VerificationLevel {
@@ -188,6 +194,8 @@ function mapServer(row: ServerRow, extra?: Partial<CommunityServer>): CommunityS
     automodKeywords: row.automod_keywords ?? [],
     boostCount: row.boost_count ?? 0,
     boostLevel: getBoostLevel(row.boost_count ?? 0),
+    bannerUrl: row.banner_url ?? null,
+    vanitySlug: row.vanity_slug ?? null,
     ...extra,
   };
 }
@@ -293,6 +301,10 @@ function mapMessage(row: MessageRow, extra?: Partial<CommunityMessage>): Communi
     reactions: [],
     createdAt: row.created_at,
     editedAt: (row as { edited_at?: string | null }).edited_at ?? null,
+    forumTitle: row.forum_title ?? null,
+    forumTags: row.forum_tags ?? [],
+    forumLocked: Boolean(row.forum_locked),
+    forumPinned: Boolean(row.forum_pinned),
     ...extra,
   };
 }
@@ -609,6 +621,8 @@ export async function updateServer(
     rulesChannelId?: string | null;
     automodEnabled?: boolean;
     automodKeywords?: string[];
+    bannerUrl?: string | null;
+    vanitySlug?: string | null;
   },
 ): Promise<void> {
   assertModeratedTextFields([
@@ -622,6 +636,11 @@ export async function updateServer(
   if (patch.name !== undefined) row.name = patch.name.trim();
   if (patch.description !== undefined) row.description = normalizeDescription(patch.description);
   if (patch.iconUrl !== undefined) row.icon_url = patch.iconUrl || null;
+  if (patch.bannerUrl !== undefined) row.banner_url = patch.bannerUrl || null;
+  if (patch.vanitySlug !== undefined) {
+    const slug = patch.vanitySlug?.trim().toLowerCase().replace(/[^a-z0-9-]/g, "") || null;
+    row.vanity_slug = slug;
+  }
   if (patch.isPublic !== undefined) row.is_public = patch.isPublic;
   if (patch.joinMode !== undefined) row.join_mode = patch.joinMode;
   if (patch.rules !== undefined) row.rules = patch.rules?.trim() || null;
@@ -766,6 +785,18 @@ export async function joinServerByInviteCode(_userId: string | undefined, code: 
   });
   if (payload.status !== "requested") bumpCommunityRail();
   return { status: payload.status, server };
+}
+
+export async function joinServerByVanitySlug(userId: string, slug: string): Promise<JoinOutcome> {
+  const normalized = slug.trim().toLowerCase();
+  const { data, error } = await supabase
+    .from("community_servers")
+    .select("invite_code")
+    .eq("vanity_slug", normalized)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data?.invite_code) throw new Error("Server not found");
+  return joinServerByInviteCode(userId, data.invite_code as string);
 }
 
 export async function requestJoinServer(serverId: string, message?: string): Promise<JoinOutcome> {
@@ -1333,7 +1364,27 @@ export async function removeGroupMember(groupId: string, userId: string): Promis
   if (error) throw error;
 }
 
-export async function listGroupMessages(groupId: string, userId?: string): Promise<CommunityMessage[]> {
+export async function listGroupMessages(
+  groupId: string,
+  userId?: string,
+  opts?: { serverId?: string },
+): Promise<CommunityMessage[]> {
+  if (opts?.serverId && userId) {
+    const { data: group } = await supabase
+      .from("community_groups")
+      .select("category_id")
+      .eq("id", groupId)
+      .maybeSingle();
+    const role = await getServerRoleForMember(opts.serverId, userId);
+    const perms = await loadResolvedChannelPermissions(
+      opts.serverId,
+      groupId,
+      (group?.category_id as string | null) ?? null,
+      role,
+    );
+    if (!perms.view) return [];
+  }
+
   const { data, error } = await supabase
     .from("community_messages")
     .select("*")
@@ -1431,6 +1482,7 @@ export async function sendGroupMessage(input: {
   authorName: string;
   replyToId?: string | null;
   skipAutomod?: boolean;
+  forumTitle?: string | null;
 }): Promise<CommunityMessage> {
   const trimmed = input.body.trim();
   if (!trimmed) throw new Error("Message cannot be empty");
@@ -1452,6 +1504,7 @@ export async function sendGroupMessage(input: {
       suggestion_status: input.kind === "suggestion" ? "open" : null,
       author_name: input.authorName,
       reply_to_id: input.replyToId ?? null,
+      forum_title: input.forumTitle?.trim() || null,
     })
     .select("*")
     .single();
@@ -2360,3 +2413,67 @@ export async function deleteServerWebhook(webhookId: string): Promise<void> {
   const { error } = await supabase.from("community_server_webhooks").delete().eq("id", webhookId);
   if (error) throw error;
 }
+
+export async function updateServerWebhook(
+  webhookId: string,
+  patch: { events?: string[]; name?: string; url?: string },
+): Promise<void> {
+  const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (patch.events) row.events = patch.events;
+  if (patch.name !== undefined) row.name = patch.name.trim();
+  if (patch.url !== undefined) row.url = patch.url.trim();
+  const { error } = await supabase.from("community_server_webhooks").update(row).eq("id", webhookId);
+  if (error) throw error;
+}
+
+export type WebhookDelivery = {
+  id: string;
+  webhookId: string;
+  event: string;
+  statusCode: number | null;
+  success: boolean;
+  errorMessage: string | null;
+  createdAt: string;
+};
+
+export async function listWebhookDeliveries(webhookId: string): Promise<WebhookDelivery[]> {
+  const { data, error } = await supabase
+    .from("community_webhook_deliveries")
+    .select("id, webhook_id, event, status_code, success, error_message, created_at")
+    .eq("webhook_id", webhookId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+  if (error) {
+    if (error.code === "42P01") return [];
+    throw error;
+  }
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    webhookId: row.webhook_id as string,
+    event: row.event as string,
+    statusCode: (row.status_code as number | null) ?? null,
+    success: Boolean(row.success),
+    errorMessage: (row.error_message as string | null) ?? null,
+    createdAt: row.created_at as string,
+  }));
+}
+
+export async function pingServerWebhook(webhookId: string): Promise<void> {
+  const { data: session } = await supabase.auth.getSession();
+  const token = session.session?.access_token;
+  if (!token) throw new Error("Sign in required");
+
+  const res = await fetch("/api/community/webhooks", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ webhookId, event: "test.ping", payload: { test: true } }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Ping failed" }));
+    throw new Error(err.error || "Ping failed");
+  }
+}
+

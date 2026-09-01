@@ -87,6 +87,8 @@ export interface CommunityServer {
   automodKeywords?: string[];
   boostCount?: number;
   boostLevel?: number;
+  bannerUrl?: string | null;
+  vanitySlug?: string | null;
 }
 
 export interface CommunityJoinRequest {
@@ -180,6 +182,10 @@ export interface CommunityMessage {
   reactions: CommunityMessageReaction[];
   createdAt: string;
   editedAt?: string | null;
+  forumTitle?: string | null;
+  forumTags?: string[];
+  forumLocked?: boolean;
+  forumPinned?: boolean;
 }
 
 export interface CommunityServerMember {

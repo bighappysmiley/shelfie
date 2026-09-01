@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { listMyServers, listServerUnreadTotals } from "@/lib/community";
+import { countDmUnread } from "@/lib/community-dms";
 import type { CommunityServer } from "@/lib/community-types";
 import { AuthedImage } from "@/components/AuthedImage";
 import { IconCompass, IconHome, IconList, IconPlus, IconChat } from "@/components/Icons";
@@ -121,6 +122,7 @@ export function CommunityDiscordShell({
   const navigate = useNavigate();
   const [servers, setServers] = useState<CommunityServer[]>([]);
   const [unreadByServer, setUnreadByServer] = useState<Map<string, number>>(new Map());
+  const [dmUnread, setDmUnread] = useState(0);
   const [railTick, setRailTick] = useState(0);
 
   useEffect(() => {
@@ -140,7 +142,11 @@ export function CommunityDiscordShell({
           user.id,
           list.map((s) => s.id),
         );
-        if (!cancelled) setUnreadByServer(totals);
+        const dmCount = await countDmUnread().catch(() => 0);
+        if (!cancelled) {
+          setUnreadByServer(totals);
+          setDmUnread(dmCount);
+        }
       })
       .catch(() => {
         if (!cancelled) setServers([]);
@@ -167,7 +173,14 @@ export function CommunityDiscordShell({
         </RailButton>
 
         <RailButton label="Direct messages" active={pane === "dm"} onClick={() => navigate("/community/dm")}>
-          <IconChat size={24} />
+          <span className="relative">
+            <IconChat size={24} />
+            {dmUnread > 0 && (
+              <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[0.625rem] font-bold text-white">
+                {dmUnread > 9 ? "9+" : dmUnread}
+              </span>
+            )}
+          </span>
         </RailButton>
 
         <div className="mx-auto my-2 h-0.5 w-8 rounded-full bg-[var(--community-border)]" />
@@ -198,11 +211,48 @@ export function CommunityDiscordShell({
       </nav>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--community-panel)]">
+        {servers.length > 0 && (
+          <nav
+            aria-label="Your servers"
+            className="community-scroll flex shrink-0 gap-1 overflow-x-auto border-b border-[var(--community-border)] px-2 py-2 md:hidden"
+          >
+            {servers.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => navigate(`/community/s/${s.id}`)}
+                title={s.name}
+                className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+                  pane === "server" && activeServerId === s.id ? "ring-2 ring-accent" : ""
+                }`}
+              >
+                {s.iconUrl ? (
+                  <AuthedImage src={s.iconUrl} alt="" className="h-10 w-10 rounded-full object-cover" />
+                ) : (
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-[0.625rem] font-semibold text-accent-contrast">
+                    {s.name.slice(0, 2).toUpperCase()}
+                  </span>
+                )}
+                {(unreadByServer.get(s.id) ?? 0) > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-destructive" />
+                )}
+              </button>
+            ))}
+          </nav>
+        )}
         {children}
         <nav
           aria-label="Community navigation"
           className="flex shrink-0 border-t border-[var(--community-border)] bg-[var(--community-panel)] pb-[env(safe-area-inset-bottom,0px)] md:hidden"
         >
+          <button
+            type="button"
+            onClick={() => navigate("/home")}
+            className="flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[0.625rem] font-medium text-muted"
+          >
+            <IconHome size={20} />
+            Home
+          </button>
           <button
             type="button"
             onClick={() => navigate("/community")}
@@ -216,12 +266,17 @@ export function CommunityDiscordShell({
           <button
             type="button"
             onClick={() => navigate("/community/dm")}
-            className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[0.625rem] font-medium ${
+            className={`relative flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[0.625rem] font-medium ${
               pane === "dm" ? "text-[var(--accent)]" : "text-muted"
             }`}
           >
             <IconChat size={20} />
             Messages
+            {dmUnread > 0 && (
+              <span className="absolute right-[calc(50%-1.25rem)] top-1.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-destructive px-0.5 text-[0.5625rem] font-bold text-white">
+                {dmUnread > 9 ? "9+" : dmUnread}
+              </span>
+            )}
           </button>
           <button
             type="button"

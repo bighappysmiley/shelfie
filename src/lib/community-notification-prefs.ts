@@ -31,11 +31,11 @@ export function getChannelNotificationLevel(
   return readStore()[prefKey(userId, channelId)] ?? "all";
 }
 
-export function setChannelNotificationLevel(
+export async function syncChannelNotificationLevel(
   userId: string,
   channelId: string,
   level: ChannelNotificationLevel,
-): void {
+): Promise<void> {
   const store = readStore();
   const key = prefKey(userId, channelId);
   if (level === "all") {
@@ -44,6 +44,63 @@ export function setChannelNotificationLevel(
     store[key] = level;
   }
   writeStore(store);
+
+  try {
+    const { supabase } = await import("./supabase");
+    if (level === "all") {
+      await supabase
+        .from("community_channel_notification_prefs")
+        .delete()
+        .eq("user_id", userId)
+        .eq("channel_id", channelId);
+    } else {
+      await supabase.from("community_channel_notification_prefs").upsert(
+        {
+          user_id: userId,
+          channel_id: channelId,
+          level,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id,channel_id" },
+      );
+    }
+  } catch {
+    /* localStorage remains source of truth offline */
+  }
+}
+
+export function setChannelNotificationLevel(
+  userId: string,
+  channelId: string,
+  level: ChannelNotificationLevel,
+): void {
+  void syncChannelNotificationLevel(userId, channelId, level);
+}
+
+export async function loadChannelNotificationPrefsFromServer(
+  userId: string,
+): Promise<void> {
+  try {
+    const { supabase } = await import("./supabase");
+    const { data, error } = await supabase
+      .from("community_channel_notification_prefs")
+      .select("channel_id, level")
+      .eq("user_id", userId);
+    if (error) {
+      if (error.code === "42P01") return;
+      throw error;
+    }
+    const store = readStore();
+    for (const row of data ?? []) {
+      const level = row.level as ChannelNotificationLevel;
+      if (level !== "all") {
+        store[prefKey(userId, row.channel_id as string)] = level;
+      }
+    }
+    writeStore(store);
+  } catch {
+    /* ignore */
+  }
 }
 
 /** Seed per-channel notification prefs from a server's default for channels without a saved pref. */
@@ -60,6 +117,21 @@ export function ensureChannelNotificationsForServer(
     store[key] = defaultNotifications;
   }
   writeStore(store);
+}
+
+export function shouldNotifyForMessage(
+  userId: string,
+  channelId: string,
+  body: string,
+  authorId: string | null,
+): boolean {
+  if (authorId === userId) return false;
+  const level = getChannelNotificationLevel(userId, channelId);
+  if (level === "mute") return false;
+  if (level === "mentions") {
+    return new RegExp(`@${userId}|@everyone|@here`, "i").test(body);
+  }
+  return true;
 }
 
 export const CHANNEL_NOTIFICATION_LABELS: Record<ChannelNotificationLevel, string> = {

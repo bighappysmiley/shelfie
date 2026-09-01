@@ -24,6 +24,51 @@ export type DmMessage = {
   createdAt: string;
 };
 
+export async function countDmUnread(): Promise<number> {
+  const { data, error } = await supabase.rpc("count_dm_unread");
+  if (error) {
+    if (error.code === "42883") return 0;
+    throw error;
+  }
+  return Number(data ?? 0);
+}
+
+export async function markDmThreadRead(threadId: string): Promise<void> {
+  const { error } = await supabase.rpc("mark_dm_thread_read", { p_thread_id: threadId });
+  if (error && error.code !== "42883") throw error;
+}
+
+export async function blockDmUser(blockedId: string): Promise<void> {
+  const { error } = await supabase.from("community_dm_blocks").insert({ blocked_id: blockedId });
+  if (error) throw error;
+}
+
+export async function unblockDmUser(blockedId: string): Promise<void> {
+  const { error } = await supabase
+    .from("community_dm_blocks")
+    .delete()
+    .eq("blocked_id", blockedId);
+  if (error) throw error;
+}
+
+export async function isDmBlocked(otherUserId: string): Promise<boolean> {
+  const { data: session } = await supabase.auth.getSession();
+  const uid = session.session?.user?.id;
+  if (!uid) return false;
+
+  const { data, error } = await supabase
+    .from("community_dm_blocks")
+    .select("blocker_id")
+    .or(`and(blocker_id.eq.${uid},blocked_id.eq.${otherUserId}),and(blocker_id.eq.${otherUserId},blocked_id.eq.${uid})`)
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    if (error.code === "42P01") return false;
+    throw error;
+  }
+  return Boolean(data);
+}
+
 export async function listMyDmThreads(): Promise<DmThreadSummary[]> {
   const { data, error } = await supabase.rpc("list_my_dm_threads");
   if (error) throw error;
@@ -36,6 +81,9 @@ export async function listMyDmThreads(): Promise<DmThreadSummary[]> {
 }
 
 export async function openDmThread(otherUserId: string): Promise<string> {
+  const blocked = await isDmBlocked(otherUserId);
+  if (blocked) throw new Error("You cannot message this user.");
+
   const { data, error } = await supabase.rpc("get_or_create_dm_thread", {
     p_other_user_id: otherUserId,
   });
@@ -83,5 +131,28 @@ export async function sendDmMessage(threadId: string, userId: string, body: stri
     authorId: data.author_id as string,
     body: data.body as string,
     createdAt: data.created_at as string,
+  };
+}
+
+export function subscribeDmMessages(
+  threadId: string,
+  onMessage: () => void,
+): () => void {
+  const channel = supabase
+    .channel(`dm:${threadId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "community_dm_messages",
+        filter: `thread_id=eq.${threadId}`,
+      },
+      () => onMessage(),
+    )
+    .subscribe();
+
+  return () => {
+    void supabase.removeChannel(channel);
   };
 }

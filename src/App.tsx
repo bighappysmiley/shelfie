@@ -163,6 +163,7 @@ function AppRoutes() {
           <Route path="/stats" element={<StatsPage />} />
           <Route element={<CommunityLayout />}>
             <Route path="/community" element={<CommunityPage />} />
+            <Route path="/community/join/:vanitySlug" element={<CommunityPage />} />
             <Route path="/community/s/:serverId" element={<CommunityServerPage />} />
             <Route path="/community/s/:serverId/:channelId" element={<CommunityServerPage />} />
             <Route path="/community/s/:serverId/settings" element={<CommunityServerSettingsPage />} />

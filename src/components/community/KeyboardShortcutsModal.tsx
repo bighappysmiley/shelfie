@@ -5,6 +5,7 @@ const SHORTCUTS = [
   { keys: "Shift + Enter", desc: "New line in composer" },
   { keys: "Ctrl/Cmd + B", desc: "Bold selected text" },
   { keys: "Ctrl/Cmd + I", desc: "Italic selected text" },
+  { keys: "Ctrl/Cmd + K", desc: "Search messages across server" },
   { keys: "Ctrl/Cmd + F", desc: "Search in channel" },
   { keys: "Esc", desc: "Close search / panels" },
   { keys: "Shift + ?", desc: "Show this help" },

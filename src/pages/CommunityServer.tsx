@@ -125,6 +125,7 @@ import { getChannelDraft, setChannelDraft, draftPreview, getAllChannelDrafts } f
 import { loadResolvedChannelPermissions, batchLoadResolvedChannelPermissions, type ResolvedChannelPermissions } from "@/lib/community-permissions";
 import { getVoicePrefs, toggleVoiceDeafened, toggleVoiceMuted } from "@/lib/community-voice-prefs";
 import { useCommunityHotkeys } from "@/hooks/useCommunityHotkeys";
+import { useVoiceRtc } from "@/hooks/useVoiceRtc";
 import { useServerPresence } from "@/hooks/useServerPresence";
 import { useIsDesktop } from "@/hooks/useIsDesktop";
 import { listCommunityProfiles } from "@/lib/community-profile";
@@ -1115,6 +1116,7 @@ function ChannelRoom({
   const [error, setError] = useState("");
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [forumThreadId, setForumThreadId] = useState<string | null>(null);
+  const [forumPostTitle, setForumPostTitle] = useState("");
   const [joinedVoice, setJoinedVoice] = useState(false);
   const [voiceParticipants, setVoiceParticipants] = useState<{ userId: string; name: string }[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -1267,6 +1269,12 @@ function ChannelRoom({
   const canViewChannel = channelPerms?.view ?? true;
   const isVoice = group.kind === "voice";
   const isForum = group.kind === "forum";
+  const { remoteStreams, error: voiceRtcError } = useVoiceRtc({
+    channelId: group.id,
+    userId,
+    enabled: joinedVoice && isVoice,
+    muted: voiceMuted,
+  });
   const kindBanner = channelKindBanner(group.kind);
 
   const forumPosts = useMemo(
@@ -1347,7 +1355,7 @@ function ChannelRoom({
 
   const load = useCallback(async () => {
     const [msgs, pins] = await Promise.all([
-      listGroupMessages(group.id, userId),
+      listGroupMessages(group.id, userId, { serverId }),
       listPinnedMessages(group.id).catch(() => [] as CommunityMessage[]),
     ]);
     setMessages(msgs);
@@ -1501,8 +1509,10 @@ function ChannelRoom({
         replyToId: isForum
           ? forumThreadId ?? replyTo?.id ?? null
           : threadRootId ?? replyTo?.id ?? null,
+        forumTitle: isForum && !forumThreadId ? forumPostTitle : undefined,
       });
       setDraft("");
+      setForumPostTitle("");
       setReplyTo(null);
       setMentionQuery(null);
       if (slowModeSeconds > 0) setSlowCooldown(slowModeSeconds);
@@ -1593,15 +1603,20 @@ function ChannelRoom({
               <ChannelKindGlyph kind="voice" className="mx-auto h-12 w-12 text-accent/60" />
               <p className="mt-3 text-[1rem] font-semibold">#{group.name}</p>
               <p className="mt-1 text-[0.875rem] text-muted">
-                Voice lounge — join to show you&apos;re here. Live audio uses your device mic when
-                you connect (library communities can hang out while reading).
+                Voice lounge with live audio. Join to talk with others in this channel.
               </p>
+              {voiceRtcError && (
+                <p className="mt-2 text-[0.8125rem] text-destructive">{voiceRtcError}</p>
+              )}
               {isMember && channelPerms?.connect !== false && (
                 <Button className="mt-4" variant={joinedVoice ? "secondary" : "primary"} onClick={() => void toggleVoice()}>
                   {joinedVoice ? "Leave voice" : "Join voice"}
                 </Button>
               )}
             </div>
+            {[...remoteStreams.entries()].map(([peerId, stream]) => (
+              <audio key={peerId} autoPlay playsInline ref={(el) => { if (el) el.srcObject = stream; }} className="hidden" />
+            ))}
             <div className="mx-auto mt-8 max-w-md">
               <p className="mb-2 text-[0.6875rem] font-bold uppercase tracking-wider text-muted">
                 In voice — {voiceParticipants.length}
@@ -1710,7 +1725,10 @@ function ChannelRoom({
                         className="w-full text-left"
                         onClick={() => setForumThreadId(m.id)}
                       >
-                        <p className="text-[0.8125rem] font-semibold">{m.authorName || "Member"}</p>
+                        <p className="text-[0.9375rem] font-semibold text-foreground">
+                          {m.forumTitle || m.body.split("\n")[0]?.slice(0, 80) || "Untitled post"}
+                        </p>
+                        <p className="mt-0.5 text-[0.8125rem] font-medium text-muted">{m.authorName || "Member"}</p>
                         <div className="mt-1 line-clamp-3">
                           <CommunityMessageContent
                             body={m.body}
@@ -1876,6 +1894,17 @@ function ChannelRoom({
           )}
 
           {canPost ? (
+            <>
+              {isForum && !forumThreadId && (
+                <div className="px-3 pb-1 md:px-4">
+                  <input
+                    value={forumPostTitle}
+                    onChange={(e) => setForumPostTitle(e.target.value)}
+                    placeholder="Post title"
+                    className="w-full rounded-lg bg-[var(--community-input)] px-3 py-2 text-sm outline-none ring-1 ring-[var(--community-border)]"
+                  />
+                </div>
+              )}
             <ChannelMessageComposer
               channelName={group.name}
               draft={draft}
@@ -1917,6 +1946,7 @@ function ChannelRoom({
               hint={isForum && !forumThreadId ? "You're creating a new forum post." : undefined}
               slowModeRemaining={slowCooldown}
             />
+            </>
           ) : group.kind === "announcement" && (isMember || isAppOwner || canConfigure) ? (
             <div className="mx-4 mb-4 rounded-lg border border-dashed border-[var(--community-border)] px-4 py-3 text-center">
               <p className="text-[0.875rem] text-muted">

@@ -16,6 +16,7 @@ import {
 import type { CommunityServerEmoji, CommunityServerSticker, CommunityServerWebhook } from "@/lib/community-types";
 import { isBlockedImageFile } from "@/lib/content-moderation";
 import { useIsDesktop } from "@/hooks/useIsDesktop";
+import { FormattingToolbar } from "@/components/community/FormattingToolbar";
 import { AttachmentPreviewBar, type StagedAttachment } from "@/components/community/AttachmentPreviewBar";
 
 const DEFAULT_EMOJIS = ["😀", "😂", "❤️", "👍", "🔥", "🎉", "👀", "📚", "✨", "🙌", "😮", "💯"];
@@ -167,6 +168,13 @@ export function ChannelMessageComposer({
     }
   };
 
+  const handleUploadMany = async (files: FileList | File[]) => {
+    const list = [...files].filter((f) => f.type.startsWith("image/") || f.type === "application/pdf");
+    for (const file of list) {
+      await handleUpload(file);
+    }
+  };
+
   const canSend = draft.trim().length > 0 && !sending && !disabled && slowModeRemaining <= 0;
 
   const appItems = useMemo<AppLauncherItem[]>(() => {
@@ -225,8 +233,8 @@ export function ChannelMessageComposer({
       onDrop={(e) => {
         e.preventDefault();
         setDragOver(false);
-        const file = e.dataTransfer.files?.[0];
-        if (file?.type.startsWith("image/")) void handleUpload(file);
+        const files = e.dataTransfer.files;
+        if (files?.length) void handleUploadMany(files);
       }}
     >
       {replyPreview && (
@@ -269,6 +277,8 @@ export function ChannelMessageComposer({
         <SlashCommandMenu commands={slashSuggestions} onPick={pickSlashCommand} />
       )}
 
+      <FormattingToolbar textareaRef={textareaRef} onChange={handleDraftChange} />
+
       <div className="flex min-h-[2.75rem] items-end gap-2 rounded-lg bg-[var(--community-input)] px-3 py-2">
         <ComposerIconButton
           label="More actions"
@@ -291,6 +301,28 @@ export function ChannelMessageComposer({
             handleDraftChange(value, cursor);
           }}
           onKeyDown={(e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
+              e.preventDefault();
+              const el = textareaRef.current;
+              if (!el) return;
+              const start = el.selectionStart;
+              const end = el.selectionEnd;
+              const selected = draft.slice(start, end) || "text";
+              const next = `${draft.slice(0, start)}**${selected}**${draft.slice(end)}`;
+              handleDraftChange(next, start + selected.length + 4);
+              return;
+            }
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "i") {
+              e.preventDefault();
+              const el = textareaRef.current;
+              if (!el) return;
+              const start = el.selectionStart;
+              const end = el.selectionEnd;
+              const selected = draft.slice(start, end) || "text";
+              const next = `${draft.slice(0, start)}*${selected}*${draft.slice(end)}`;
+              handleDraftChange(next, start + selected.length + 2);
+              return;
+            }
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               if (draft.trim() === "/timestamp") {
@@ -349,11 +381,12 @@ export function ChannelMessageComposer({
       <input
         ref={fileRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp,image/avif"
+        multiple
+        accept="image/jpeg,image/png,image/webp,image/avif,application/pdf"
         className="hidden"
         onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) void handleUpload(f);
+          const files = e.target.files;
+          if (files?.length) void handleUploadMany(files);
           e.target.value = "";
         }}
       />

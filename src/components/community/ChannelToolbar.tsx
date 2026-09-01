@@ -158,6 +158,16 @@ export function ChannelToolbar({
           <IconPeople size={18} />
         </ToolbarButton>
       )}
+      {isMobile && onToggleMembers && memberCount > 0 && (
+        <ToolbarButton label="Member list" onClick={onToggleMembers} active={membersOpen}>
+          <IconPeople size={18} />
+        </ToolbarButton>
+      )}
+      {isMobile && canManage && onOpenSettings && (
+        <ToolbarButton label="Channel settings" onClick={onOpenSettings}>
+          <IconSettings size={18} />
+        </ToolbarButton>
+      )}
       {onToggleSearch && (
         <>
           {!isMobile && <ToolbarDivider />}

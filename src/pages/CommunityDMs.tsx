@@ -4,13 +4,17 @@ import { useAuth } from "@/lib/auth";
 import { CommunityDiscordShell, CommunityScrollBody } from "@/components/CommunityRail";
 import { FormError } from "@/components/form";
 import {
+  blockDmUser,
   listDmMessages,
   listMyDmThreads,
+  markDmThreadRead,
   sendDmMessage,
+  subscribeDmMessages,
   type DmMessage,
   type DmThreadSummary,
 } from "@/lib/community-dms";
 import { getCommunityProfile } from "@/lib/community-profile";
+import { IconArrowLeft } from "@/components/Icons";
 
 export function CommunityDMsPage() {
   const { threadId } = useParams<{ threadId?: string }>();
@@ -22,6 +26,7 @@ export function CommunityDMsPage() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [otherLabel, setOtherLabel] = useState("Direct Message");
+  const [otherUserId, setOtherUserId] = useState<string | null>(null);
 
   const refreshThreads = useCallback(async () => {
     if (!user) return;
@@ -34,6 +39,14 @@ export function CommunityDMsPage() {
     }
   }, [user]);
 
+  const loadMessages = useCallback(async () => {
+    if (!threadId) return;
+    const list = await listDmMessages(threadId);
+    setMessages(list);
+    await markDmThreadRead(threadId);
+    window.dispatchEvent(new Event("community-rail-refresh"));
+  }, [threadId]);
+
   useEffect(() => {
     void refreshThreads();
   }, [refreshThreads]);
@@ -43,10 +56,10 @@ export function CommunityDMsPage() {
     let cancelled = false;
     void (async () => {
       try {
-        const list = await listDmMessages(threadId);
-        if (!cancelled) setMessages(list);
+        await loadMessages();
         const thread = threads.find((t) => t.threadId === threadId);
         if (thread?.otherUser?.userId) {
+          setOtherUserId(thread.otherUser.userId);
           const profile = await getCommunityProfile(thread.otherUser.userId);
           if (!cancelled) {
             setOtherLabel(
@@ -63,7 +76,15 @@ export function CommunityDMsPage() {
     return () => {
       cancelled = true;
     };
-  }, [threadId, user, threads]);
+  }, [threadId, user, threads, loadMessages]);
+
+  useEffect(() => {
+    if (!threadId) return;
+    return subscribeDmMessages(threadId, () => {
+      void loadMessages();
+      void refreshThreads();
+    });
+  }, [threadId, loadMessages, refreshThreads]);
 
   const onSend = async (e: FormEvent) => {
     e.preventDefault();
@@ -93,7 +114,11 @@ export function CommunityDMsPage() {
   return (
     <CommunityDiscordShell pane="dm" onAdd={() => {}}>
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        <aside className="flex w-full max-w-xs shrink-0 flex-col border-r border-[var(--community-border)] bg-[var(--community-panel)] md:w-72">
+        <aside
+          className={`flex shrink-0 flex-col border-r border-[var(--community-border)] bg-[var(--community-panel)] md:w-72 ${
+            threadId ? "hidden md:flex md:max-w-xs md:w-72" : "w-full max-w-none"
+          }`}
+        >
           <div className="border-b border-[var(--community-border)] px-4 py-3">
             <h1 className="text-lg font-semibold">Direct Messages</h1>
           </div>
@@ -125,14 +150,44 @@ export function CommunityDMsPage() {
           </CommunityScrollBody>
         </aside>
 
-        <div className="flex min-w-0 flex-1 flex-col bg-[var(--community-chat)]">
+        <div
+          className={`flex min-w-0 flex-1 flex-col bg-[var(--community-chat)] ${
+            !threadId ? "hidden md:flex" : ""
+          }`}
+        >
           {!threadId ? (
             <div className="flex flex-1 items-center justify-center p-6 text-muted">
               Select a conversation or message someone from their profile.
             </div>
           ) : (
             <>
-              <div className="border-b border-[var(--community-border)] px-4 py-3 font-semibold">{otherLabel}</div>
+              <div className="flex items-center gap-2 border-b border-[var(--community-border)] px-4 py-3">
+                <Link
+                  to="/community/dm"
+                  className="rounded p-1 text-muted hover:bg-[var(--community-hover)] md:hidden"
+                  aria-label="Back to conversations"
+                >
+                  <IconArrowLeft size={18} />
+                </Link>
+                <span className="flex-1 font-semibold">{otherLabel}</span>
+                {otherUserId && otherUserId !== user.id && (
+                  <button
+                    type="button"
+                    className="text-xs text-destructive"
+                    onClick={async () => {
+                      if (!confirm("Block this user? They will not be able to message you.")) return;
+                      try {
+                        await blockDmUser(otherUserId);
+                        setError("User blocked.");
+                      } catch (err) {
+                        setError(err instanceof Error ? err.message : "Could not block user");
+                      }
+                    }}
+                  >
+                    Block
+                  </button>
+                )}
+              </div>
               <CommunityScrollBody className="flex-1 space-y-3 p-4">
                 {messages.map((m) => (
                   <div

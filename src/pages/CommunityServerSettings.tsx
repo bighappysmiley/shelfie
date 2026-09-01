@@ -95,6 +95,8 @@ export function CommunityServerSettingsPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [iconUrl, setIconUrl] = useState<string | null>(null);
+  const [bannerUrl, setBannerUrl] = useState<string | null>(null);
+  const [vanitySlug, setVanitySlug] = useState("");
   const [isPublic, setIsPublic] = useState(false);
   const [isOfficial, setIsOfficial] = useState(false);
   const [joinMode, setJoinMode] = useState<CommunityJoinMode>("open");
@@ -192,6 +194,8 @@ export function CommunityServerSettingsPage() {
     setName(s.name);
     setDescription(s.description ?? "");
     setIconUrl(s.iconUrl);
+    setBannerUrl(s.bannerUrl ?? null);
+    setVanitySlug(s.vanitySlug ?? "");
     setIsPublic(s.isPublic);
     setIsOfficial(s.isOfficial);
     setJoinMode(s.joinMode);
@@ -281,6 +285,7 @@ export function CommunityServerSettingsPage() {
         name,
         description,
         iconUrl,
+        bannerUrl,
         isPublic,
         isOfficial: isOwner ? isOfficial : undefined,
       });
@@ -424,6 +429,41 @@ export function CommunityServerSettingsPage() {
                 </div>
               </div>
 
+              {bannerUrl && (
+                <AuthedImage src={bannerUrl} alt="" className="h-24 w-full rounded-xl object-cover" />
+              )}
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={uploading}
+                  onClick={async () => {
+                    const input = document.createElement("input");
+                    input.type = "file";
+                    input.accept = "image/*";
+                    input.onchange = async () => {
+                      const f = input.files?.[0];
+                      if (!f) return;
+                      setUploading(true);
+                      try {
+                        setBannerUrl(await uploadCommunityImage(f));
+                      } finally {
+                        setUploading(false);
+                      }
+                    };
+                    input.click();
+                  }}
+                >
+                  {bannerUrl ? "Change banner" : "Upload banner"}
+                </Button>
+                {bannerUrl && (
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setBannerUrl(null)}>
+                    Remove banner
+                  </Button>
+                )}
+              </div>
+
               <TextField label="Server name" value={name} onChange={(e) => setName(e.target.value)} required />
               <TextArea
                 label="Description"
@@ -471,6 +511,7 @@ export function CommunityServerSettingsPage() {
               members={members}
               roles={roles}
               currentUserId={user.id}
+              actorRole={myRole}
               onChanged={refresh}
               onError={setError}
             />
@@ -503,6 +544,8 @@ export function CommunityServerSettingsPage() {
               inviteCode={inviteCode}
               joinMode={joinMode}
               isPublic={isPublic}
+              vanitySlug={vanitySlug}
+              onVanitySlugChange={setVanitySlug}
               regenBusy={regenBusy}
               busy={busy}
               onJoinModeChange={setJoinMode}
@@ -523,7 +566,7 @@ export function CommunityServerSettingsPage() {
                 setBusy(true);
                 setError("");
                 try {
-                  await updateServer(serverId, { isPublic, joinMode });
+                  await updateServer(serverId, { isPublic, joinMode, vanitySlug });
                   await refresh();
                 } catch (err) {
                   setError(err instanceof Error ? err.message : "Could not save");

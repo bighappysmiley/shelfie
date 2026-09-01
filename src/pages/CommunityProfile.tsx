@@ -1,19 +1,22 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { ButtonLink } from "@/components/Button";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { Button, ButtonLink } from "@/components/Button";
 import { CommunityDiscordShell, CommunityScrollBody } from "@/components/CommunityRail";
 import { CommunityAvatar, ProBadge } from "@/components/community/CommunityAvatar";
 import { AuthedImage } from "@/components/AuthedImage";
 import { getCommunityProfileByUsername, communityProfileLabel } from "@/lib/community-profile";
+import { openDmThread } from "@/lib/community-dms";
 import type { CommunityProfile } from "@/lib/community-types";
 import { useAuth } from "@/lib/auth";
 
 export function CommunityProfilePage() {
   const { username } = useParams<{ username: string }>();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [profile, setProfile] = useState<CommunityProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [messaging, setMessaging] = useState(false);
 
   useEffect(() => {
     if (!username) return;
@@ -99,6 +102,26 @@ export function CommunityProfilePage() {
                 <ButtonLink to="/account" className="mt-5 w-full" variant="secondary">
                   Edit your profile
                 </ButtonLink>
+              )}
+
+              {!isSelf && user && profile && (
+                <Button
+                  className="mt-5 w-full"
+                  disabled={messaging}
+                  onClick={async () => {
+                    setMessaging(true);
+                    try {
+                      const threadId = await openDmThread(profile.userId);
+                      navigate(`/community/dm/${threadId}`);
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : "Could not open conversation");
+                    } finally {
+                      setMessaging(false);
+                    }
+                  }}
+                >
+                  {messaging ? "Opening…" : "Message"}
+                </Button>
               )}
             </div>
           </div>

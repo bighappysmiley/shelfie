@@ -12,7 +12,7 @@ export const CHANNEL_KIND_DESCRIPTIONS: Record<CommunityGroupKind, string> = {
   text: "Send messages, images, emoji, and formatted text",
   announcement: "Important updates — only people with permission can post",
   forum: "Create posts and threads for organized discussions",
-  voice: "Voice chat (presence only — audio coming soon)",
+  voice: "Voice chat with live audio",
 };
 
 export function canPostInChannelKind(
