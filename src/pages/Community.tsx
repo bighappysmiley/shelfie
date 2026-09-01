@@ -3,7 +3,6 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { useLibrary } from "@/lib/library";
 import {
-  getServerForLibrary,
   joinServer,
   leaveServer,
   listMyServers,
@@ -100,7 +99,6 @@ export function CommunityPage() {
   const [publicServers, setPublicServers] = useState<CommunityServer[]>([]);
   const [officialServers, setOfficialServers] = useState<CommunityServer[]>([]);
   const [myServers, setMyServers] = useState<CommunityServer[]>([]);
-  const [libraryServerId, setLibraryServerId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -108,26 +106,26 @@ export function CommunityPage() {
   const [query, setQuery] = useState("");
   const [addOpen, setAddOpen] = useState(false);
 
+  const canCreateServer = Boolean(activeLibrary) && (activeLibrary?.role === "owner" || isOwner);
+
   const refresh = useCallback(async () => {
     if (!user) return;
     setError("");
     try {
-      const [pub, official, mine, existing] = await Promise.all([
+      const [pub, official, mine] = await Promise.all([
         listPublicServers(user.id),
         listOfficialServers(user.id),
         listMyServers(user.id),
-        activeLibrary ? getServerForLibrary(activeLibrary.id) : Promise.resolve(null),
       ]);
       setPublicServers(pub);
       setOfficialServers(official);
       setMyServers(mine);
-      setLibraryServerId(existing?.id ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load servers");
     } finally {
       setLoading(false);
     }
-  }, [user, activeLibrary]);
+  }, [user]);
 
   useEffect(() => {
     void refresh();
@@ -343,7 +341,7 @@ export function CommunityPage() {
                     title={query ? "No matches" : "No public servers yet"}
                     description="Create a server and turn on Public in settings to appear here."
                     action={
-                      activeLibrary?.role === "owner" && !libraryServerId ? (
+                      canCreateServer ? (
                         <Button onClick={() => setAddOpen(true)}>Create your server</Button>
                       ) : undefined
                     }
@@ -443,10 +441,19 @@ export function CommunityPage() {
               </div>
             )}
 
-            {libraries.length > 1 && (
+            {libraries.length > 1 && canCreateServer && (
               <p className="mt-4 px-1 text-[0.75rem] text-white/40">
-                Creating a server uses your active library ({activeLibrary?.name}).
+                New servers are created under your active library ({activeLibrary?.name}). Switch
+                libraries if you want them attached elsewhere.
               </p>
+            )}
+            {canCreateServer && filteredMine.length > 0 && (
+              <div className="mt-4 px-1">
+                <Button size="sm" onClick={() => setAddOpen(true)}>
+                  <IconPlus size={16} />
+                  Create another server
+                </Button>
+              </div>
             )}
           </div>
         </>

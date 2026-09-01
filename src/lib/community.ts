@@ -253,7 +253,7 @@ export async function recomputeServerScore(serverId: string): Promise<void> {
     .eq("id", serverId);
 }
 
-/** Create a community server for a library (explicit only — never auto-created). */
+/** Create a community server linked to a library (explicit only — never auto-created). */
 export async function createLibraryServer(input: {
   libraryId: string;
   name: string;
@@ -261,18 +261,10 @@ export async function createLibraryServer(input: {
   isPublic?: boolean;
   userId: string;
   isLibraryOwner: boolean;
+  isAppOwner?: boolean;
 }): Promise<CommunityServer> {
-  if (!input.isLibraryOwner) {
-    throw new Error("Only the library owner can create this library’s server");
-  }
-
-  const { data: existing } = await supabase
-    .from("community_servers")
-    .select("id")
-    .eq("library_id", input.libraryId)
-    .maybeSingle();
-  if (existing) {
-    throw new Error("This library already has a server. Open it from Your servers.");
+  if (!input.isLibraryOwner && !input.isAppOwner) {
+    throw new Error("Only the library owner can create a server");
   }
 
   const { data, error } = await supabase
@@ -312,16 +304,28 @@ export async function createLibraryServer(input: {
   return mapServer(server, { canManage: true, isMember: true, memberCount: 1 });
 }
 
-/** Look up an existing server for a library — does not create one. */
+/** Look up one existing server for a library — does not create one. */
 export async function getServerForLibrary(libraryId: string): Promise<CommunityServer | null> {
   const { data, error } = await supabase
     .from("community_servers")
     .select("*")
     .eq("library_id", libraryId)
+    .order("created_at", { ascending: true })
+    .limit(1)
     .maybeSingle();
   if (error) throw error;
   if (!data) return null;
   return mapServer(data as ServerRow);
+}
+
+export async function listServersForLibrary(libraryId: string): Promise<CommunityServer[]> {
+  const { data, error } = await supabase
+    .from("community_servers")
+    .select("*")
+    .eq("library_id", libraryId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return ((data ?? []) as ServerRow[]).map((r) => mapServer(r));
 }
 
 export async function listPublicServers(userId?: string): Promise<CommunityServer[]> {

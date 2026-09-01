@@ -2,15 +2,11 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { useLibrary } from "@/lib/library";
-import {
-  createLibraryServer,
-  getServerForLibrary,
-  joinServerByInviteCode,
-} from "@/lib/community";
+import { createLibraryServer, joinServerByInviteCode } from "@/lib/community";
 import { Button } from "@/components/Button";
 import { TextField, TextArea, FormError } from "@/components/form";
 import { ToggleRow } from "@/components/layout";
-import { IconCommunity, IconCompass, IconPlus, IconX } from "@/components/Icons";
+import { IconCompass, IconPlus, IconX } from "@/components/Icons";
 
 export function AddServerModal({
   open,
@@ -22,7 +18,7 @@ export function AddServerModal({
   onDone?: () => void;
 }) {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isOwner } = useAuth();
   const { activeLibrary } = useLibrary();
   const [mode, setMode] = useState<"menu" | "create" | "invite">("menu");
   const [name, setName] = useState("");
@@ -31,7 +27,6 @@ export function AddServerModal({
   const [invite, setInvite] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [libraryServerId, setLibraryServerId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -42,22 +37,11 @@ export function AddServerModal({
     setIsPublic(false);
     setName(activeLibrary?.name ?? "");
     setBusy(false);
-    let cancelled = false;
-    if (activeLibrary) {
-      void getServerForLibrary(activeLibrary.id).then((existing) => {
-        if (!cancelled) setLibraryServerId(existing?.id ?? null);
-      });
-    } else {
-      setLibraryServerId(null);
-    }
-    return () => {
-      cancelled = true;
-    };
   }, [open, activeLibrary]);
 
   if (!open || !user) return null;
 
-  const canCreate = activeLibrary?.role === "owner" && !libraryServerId;
+  const canCreate = Boolean(activeLibrary) && (activeLibrary?.role === "owner" || isOwner);
   const libraryName = activeLibrary?.name ?? "library";
 
   const submitCreate = async (e: FormEvent) => {
@@ -73,6 +57,7 @@ export function AddServerModal({
         isPublic,
         userId: user.id,
         isLibraryOwner: activeLibrary.role === "owner",
+        isAppOwner: isOwner,
       });
       onClose();
       onDone?.();
@@ -120,7 +105,7 @@ export function AddServerModal({
         {mode === "menu" && (
           <div className="space-y-2">
             <p className="mb-3 text-[0.875rem] text-white/55">
-              Create a new server for your library, or enter an invite code.
+              Create another server for your library, or enter an invite code.
             </p>
             {canCreate ? (
               <button
@@ -136,24 +121,9 @@ export function AddServerModal({
                 </span>
                 <span>
                   <span className="block font-semibold text-white">Create My Own</span>
-                  <span className="text-[0.75rem] text-white/45">For {libraryName}</span>
-                </span>
-              </button>
-            ) : libraryServerId ? (
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  navigate(`/community/s/${libraryServerId}`);
-                }}
-                className="flex w-full items-center gap-3 rounded-xl bg-[#1e1f22] px-4 py-3 text-left transition hover:bg-black/40"
-              >
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/20 text-accent">
-                  <IconCommunity size={20} />
-                </span>
-                <span>
-                  <span className="block font-semibold text-white">Open my library server</span>
-                  <span className="text-[0.75rem] text-white/45">{libraryName} already has one</span>
+                  <span className="text-[0.75rem] text-white/45">
+                    Under {libraryName} — you can create as many as you want
+                  </span>
                 </span>
               </button>
             ) : (
