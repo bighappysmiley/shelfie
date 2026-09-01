@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import {
   archiveCommunityGroup,
@@ -27,6 +27,7 @@ import {
   parseRoleColor,
   ROLE_COLOR_PRESETS,
   roleColorStyle,
+  roleColorTextStyle,
   type RoleColorMode,
 } from "@/lib/role-color";
 import { CommunityModal } from "@/components/CommunityModal";
@@ -595,7 +596,7 @@ export function RolesPanel({
             }`}
           >
             <RoleBadge role={r} />
-            <span className="truncate" style={{ color: parseRoleColor(r.color).mode === "solid" ? r.color : undefined }}>
+            <span className="truncate" style={roleColorTextStyle(r.color)}>
               {r.name}
             </span>
             {typeof r.memberCount === "number" && (
@@ -705,17 +706,7 @@ export function RolesPanel({
               }}
             />
             <div className="min-w-0 flex-1">
-              <p className="font-semibold" style={
-                parseRoleColor(editColor).mode === "solid"
-                  ? { color: editColor }
-                  : ({
-                      ...roleColorStyle(editColor),
-                      WebkitBackgroundClip: "text",
-                      backgroundClip: "text",
-                      color: "transparent",
-                      WebkitTextFillColor: "transparent",
-                    } as CSSProperties)
-              }>
+              <p className="font-semibold" style={roleColorTextStyle(editColor)}>
                 @{editName || "role"}
               </p>
               <p className="text-[0.75rem] text-muted">Role icon (optional upload)</p>
@@ -881,21 +872,21 @@ export function RoleColorPicker({ value, onChange }: { value: string; onChange: 
   const [mode, setMode] = useState<RoleColorMode>(parsed.mode);
   const [solid, setSolid] = useState(parsed.mode === "solid" ? parsed.hex : "#8B5CF6");
   const [stops, setStops] = useState<string[]>(
-    parsed.mode === "solid" ? ["#f97316", "#ec4899", "#8b5cf6"] : parsed.stops,
+    parsed.mode === "gradient" ? parsed.stops : ["#f97316", "#ec4899", "#8b5cf6"],
   );
 
   useEffect(() => {
     const next = parseRoleColor(value);
     setMode(next.mode);
     if (next.mode === "solid") setSolid(next.hex);
-    else setStops(next.stops);
+    else if (next.mode === "gradient") setStops(next.stops);
   }, [value]);
 
   const pushEncoded = (nextMode: RoleColorMode, nextSolid: string, nextStops: string[]) => {
     if (nextMode === "solid") onChange(encodeRoleColor({ mode: "solid", hex: nextSolid }));
     else if (nextMode === "gradient")
       onChange(encodeRoleColor({ mode: "gradient", stops: nextStops }));
-    else onChange(encodeRoleColor({ mode: "holo", stops: nextStops }));
+    else onChange("holo");
   };
 
   return (
@@ -973,13 +964,9 @@ export function RoleColorPicker({ value, onChange }: { value: string; onChange: 
             />
           </div>
         </label>
-      ) : (
+      ) : mode === "gradient" ? (
         <div className="space-y-2">
-          <p className="text-[0.75rem] text-muted">
-            {mode === "holo"
-              ? "Holo animates across these stops. Edit or add colors."
-              : "Gradient blends these stops. Need at least two."}
-          </p>
+          <p className="text-[0.75rem] text-muted">Pick at least two colors for the gradient.</p>
           {stops.map((stop, i) => (
             <div key={i} className="flex items-center gap-2">
               <input
@@ -989,7 +976,7 @@ export function RoleColorPicker({ value, onChange }: { value: string; onChange: 
                   const next = [...stops];
                   next[i] = e.target.value;
                   setStops(next);
-                  pushEncoded(mode, solid, next);
+                  pushEncoded("gradient", solid, next);
                 }}
                 className="h-9 w-12 cursor-pointer rounded bg-fill"
               />
@@ -1000,7 +987,7 @@ export function RoleColorPicker({ value, onChange }: { value: string; onChange: 
                   next[i] = e.target.value;
                   setStops(next);
                   if (next.every((s) => /^#[0-9a-fA-F]{6}$/.test(s))) {
-                    pushEncoded(mode, solid, next);
+                    pushEncoded("gradient", solid, next);
                   }
                 }}
                 className="min-w-0 flex-1 rounded-[var(--radius-control)] bg-fill px-2 py-1.5 font-mono text-[0.8125rem]"
@@ -1012,7 +999,7 @@ export function RoleColorPicker({ value, onChange }: { value: string; onChange: 
                   onClick={() => {
                     const next = stops.filter((_, j) => j !== i);
                     setStops(next);
-                    pushEncoded(mode, solid, next);
+                    pushEncoded("gradient", solid, next);
                   }}
                 >
                   Remove
@@ -1028,7 +1015,7 @@ export function RoleColorPicker({ value, onChange }: { value: string; onChange: 
               onClick={() => {
                 const next = [...stops, "#ffffff"];
                 setStops(next);
-                pushEncoded(mode, solid, next);
+                pushEncoded("gradient", solid, next);
               }}
             >
               <IconPlus size={14} />
@@ -1036,6 +1023,11 @@ export function RoleColorPicker({ value, onChange }: { value: string; onChange: 
             </Button>
           )}
         </div>
+      ) : (
+        <p className="text-[0.75rem] text-muted">
+          Holographic uses a shifting iridescent palette — like Discord&apos;s holographic role color. No custom
+          colors needed.
+        </p>
       )}
     </div>
   );

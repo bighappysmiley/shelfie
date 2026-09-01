@@ -5,7 +5,7 @@ import {
   kickServerMember,
 } from "@/lib/community";
 import type { CommunityServerMember, CommunityServerRole } from "@/lib/community-types";
-import { roleColorStyle } from "@/lib/role-color";
+import { roleColorStyle, roleColorTextStyle } from "@/lib/role-color";
 import { Button } from "@/components/Button";
 import { EmptyState } from "@/components/layout";
 
@@ -90,8 +90,9 @@ export function MembersTab({
                     {label}
                     {isSelf ? " (you)" : ""}
                   </p>
-                  <p className="text-[0.75rem] text-muted">
-                    {m.roleName} · joined {new Date(m.joinedAt).toLocaleDateString()}
+                  <p className="text-[0.75rem]">
+                    <span style={roleColorTextStyle(m.roleColor)}>{m.roleName}</span>
+                    <span className="text-muted"> · joined {new Date(m.joinedAt).toLocaleDateString()}</span>
                   </p>
                 </div>
               </div>
