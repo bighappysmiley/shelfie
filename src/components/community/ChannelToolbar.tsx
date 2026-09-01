@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { DiscordChannelIcon } from "@/components/community/DiscordIcons";
-import { IconBell, IconPeople, IconPin, IconSearch, IconSettings } from "@/components/Icons";
+import { ToolbarDivider } from "@/components/community/discord-ui";
+import { IconBell, IconPeople, IconPin, IconSearch, IconSettings, IconThreads } from "@/components/Icons";
 import { KIND_LABELS, type CommunityGroup } from "@/lib/community-types";
 
 function ToolbarButton({
@@ -71,23 +72,36 @@ export function ChannelToolbar({
         </div>
 
         <div className="flex shrink-0 items-center">
-          {pinnedCount > 0 && onTogglePins && (
-            <ToolbarButton label="Pinned messages" onClick={onTogglePins} active={pinsOpen}>
-              <IconPin size={18} />
-            </ToolbarButton>
-          )}
-          {onToggleSearch && (
-            <ToolbarButton label="Search" onClick={onToggleSearch} active={searchOpen}>
-              <IconSearch size={18} />
+          {group.kind === "text" && (
+            <ToolbarButton label="Threads">
+              <IconThreads size={18} />
             </ToolbarButton>
           )}
           <ToolbarButton label="Notification settings">
             <IconBell size={18} />
           </ToolbarButton>
+          {pinnedCount > 0 && onTogglePins && (
+            <ToolbarButton label="Pinned messages" onClick={onTogglePins} active={pinsOpen}>
+              <span className="relative inline-flex">
+                <IconPin size={18} />
+                <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[0.625rem] font-bold leading-none text-white">
+                  {pinnedCount > 9 ? "9+" : pinnedCount}
+                </span>
+              </span>
+            </ToolbarButton>
+          )}
           {onToggleMembers && memberCount > 0 && (
             <ToolbarButton label="Member list" onClick={onToggleMembers} active={membersOpen}>
               <IconPeople size={18} />
             </ToolbarButton>
+          )}
+          {onToggleSearch && (
+            <>
+              <ToolbarDivider />
+              <ToolbarButton label="Search" onClick={onToggleSearch} active={searchOpen}>
+                <IconSearch size={18} />
+              </ToolbarButton>
+            </>
           )}
           {canManage && onOpenSettings && (
             <ToolbarButton label="Channel settings" onClick={onOpenSettings}>

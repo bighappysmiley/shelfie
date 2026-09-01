@@ -59,7 +59,7 @@ import {
 import { Button } from "@/components/Button";
 import { FormError } from "@/components/form";
 import { EmptyState } from "@/components/layout";
-import { IconChat, IconPlus, IconSearch, IconSettings } from "@/components/Icons";
+import { IconChat, IconDots, IconPlus, IconReply, IconSearch, IconSettings } from "@/components/Icons";
 import { communityAuthorLabel, communityShortName } from "@/lib/community-identity";
 import { isAppOwnerUser, listAppOwnerUserIds } from "@/lib/app-owner";
 import { getChatRoleIconUrl } from "@/lib/chat-badges";
@@ -77,6 +77,14 @@ import { ChannelWelcome } from "@/components/community/ChannelWelcome";
 import { ChatAuthorBadge } from "@/components/community/ChatAuthorBadge";
 import { CommunityAvatar } from "@/components/community/CommunityAvatar";
 import { CommunityUserPanel } from "@/components/community/CommunityUserPanel";
+import { ServerChannelHeader } from "@/components/community/ServerChannelHeader";
+import { MemberListPanel } from "@/components/community/MemberListPanel";
+import {
+  MessageDateDivider,
+  TypingIndicator,
+  formatMessageDateDivider,
+  messageDayKey,
+} from "@/components/community/discord-ui";
 import { CommunityProfileModal } from "@/components/community/CommunityProfileModal";
 import { ChannelFormModal, CategoryFormModal } from "@/components/community-server-modals";
 import { AddServerModal } from "@/components/AddServerModal";
@@ -339,24 +347,19 @@ export function CommunityServerPage() {
     >
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <aside className="hidden w-60 shrink-0 flex-col bg-[var(--community-panel)] min-h-0 md:flex">
-          <div className="flex h-12 shrink-0 items-center justify-between gap-2 px-4 shadow-[0_1px_0_0_var(--community-border)]">
-            <button
-              type="button"
-              className="min-w-0 flex-1 truncate text-left text-base font-semibold text-foreground hover:text-foreground"
-              title={server?.name}
-            >
-              {server?.name || "Server"}
-            </button>
-            {canConfigure && (
-              <Link
-                to={`/community/s/${serverId}/settings`}
-                className="shrink-0 rounded p-1 text-muted hover:bg-[var(--community-channel-hover)] hover:text-foreground"
-                title="Server settings"
-              >
-                <IconSettings size={18} />
-              </Link>
-            )}
-          </div>
+          {server && (
+            <ServerChannelHeader
+              serverName={server.name}
+              serverId={serverId}
+              canConfigure={canConfigure}
+              onCreateChannel={
+                canConfigure
+                  ? () => setModal({ type: "create-channel", categoryId: categories[0]?.id ?? null })
+                  : undefined
+              }
+              onInvite={isMember ? () => navigate(`/community/s/${serverId}/settings`) : undefined}
+            />
+          )}
           {!isMember && server && (server.isPublic || server.isOfficial || server.joinMode === "invite") && (
             <div className="shrink-0 border-b border-[var(--community-border)] bg-[var(--community-channel-hover)] px-3 py-2">
               <div className="flex items-center justify-between gap-2">
@@ -552,6 +555,8 @@ export function CommunityServerPage() {
         onClose={() => setMemberDrawerOpen(false)}
         members={serverMembers}
         memberProfiles={memberProfiles}
+        serverBoosters={serverBoosters}
+        appOwnerUserIds={appOwnerUserIds}
         onOpenProfile={openProfile}
       />
 
@@ -708,13 +713,14 @@ function ChannelSidebar({
                 </div>
               )}
             </div>
-            {open &&
-              list.map((ch) => (
+            {open && (
+              <div className="pl-2">
+              {list.map((ch) => (
                 <button
                   key={ch.id}
                   type="button"
                   onClick={() => onSelect(ch.id)}
-                  className={`mb-px flex w-full items-center gap-1.5 rounded px-1.5 py-[0.375rem] text-left text-base transition ${
+                  className={`mb-px flex h-8 w-full items-center gap-1.5 rounded px-2 py-0 text-left text-base transition ${
                     ch.id === activeId
                       ? "bg-[var(--community-channel-active)] text-foreground"
                       : "text-muted hover:bg-[var(--community-channel-hover)] hover:text-foreground"
@@ -729,6 +735,8 @@ function ChannelSidebar({
                   ) : null}
                 </button>
               ))}
+              </div>
+            )}
           </div>
         );
       })}
@@ -739,7 +747,7 @@ function ChannelSidebar({
             key={ch.id}
             type="button"
             onClick={() => onSelect(ch.id)}
-            className={`mb-px flex w-full items-center gap-1.5 rounded px-1.5 py-[0.375rem] text-left text-base ${
+            className={`mb-px flex h-8 w-full items-center gap-1.5 rounded px-2 py-0 text-left text-base ${
               ch.id === activeId
                 ? "bg-[var(--community-channel-active)] text-foreground"
                 : "text-muted hover:bg-[var(--community-channel-hover)] hover:text-foreground"
@@ -841,6 +849,8 @@ function ChannelRoom({
   const [pinsExpanded, setPinsExpanded] = useState(true);
   const [serverEmoji, setServerEmoji] = useState<CommunityServerEmoji[]>([]);
   const [serverStickers, setServerStickers] = useState<CommunityServerSticker[]>([]);
+  const [scrolledUp, setScrolledUp] = useState(false);
+  const [highlightMessageId, setHighlightMessageId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Map<string, HTMLLIElement>>(new Map());
   const presenceRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -981,8 +991,9 @@ function ChannelRoom({
   }, [group.id, load, userId, authorLabel]);
 
   useEffect(() => {
+    if (scrolledUp) return;
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length]);
+  }, [messages.length, scrolledUp]);
 
   useEffect(() => {
     setReplyTo(null);
@@ -1068,9 +1079,8 @@ function ChannelRoom({
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="hidden md:block">
-        <ChannelToolbar
+    <div className="flex min-h-0 flex-1 flex-col relative">
+      <ChannelToolbar
           group={group}
           pinnedCount={pinned.length}
           pinsOpen={pinsExpanded}
@@ -1085,14 +1095,15 @@ function ChannelRoom({
           onOpenSettings={onOpenSettings}
           canManage={canConfigure || manage}
         />
-      </div>
 
       {pinned.length > 0 && pinsExpanded && (
         <PinnedMessagesBar
           pins={pinned}
           canManage={moderate || manage}
           onJump={(messageId) => {
+            setHighlightMessageId(messageId);
             messageRefs.current.get(messageId)?.scrollIntoView({ behavior: "smooth", block: "center" });
+            window.setTimeout(() => setHighlightMessageId(null), 2000);
           }}
           onUnpin={async (messageId) => {
             await unpinMessage(group.id, messageId);
@@ -1180,7 +1191,14 @@ function ChannelRoom({
               </button>
             </div>
           )}
-          <CommunityScrollBody className="px-4 py-4">
+          <CommunityScrollBody
+            className="px-0 py-4"
+            onScroll={(e) => {
+              const el = e.currentTarget;
+              const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 96;
+              setScrolledUp(!atBottom);
+            }}
+          >
             <ul className="space-y-1">
               {!isForum && <ChannelWelcome group={group} />}
               {visibleMessages.length === 0 && (
@@ -1215,13 +1233,22 @@ function ChannelRoom({
                       </button>
                     </li>
                   ))
-                : visibleMessages.map((m, index) => {
+                : visibleMessages.flatMap((m, index) => {
                 const prev = index > 0 ? visibleMessages[index - 1] : null;
                 const grouped = shouldGroupMessages(prev, m);
                 const member = m.authorId ? memberByUserId.get(m.authorId) : undefined;
                 const role = member?.roleId ? roleById.get(member.roleId) : undefined;
                 const chatRoleIconUrl = getChatRoleIconUrl(role);
-                return (
+                const items = [];
+                if (!prev || messageDayKey(prev.createdAt) !== messageDayKey(m.createdAt)) {
+                  items.push(
+                    <MessageDateDivider
+                      key={`date-${m.id}`}
+                      label={formatMessageDateDivider(m.createdAt)}
+                    />,
+                  );
+                }
+                items.push(
                 <MessageRow
                   key={m.id}
                   ref={(el) => {
@@ -1230,6 +1257,7 @@ function ChannelRoom({
                   }}
                   message={m}
                   grouped={grouped}
+                  highlighted={highlightMessageId === m.id}
                   mentionMembers={mentionMembers}
                   authorProfile={m.authorId ? memberProfiles.get(m.authorId) : null}
                   isServerBooster={m.authorId ? serverBoosters.has(m.authorId) : false}
@@ -1274,8 +1302,9 @@ function ChannelRoom({
                     await deleteGroupMessage(m.id);
                     await load();
                   }}
-                />
+                />,
               );
+                return items;
               })}
               <div ref={bottomRef} />
             </ul>
@@ -1299,10 +1328,21 @@ function ChannelRoom({
               <FormError message={error} />
             </div>
           )}
-          {typingUsers.length > 0 && (
-            <p className="px-4 pb-1 text-[0.75rem] text-muted">
-              {typingUsers.join(", ")} {typingUsers.length === 1 ? "is" : "are"} typing…
-            </p>
+          <TypingIndicator names={typingUsers} />
+
+          {scrolledUp && (
+            <div className="pointer-events-none absolute bottom-24 left-0 right-0 z-10 flex justify-center px-4">
+              <button
+                type="button"
+                onClick={() => {
+                  bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+                  setScrolledUp(false);
+                }}
+                className="pointer-events-auto rounded-full bg-[var(--community-panel)] px-4 py-2 text-sm font-medium text-foreground shadow-lg ring-1 ring-[var(--community-border)] hover:bg-[var(--community-hover)]"
+              >
+                Jump to Present
+              </button>
+            </div>
           )}
 
           {canPost ? (
@@ -1367,6 +1407,7 @@ const MessageRow = forwardRef(function MessageRow(
   {
     message,
     grouped = false,
+    highlighted = false,
     mentionMembers,
     authorProfile,
     isServerBooster = false,
@@ -1387,6 +1428,7 @@ const MessageRow = forwardRef(function MessageRow(
   }: {
     message: CommunityMessage;
     grouped?: boolean;
+    highlighted?: boolean;
     mentionMembers: MentionMember[];
     authorProfile?: CommunityProfile | null;
     isServerBooster?: boolean;
@@ -1448,7 +1490,7 @@ const MessageRow = forwardRef(function MessageRow(
       ref={ref}
       className={`group relative flex gap-4 rounded-md px-4 hover:bg-[var(--community-message-hover)] ${
         grouped ? "community-message-grouped py-0.5" : "py-1"
-      }`}
+      } ${highlighted ? "community-message-highlight" : ""}`}
       onTouchStart={() => {
         longPressRef.current = setTimeout(openSheet, 500);
       }}
@@ -1504,8 +1546,8 @@ const MessageRow = forwardRef(function MessageRow(
         )}
 
         {message.replyPreview && (
-          <div className="mb-1 flex items-center gap-1 border-l-4 border-[var(--community-border)] pl-3 text-sm text-muted">
-            <span className="font-medium text-foreground">{message.replyPreview.authorName || "Member"}</span>
+          <div className="mb-1 flex items-center gap-1 border-l-4 border-accent pl-3 text-sm text-muted">
+            <span className="font-medium text-link">{message.replyPreview.authorName || "Member"}</span>
             <span className="truncate">{message.replyPreview.body}</span>
           </div>
         )}
@@ -1563,13 +1605,14 @@ const MessageRow = forwardRef(function MessageRow(
         )}
       </div>
 
-      <div className="community-message-actions absolute -top-4 right-4 hidden items-center gap-0.5 rounded border p-0.5 shadow-md md:group-hover:flex">
+      <div className="community-message-actions absolute -top-4 right-4 hidden h-10 items-center gap-0.5 rounded border p-0.5 shadow-md md:group-hover:flex">
         {QUICK_EMOJIS.slice(0, 3).map((emoji) => (
           <button
             key={emoji}
             type="button"
             onClick={() => void onReact(emoji)}
-            className="rounded p-1 text-sm hover:bg-[var(--community-hover)]"
+            className="flex h-8 w-8 items-center justify-center rounded text-base hover:bg-[var(--community-hover)]"
+            aria-label={`React ${emoji}`}
           >
             {emoji}
           </button>
@@ -1577,26 +1620,27 @@ const MessageRow = forwardRef(function MessageRow(
         <button
           type="button"
           onClick={() => setPickerOpen((v) => !v)}
-          className="rounded p-1 text-[0.75rem] text-muted hover:bg-[var(--community-hover)]"
+          className="flex h-8 w-8 items-center justify-center rounded text-muted hover:bg-[var(--community-hover)]"
+          aria-label="Add reaction"
         >
           +
         </button>
         <button
           type="button"
           onClick={onReply}
-          className="rounded px-1.5 py-1 text-[0.6875rem] text-muted hover:bg-[var(--community-hover)]"
+          className="flex h-8 w-8 items-center justify-center rounded text-muted hover:bg-[var(--community-hover)]"
+          aria-label="Reply"
         >
-          Reply
+          <IconReply size={18} />
         </button>
-        {(canMod || isMine) && (
-          <button
-            type="button"
-            onClick={() => void onDelete()}
-            className="rounded px-1.5 py-1 text-[0.6875rem] text-muted hover:text-destructive"
-          >
-            Delete
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={openSheet}
+          className="flex h-8 w-8 items-center justify-center rounded text-muted hover:bg-[var(--community-hover)]"
+          aria-label="More actions"
+        >
+          <IconDots size={18} />
+        </button>
       </div>
 
       {pickerOpen && (
@@ -1635,59 +1679,15 @@ function ServerMemberSidebar({
   appOwnerUserIds?: Set<string>;
   onOpenProfile?: (target: { userId?: string; username?: string | null }) => void;
 }) {
-  const grouped = useMemo(() => {
-    const map = new Map<string, CommunityServerMember[]>();
-    for (const m of members) {
-      const list = map.get(m.roleName) ?? [];
-      list.push(m);
-      map.set(m.roleName, list);
-    }
-    return [...map.entries()].sort((a, b) => {
-      const posA = a[1][0]?.rolePosition ?? 100;
-      const posB = b[1][0]?.rolePosition ?? 100;
-      return posA - posB;
-    });
-  }, [members]);
-
   return (
     <aside className="hidden w-60 shrink-0 flex-col bg-[var(--community-panel)] min-h-0 md:flex">
-      <CommunityScrollBody className="px-2 py-3">
-        {grouped.map(([roleName, roleMembers]) => (
-          <div key={roleName} className="mb-4">
-            <p className="mb-1 px-2 text-xs font-semibold uppercase tracking-wide text-muted">
-              {roleName} — {roleMembers.length}
-            </p>
-            {roleMembers.map((m) => {
-              const label = m.displayName || m.communityUsername || "Member";
-              const colorStyle = m.roleColor ? roleColorTextStyle(m.roleColor) : undefined;
-              const profile = memberProfiles?.get(m.userId);
-              return (
-                <button
-                  key={m.userId}
-                  type="button"
-                  onClick={() =>
-                    onOpenProfile?.({ userId: m.userId, username: m.communityUsername })
-                  }
-                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-[var(--community-hover)]"
-                >
-                  <CommunityAvatar
-                    profile={profile}
-                    fallbackName={label}
-                    size="sm"
-                    isServerBooster={serverBoosters?.has(m.userId)}
-                  />
-                  <span className="flex min-w-0 flex-1 items-center gap-1 truncate text-base" style={colorStyle}>
-                    <span className="truncate">{label}</span>
-                    {isAppOwnerUser(m.userId, appOwnerUserIds) && (
-                      <ChatAuthorBadge isAppOwner />
-                    )}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        ))}
-      </CommunityScrollBody>
+      <MemberListPanel
+        members={members}
+        memberProfiles={memberProfiles}
+        serverBoosters={serverBoosters}
+        appOwnerUserIds={appOwnerUserIds}
+        onOpenProfile={onOpenProfile}
+      />
     </aside>
   );
 }

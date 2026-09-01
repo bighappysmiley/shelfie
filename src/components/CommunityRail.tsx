@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/auth";
 import { listMyServers, listServerUnreadTotals } from "@/lib/community";
 import type { CommunityServer } from "@/lib/community-types";
 import { AuthedImage } from "@/components/AuthedImage";
-import { IconCompass, IconList, IconPlus } from "@/components/Icons";
+import { IconCompass, IconHome, IconList, IconPlus } from "@/components/Icons";
 
 export type CommunityPane = "list" | "discover" | "server";
 
@@ -26,15 +26,15 @@ function ServerGlyph({
       title={server.name}
       aria-label={server.name}
       aria-current={active ? "page" : undefined}
-      className="group relative mx-auto flex w-[4.5rem] items-center justify-center py-1"
+      className="group relative mx-auto flex w-[4.5rem] items-center justify-center py-0.5"
     >
       <span
-        className={`community-rail-pill absolute -left-3 w-1 rounded-r-full bg-[var(--community-rail-pill)] transition-all duration-200 ${
-          active ? "h-10 opacity-100" : "h-5 opacity-0 group-hover:opacity-100"
+        className={`absolute -left-3 w-1 rounded-r-full bg-[var(--community-rail-pill)] transition-all duration-200 ${
+          active ? "h-10 opacity-100" : unread > 0 ? "h-2 opacity-100" : "h-5 opacity-0 group-hover:opacity-100"
         }`}
       />
       {unread > 0 && (
-        <span className="absolute right-3 top-0 z-10 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[0.625rem] font-bold text-white">
+        <span className="absolute bottom-0 right-3 z-10 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[0.625rem] font-bold text-white">
           {unread > 9 ? "9+" : unread}
         </span>
       )}
@@ -43,13 +43,13 @@ function ServerGlyph({
           src={server.iconUrl}
           alt=""
           className={`h-12 w-12 object-cover transition-all duration-200 ${
-            active ? "rounded-2xl" : "rounded-[1.5rem] group-hover:rounded-2xl"
+            active ? "rounded-2xl" : "rounded-full group-hover:rounded-2xl"
           }`}
         />
       ) : (
         <span
-          className={`flex h-12 w-12 items-center justify-center bg-[#5865f2] text-[0.75rem] font-semibold text-white transition-all duration-200 ${
-            active ? "rounded-2xl" : "rounded-[1.5rem] group-hover:rounded-2xl"
+          className={`flex h-12 w-12 items-center justify-center bg-accent text-[0.75rem] font-semibold text-accent-contrast transition-all duration-200 ${
+            active ? "rounded-2xl" : "rounded-full group-hover:rounded-2xl"
           }`}
         >
           {server.name.slice(0, 2).toUpperCase()}
@@ -75,15 +75,15 @@ function RailButton({
   const toneClass =
     tone === "add"
       ? active
-        ? "rounded-2xl bg-[#23a559] text-white"
-        : "rounded-[1.5rem] bg-[var(--community-panel)] text-[#23a559] hover:rounded-2xl hover:bg-[#23a559] hover:text-white"
+        ? "rounded-2xl bg-success text-white"
+        : "rounded-full bg-[var(--community-panel)] text-success hover:rounded-2xl hover:bg-success hover:text-white"
       : tone === "discover"
         ? active
-          ? "rounded-2xl bg-[var(--accent)] text-white"
-          : "rounded-[1.5rem] bg-[var(--community-panel)] text-[#23a559] hover:rounded-2xl hover:bg-[var(--accent)] hover:text-white"
+          ? "rounded-2xl bg-accent text-accent-contrast"
+          : "rounded-full bg-[var(--community-panel)] text-success hover:rounded-2xl hover:bg-accent hover:text-accent-contrast"
         : active
-          ? "rounded-2xl bg-[var(--accent)] text-white"
-          : "rounded-[1.5rem] bg-[var(--community-panel)] text-muted hover:rounded-2xl hover:bg-[var(--accent)] hover:text-white";
+          ? "rounded-2xl bg-accent text-accent-contrast"
+          : "rounded-full bg-[var(--community-panel)] text-muted hover:rounded-2xl hover:bg-accent hover:text-accent-contrast";
 
   return (
     <button
@@ -92,10 +92,10 @@ function RailButton({
       title={label}
       aria-label={label}
       aria-current={active ? "page" : undefined}
-      className="group relative mx-auto flex w-[4.5rem] items-center justify-center py-1"
+      className="group relative mx-auto flex w-[4.5rem] items-center justify-center py-0.5"
     >
       <span
-        className={`community-rail-pill absolute -left-3 w-1 rounded-r-full bg-[var(--community-rail-pill)] transition-all duration-200 ${
+        className={`absolute -left-3 w-1 rounded-r-full bg-[var(--community-rail-pill)] transition-all duration-200 ${
           active ? "h-10 opacity-100" : "h-5 opacity-0 group-hover:opacity-100"
         }`}
       />
@@ -154,13 +154,19 @@ export function CommunityDiscordShell({
     <div className="community-discord-shell flex h-full min-h-0 flex-1 overflow-hidden bg-[var(--community-rail)] text-foreground">
       <nav
         aria-label="Servers"
-        className="community-scroll hidden w-[4.5rem] shrink-0 flex-col items-stretch gap-2 overflow-y-auto bg-[var(--community-rail)] py-3 md:flex"
+        className="community-scroll community-rail-nav hidden w-[4.5rem] shrink-0 flex-col overflow-y-auto bg-[var(--community-rail)] py-3 md:flex"
       >
+        <RailButton label="Home" onClick={() => navigate("/home")}>
+          <IconHome size={24} />
+        </RailButton>
+
+        <div className="mx-auto my-2 h-0.5 w-8 rounded-full bg-[var(--community-border)]" />
+
         <RailButton label="Server list" active={pane === "list"} onClick={() => navigate("/community")}>
           <IconList size={24} />
         </RailButton>
 
-        <div className="mx-auto h-0.5 w-8 rounded-full bg-[var(--community-border)]" />
+        <div className="mx-auto my-2 h-0.5 w-8 rounded-full bg-[var(--community-border)]" />
 
         {servers.map((s) => (
           <ServerGlyph
@@ -172,18 +178,19 @@ export function CommunityDiscordShell({
           />
         ))}
 
-        <RailButton label="Add a Server" tone="add" onClick={onAdd}>
-          <IconPlus size={24} />
-        </RailButton>
-
-        <RailButton
-          label="Discover"
-          tone="discover"
-          active={pane === "discover"}
-          onClick={() => navigate("/community?tab=discover")}
-        >
-          <IconCompass size={24} />
-        </RailButton>
+        <div className="mt-auto flex flex-col gap-0.5 pt-2">
+          <RailButton label="Add a Server" tone="add" onClick={onAdd}>
+            <IconPlus size={24} />
+          </RailButton>
+          <RailButton
+            label="Discover"
+            tone="discover"
+            active={pane === "discover"}
+            onClick={() => navigate("/community?tab=discover")}
+          >
+            <IconCompass size={24} />
+          </RailButton>
+        </div>
       </nav>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--community-panel)]">
@@ -246,8 +253,21 @@ export function CommunityPanelHeader({
   );
 }
 
-export function CommunityScrollBody({ children, className = "" }: { children: ReactNode; className?: string }) {
+export function CommunityScrollBody({
+  children,
+  className = "",
+  onScroll,
+}: {
+  children: ReactNode;
+  className?: string;
+  onScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
+}) {
   return (
-    <div className={`community-scroll min-h-0 flex-1 overflow-y-auto ${className}`}>{children}</div>
+    <div
+      className={`community-scroll min-h-0 flex-1 overflow-y-auto ${className}`}
+      onScroll={onScroll}
+    >
+      {children}
+    </div>
   );
 }

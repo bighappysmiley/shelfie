@@ -254,3 +254,59 @@ export function IconGift(props: IconProps) {
     </Icon>
   );
 }
+
+export function IconMic(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3z" />
+      <path d="M19 11a7 7 0 0 1-14 0M12 18v3" />
+    </Icon>
+  );
+}
+
+export function IconHeadphones(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 14a8 8 0 0 1 16 0" />
+      <rect x="2" y="14" width="5" height="7" rx="2" />
+      <rect x="17" y="14" width="5" height="7" rx="2" />
+    </Icon>
+  );
+}
+
+export function IconReply(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M9 17 4 12l5-5" />
+      <path d="M20 18v-2a4 4 0 0 0-4-4H4" />
+    </Icon>
+  );
+}
+
+export function IconDots(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
+      <circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none" />
+    </Icon>
+  );
+}
+
+export function IconThreads(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
+    </Icon>
+  );
+}
+
+export function IconUserPlus(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M19 8v6M22 11h-6" />
+    </Icon>
+  );
+}

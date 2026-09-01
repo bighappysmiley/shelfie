@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { AuthedImage } from "@/components/AuthedImage";
 import { CommunityActionSheet } from "@/components/CommunityActionSheet";
+import { CommunityPopover, PopoverItem } from "@/components/community/discord-ui";
 import { IconGift, IconPlus, IconSend, IconSmile, IconSticker, IconX } from "@/components/Icons";
 import type { CommunityServerEmoji, CommunityServerSticker } from "@/lib/community-types";
 
@@ -11,14 +12,17 @@ function ComposerIconButton({
   onClick,
   children,
   active = false,
+  buttonRef,
 }: {
   label: string;
   onClick?: () => void;
   children: ReactNode;
   active?: boolean;
+  buttonRef?: React.RefObject<HTMLButtonElement | null>;
 }) {
   return (
     <button
+      ref={buttonRef}
       type="button"
       onClick={onClick}
       aria-label={label}
@@ -67,8 +71,20 @@ export function ChannelMessageComposer({
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [stickerOpen, setStickerOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia("(min-width: 768px)").matches : true,
+  );
   const fileRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const plusRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const onChange = () => setIsDesktop(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
 
   useEffect(() => {
     const el = textareaRef.current;
@@ -102,14 +118,31 @@ export function ChannelMessageComposer({
 
   const canSend = draft.trim().length > 0 && !sending && !disabled;
 
+  const plusActions = [
+    ...(onUploadImage
+      ? [
+          {
+            label: uploading ? "Uploading…" : "Upload image",
+            onClick: () => fileRef.current?.click(),
+          },
+        ]
+      : []),
+    {
+      label: "Mention someone",
+      onClick: () => insertAtCursor("@"),
+    },
+    {
+      label: "Add emoji",
+      onClick: () => setEmojiOpen(true),
+    },
+  ];
+
   return (
     <form onSubmit={onSend} className="shrink-0 px-4 pb-4 pt-2">
       {replyPreview && (
-        <div className="mb-2 flex items-center gap-2 rounded border-l-4 border-[var(--community-border)] bg-[var(--community-input)] px-3 py-2">
+        <div className="mb-2 flex items-center gap-2 rounded border-l-4 border-accent bg-[var(--community-input)] px-3 py-2">
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium text-muted">
-              Replying to {replyPreview.authorName}
-            </p>
+            <p className="text-xs font-medium text-muted">Replying to {replyPreview.authorName}</p>
             <p className="truncate text-[0.75rem] text-muted">{replyPreview.body}</p>
           </div>
           <button
@@ -125,8 +158,13 @@ export function ChannelMessageComposer({
 
       {hint && <p className="mb-2 text-[0.75rem] text-muted">{hint}</p>}
 
-      <div className="flex items-end gap-2 rounded-lg bg-[var(--community-input)] px-3 py-2.5">
-        <ComposerIconButton label="More actions" onClick={() => setPlusOpen(true)} active={plusOpen}>
+      <div className="flex min-h-[2.75rem] items-end gap-2 rounded-lg bg-[var(--community-input)] px-3 py-2">
+        <ComposerIconButton
+          label="More actions"
+          buttonRef={plusRef}
+          onClick={() => setPlusOpen(true)}
+          active={plusOpen}
+        >
           <IconPlus size={20} />
         </ComposerIconButton>
 
@@ -179,7 +217,7 @@ export function ChannelMessageComposer({
               type="submit"
               disabled={!canSend}
               aria-label="Send message"
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-accent-contrast transition hover:bg-accent-hover disabled:opacity-40"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-accent-contrast transition hover:bg-accent-hover disabled:opacity-40 md:hidden"
             >
               <IconSend size={16} />
             </button>
@@ -247,29 +285,28 @@ export function ChannelMessageComposer({
         </div>
       )}
 
-      <CommunityActionSheet
-        open={plusOpen}
-        onClose={() => setPlusOpen(false)}
-        title={`#${channelName}`}
-        actions={[
-          ...(onUploadImage
-            ? [
-                {
-                  label: uploading ? "Uploading…" : "Upload image",
-                  onClick: () => fileRef.current?.click(),
-                },
-              ]
-            : []),
-          {
-            label: "Mention someone",
-            onClick: () => insertAtCursor("@"),
-          },
-          {
-            label: "Add emoji",
-            onClick: () => setEmojiOpen(true),
-          },
-        ]}
-      />
+      {isDesktop ? (
+        <CommunityPopover open={plusOpen} onClose={() => setPlusOpen(false)} anchorRef={plusRef}>
+          {plusActions.map((action) => (
+            <PopoverItem
+              key={action.label}
+              onClick={() => {
+                action.onClick();
+                setPlusOpen(false);
+              }}
+            >
+              {action.label}
+            </PopoverItem>
+          ))}
+        </CommunityPopover>
+      ) : (
+        <CommunityActionSheet
+          open={plusOpen}
+          onClose={() => setPlusOpen(false)}
+          title={`#${channelName}`}
+          actions={plusActions}
+        />
+      )}
     </form>
   );
 }

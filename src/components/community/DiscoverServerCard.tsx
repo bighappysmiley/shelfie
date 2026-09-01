@@ -37,7 +37,7 @@ export function DiscoverServerCard({
     >
       <button type="button" onClick={onOpen} className="flex flex-1 flex-col text-left">
         <div
-          className={`relative bg-gradient-to-br from-[#5865f2]/30 via-[var(--community-panel)] to-[var(--community-rail)] ${
+          className={`relative bg-gradient-to-br from-accent/25 via-[var(--community-panel)] to-[var(--community-rail)] ${
             isHero ? "h-28" : isFeatured ? "h-20" : "h-16"
           }`}
         >

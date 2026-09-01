@@ -17,7 +17,7 @@ export function ChatAuthorBadge({
   if (isAppOwner) {
     return (
       <span
-        className="inline-flex shrink-0 items-center rounded-[3px] bg-[#5865F2] px-1 py-px text-[0.625rem] font-bold uppercase leading-none tracking-wide text-white"
+        className="inline-flex shrink-0 items-center rounded-[3px] bg-accent px-1 py-px text-[0.625rem] font-bold uppercase leading-none tracking-wide text-accent-contrast"
         title="App owner"
       >
         Owner

@@ -390,63 +390,65 @@ h1, h2, h3 {
   }
 }
 
-/* Discord-scoped theme — blurple accent + gray shell (light/dark follow app .dark) */
+/* Community shell — Discord layout, Pine colors (light default; dark uses Pine dark) */
 .community-discord-shell {
   font-size: 16px;
-  --foreground: #060607;
-  --muted: #5c5e66;
-  --tertiary: #949ba4;
-  --accent: #5865f2;
-  --accent-hover: #4752c4;
-  --accent-contrast: #ffffff;
-  --accent-soft: rgba(88, 101, 242, 0.15);
-  --link: #006ce7;
-  --fill: rgba(116, 127, 141, 0.16);
-  --fill-secondary: rgba(116, 127, 141, 0.08);
-  --destructive: #ed4245;
-  --community-rail: #e3e5e8;
-  --community-panel: #f2f3f5;
-  --community-chat: #ffffff;
-  --community-input: #e3e5e8;
-  --community-border: rgba(0, 0, 0, 0.08);
-  --community-hover: rgba(116, 127, 141, 0.16);
-  --community-channel-hover: rgba(116, 127, 141, 0.08);
-  --community-channel-active: rgba(116, 127, 141, 0.24);
-  --community-mention-bg: rgba(88, 101, 242, 0.15);
-  --community-mention-text: #5865f2;
-  --community-message-hover: rgba(116, 127, 141, 0.08);
-  --community-toolbar-bg: #f2f3f5;
-  --community-user-bar: #ebedef;
-  --community-rail-pill: #060607;
+  --foreground: #1a2426;
+  --muted: #5c6864;
+  --tertiary: #9aa8a0;
+  --accent: #3d5248;
+  --accent-hover: #2f4038;
+  --accent-contrast: #f0f2e8;
+  --accent-soft: rgba(61, 82, 72, 0.12);
+  --link: #3d5248;
+  --fill: rgba(61, 82, 72, 0.07);
+  --fill-secondary: rgba(61, 82, 72, 0.04);
+  --destructive: #a84840;
+  --success: #4a6b58;
+  --community-rail: #d4dbd0;
+  --community-panel: #eceee6;
+  --community-chat: #f5f6f1;
+  --community-input: #e4e8df;
+  --community-border: rgba(26, 36, 38, 0.1);
+  --community-hover: rgba(61, 82, 72, 0.08);
+  --community-channel-hover: rgba(61, 82, 72, 0.06);
+  --community-channel-active: rgba(61, 82, 72, 0.14);
+  --community-mention-bg: rgba(61, 82, 72, 0.12);
+  --community-mention-text: #2f4038;
+  --community-message-hover: rgba(61, 82, 72, 0.06);
+  --community-toolbar-bg: #eceee6;
+  --community-user-bar: #e4e8df;
+  --community-rail-pill: #3d5248;
   color: var(--foreground);
 }
 
 .dark .community-discord-shell {
-  --foreground: #dbdee1;
-  --muted: #949ba4;
-  --tertiary: #6d6f78;
-  --accent: #5865f2;
-  --accent-hover: #4752c4;
-  --accent-contrast: #ffffff;
-  --accent-soft: rgba(88, 101, 242, 0.15);
-  --link: #00a8fc;
-  --fill: rgba(79, 84, 92, 0.48);
-  --fill-secondary: rgba(79, 84, 92, 0.32);
-  --destructive: #f23f43;
-  --community-rail: #1e1f22;
-  --community-panel: #2b2d31;
-  --community-chat: #313338;
-  --community-input: #383a40;
-  --community-border: rgba(255, 255, 255, 0.06);
-  --community-hover: #2e3035;
-  --community-channel-hover: rgba(79, 84, 92, 0.16);
-  --community-channel-active: rgba(79, 84, 92, 0.32);
-  --community-mention-bg: rgba(88, 101, 242, 0.3);
-  --community-mention-text: #c9cdfb;
-  --community-message-hover: #2e3035;
-  --community-toolbar-bg: #36373d;
-  --community-user-bar: #232428;
-  --community-rail-pill: #ffffff;
+  --foreground: #f0f2e8;
+  --muted: #9aa8a0;
+  --tertiary: #4a5652;
+  --accent: #a8c0ad;
+  --accent-hover: #bdd0c2;
+  --accent-contrast: #1a2426;
+  --accent-soft: rgba(168, 192, 173, 0.14);
+  --link: #a8c0ad;
+  --fill: rgba(168, 192, 173, 0.1);
+  --fill-secondary: rgba(168, 192, 173, 0.06);
+  --destructive: #d47a72;
+  --success: #7a9e88;
+  --community-rail: #1a2426;
+  --community-panel: #222d2f;
+  --community-chat: #2a3436;
+  --community-input: #1f2a2c;
+  --community-border: rgba(240, 242, 232, 0.09);
+  --community-hover: rgba(168, 192, 173, 0.1);
+  --community-channel-hover: rgba(168, 192, 173, 0.08);
+  --community-channel-active: rgba(168, 192, 173, 0.18);
+  --community-mention-bg: rgba(168, 192, 173, 0.18);
+  --community-mention-text: #bdd0c2;
+  --community-message-hover: rgba(168, 192, 173, 0.1);
+  --community-toolbar-bg: #222d2f;
+  --community-user-bar: #1f2a2c;
+  --community-rail-pill: #a8c0ad;
 }
 
 .community-discord-shell .community-mention {
@@ -457,6 +459,69 @@ h1, h2, h3 {
 .community-discord-shell .community-message-actions {
   background: var(--community-toolbar-bg);
   border-color: var(--community-border);
+}
+
+.community-message-highlight {
+  animation: community-highlight-fade 2s ease-out forwards;
+}
+
+@keyframes community-highlight-fade {
+  0% {
+    background: var(--accent-soft);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+.community-typing-dot {
+  animation: community-typing-bounce 1.4s ease-in-out infinite;
+}
+
+.community-typing-dot--2 {
+  animation-delay: 0.2s;
+}
+
+.community-typing-dot--3 {
+  animation-delay: 0.4s;
+}
+
+@keyframes community-typing-bounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  30% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
+}
+
+.community-discord-shell .community-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.community-discord-shell .community-scroll::-webkit-scrollbar-thumb {
+  background: var(--community-border);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.community-discord-shell .community-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+  background-clip: padding-box;
+}
+
+.community-rail-nav {
+  scrollbar-width: none;
+}
+
+.community-rail-nav::-webkit-scrollbar {
+  display: none;
 }
 
 .community-message-grouped {
