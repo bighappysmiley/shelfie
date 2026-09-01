@@ -120,14 +120,8 @@ export function ChannelTypeSelect({
 }
 
 export function channelKindBanner(kind: CommunityGroupKind): string | null {
-  switch (kind) {
-    case "forum":
-      return "Forum channel — threaded posts are coming soon. Messages work like a text channel for now.";
-    case "announcement":
-      return "Announcement channel — only moderators and admins can post updates here.";
-    case "voice":
-      return "Voice channel — voice chat is coming soon.";
-    default:
-      return null;
+  if (kind === "announcement") {
+    return "Announcement channel — only moderators and admins can post updates here.";
   }
+  return null;
 }

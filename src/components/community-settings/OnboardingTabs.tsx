@@ -182,8 +182,8 @@ export function WidgetTab({ serverId, serverName }: { serverId: string; serverNa
   return (
     <div className="max-w-lg space-y-4">
       <p className="text-[0.875rem] text-muted">
-        Embed this server on your website. Full widget hosting is coming soon — use the server ID
-        and invite link in the meantime.
+        Embed this server on your website with the iframe snippet below, or share the server ID
+        with your reading-habit app integration.
       </p>
 
       <div className="rounded-[var(--radius-group)] bg-fill px-4 py-3">

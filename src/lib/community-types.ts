@@ -8,6 +8,47 @@ export type VerificationLevel = "none" | "low" | "medium" | "high";
 export type ExplicitContentFilter = "disabled" | "no_role" | "all";
 export type DefaultNotifications = "all" | "mentions";
 
+export interface CommunityProfile {
+  userId: string;
+  displayName: string | null;
+  communityUsername: string | null;
+  communityDisplayName: string | null;
+  bio: string | null;
+  avatarUrl: string | null;
+  bannerUrl: string | null;
+  statusEmoji: string | null;
+  statusText: string | null;
+  booksReadCount: number;
+  currentReadingTitle: string | null;
+  currentReadingAuthor: string | null;
+}
+
+export interface CommunityServerEmoji {
+  id: string;
+  serverId: string;
+  name: string;
+  imageUrl: string;
+  createdAt: string;
+}
+
+export interface CommunityServerSticker {
+  id: string;
+  serverId: string;
+  name: string;
+  description: string | null;
+  imageUrl: string;
+  createdAt: string;
+}
+
+export interface CommunityServerWebhook {
+  id: string;
+  serverId: string;
+  name: string;
+  url: string;
+  events: string[];
+  createdAt: string;
+}
+
 export interface CommunityServer {
   id: string;
   libraryId: string;
@@ -38,6 +79,8 @@ export interface CommunityServer {
   defaultNotifications?: DefaultNotifications;
   systemChannelId?: string | null;
   rulesChannelId?: string | null;
+  automodEnabled?: boolean;
+  automodKeywords?: string[];
 }
 
 export interface CommunityJoinRequest {

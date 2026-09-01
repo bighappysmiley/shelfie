@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   PageHeader,
@@ -11,9 +11,16 @@ import {
   SegmentedControl,
 } from "@/components/layout";
 import { Button } from "@/components/Button";
-import { TextField } from "@/components/form";
+import { TextField, TextArea } from "@/components/form";
+import { AuthedImage } from "@/components/AuthedImage";
+import { CommunityAvatar } from "@/components/community/CommunityAvatar";
 import { useAuth } from "@/lib/auth";
 import type { PreferredAuth } from "@/lib/library-types";
+import {
+  getCommunityProfile,
+  updateCommunityProfile,
+  uploadCommunityProfileImage,
+} from "@/lib/community-profile";
 
 export function AccountPage() {
   const { user, signOut, userProfile, updateProfile } = useAuth();
@@ -29,6 +36,19 @@ export function AccountPage() {
   const [profileMsg, setProfileMsg] = useState("");
   const [signingOut, setSigningOut] = useState(false);
 
+  const [bio, setBio] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [bannerUrl, setBannerUrl] = useState<string | null>(null);
+  const [statusEmoji, setStatusEmoji] = useState("");
+  const [statusText, setStatusText] = useState("");
+  const [booksReadCount, setBooksReadCount] = useState(0);
+  const [currentReadingTitle, setCurrentReadingTitle] = useState("");
+  const [currentReadingAuthor, setCurrentReadingAuthor] = useState("");
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+  const avatarInput = useRef<HTMLInputElement>(null);
+  const bannerInput = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     if (userProfile) {
       setDisplayName(userProfile.displayName ?? "");
@@ -40,7 +60,25 @@ export function AccountPage() {
     }
   }, [userProfile]);
 
+  useEffect(() => {
+    if (!user) return;
+    void getCommunityProfile(user.id)
+      .then((p) => {
+        if (!p) return;
+        setBio(p.bio ?? "");
+        setAvatarUrl(p.avatarUrl);
+        setBannerUrl(p.bannerUrl);
+        setStatusEmoji(p.statusEmoji ?? "");
+        setStatusText(p.statusText ?? "");
+        setBooksReadCount(p.booksReadCount);
+        setCurrentReadingTitle(p.currentReadingTitle ?? "");
+        setCurrentReadingAuthor(p.currentReadingAuthor ?? "");
+      })
+      .catch(() => {});
+  }, [user]);
+
   const saveProfile = async () => {
+    if (!user) return;
     setSavingProfile(true);
     setProfileMsg("");
     try {
@@ -51,6 +89,16 @@ export function AccountPage() {
         phone: profilePhone.trim() || null,
         require2fa,
         preferredAuth,
+      });
+      await updateCommunityProfile(user.id, {
+        bio: bio.trim() || null,
+        avatarUrl,
+        bannerUrl,
+        statusEmoji: statusEmoji.trim() || null,
+        statusText: statusText.trim() || null,
+        booksReadCount,
+        currentReadingTitle: currentReadingTitle.trim() || null,
+        currentReadingAuthor: currentReadingAuthor.trim() || null,
       });
       setProfileMsg("Settings saved");
     } catch (err) {
@@ -70,31 +118,88 @@ export function AccountPage() {
     }
   };
 
+  const uploadImage = async (file: File, kind: "avatar" | "banner") => {
+    const setBusy = kind === "avatar" ? setUploadingAvatar : setUploadingBanner;
+    setBusy(true);
+    setProfileMsg("");
+    try {
+      const url = await uploadCommunityProfileImage(file);
+      if (kind === "avatar") setAvatarUrl(url);
+      else setBannerUrl(url);
+    } catch (err) {
+      setProfileMsg(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const previewProfile = {
+    communityDisplayName: communityDisplayName || displayName,
+    displayName,
+    communityUsername,
+    avatarUrl,
+  };
+
   return (
     <div>
       <PageHeader title="Account" subtitle="Profile and sign-in security" />
 
       <div className="space-y-6">
         <section>
-          <GroupHeader>Profile</GroupHeader>
+          <GroupHeader>Community profile</GroupHeader>
           <Group>
-            <TextField
-              label="Your Name"
-              grouped
-              required
-              hint="Shown to teammates in shared libraries (not your Community handle)"
-              placeholder="e.g. Alex Morgan"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-            />
-            <ListRow title="Email" trailing={user?.email ?? "—"} />
-            <ListRow title="Phone" trailing={userProfile?.phone ?? user?.phone ?? "Not set"} />
-          </Group>
-        </section>
-
-        <section>
-          <GroupHeader>Community identity</GroupHeader>
-          <Group>
+            <div className="overflow-hidden">
+              {bannerUrl ? (
+                <AuthedImage src={bannerUrl} alt="" className="h-24 w-full object-cover" />
+              ) : (
+                <div className="h-24 bg-gradient-to-br from-accent/25 to-accent/5" />
+              )}
+              <div className="flex items-end gap-3 px-4 pb-4 pt-0">
+                <div className="-mt-8">
+                  <CommunityAvatar profile={previewProfile} size="lg" className="ring-4 ring-surface" />
+                </div>
+                <div className="flex flex-1 flex-wrap gap-2 pb-1">
+                  <input
+                    ref={avatarInput}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) void uploadImage(f, "avatar");
+                      e.target.value = "";
+                    }}
+                  />
+                  <input
+                    ref={bannerInput}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) void uploadImage(f, "banner");
+                      e.target.value = "";
+                    }}
+                  />
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={uploadingAvatar}
+                    onClick={() => avatarInput.current?.click()}
+                  >
+                    {uploadingAvatar ? "Uploading…" : "Avatar"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={uploadingBanner}
+                    onClick={() => bannerInput.current?.click()}
+                  >
+                    {uploadingBanner ? "Uploading…" : "Banner"}
+                  </Button>
+                </div>
+              </div>
+            </div>
             <TextField
               label="Community display name"
               grouped
@@ -111,10 +216,77 @@ export function AccountPage() {
               value={communityUsername}
               onChange={(e) => setCommunityUsername(e.target.value.replace(/\s/g, ""))}
             />
+            <TextArea
+              label="Bio"
+              grouped
+              hint="Shown on your community profile"
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+            />
+            <TextField
+              label="Status emoji"
+              grouped
+              placeholder="📚"
+              value={statusEmoji}
+              onChange={(e) => setStatusEmoji(e.target.value)}
+            />
+            <TextField
+              label="Status text"
+              grouped
+              placeholder="Reading with the club"
+              value={statusText}
+              onChange={(e) => setStatusText(e.target.value)}
+            />
           </Group>
           <GroupFooter>
-            Library name stays on Library Settings. Community uses @username + display name above.
+            Your community profile is visible to members on servers you share. The reading habit app
+            will sync books read and current book here.
           </GroupFooter>
+        </section>
+
+        <section>
+          <GroupHeader>Reading (preview)</GroupHeader>
+          <Group>
+            <TextField
+              label="Books read"
+              type="number"
+              min={0}
+              grouped
+              value={String(booksReadCount)}
+              onChange={(e) => setBooksReadCount(Math.max(0, Number(e.target.value) || 0))}
+            />
+            <TextField
+              label="Currently reading"
+              grouped
+              placeholder="Book title"
+              value={currentReadingTitle}
+              onChange={(e) => setCurrentReadingTitle(e.target.value)}
+            />
+            <TextField
+              label="Author"
+              grouped
+              placeholder="Author name"
+              value={currentReadingAuthor}
+              onChange={(e) => setCurrentReadingAuthor(e.target.value)}
+            />
+          </Group>
+        </section>
+
+        <section>
+          <GroupHeader>Library team</GroupHeader>
+          <Group>
+            <TextField
+              label="Your Name"
+              grouped
+              required
+              hint="Shown to teammates in shared libraries (not your Community handle)"
+              placeholder="e.g. Alex Morgan"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+            />
+            <ListRow title="Email" trailing={user?.email ?? "—"} />
+            <ListRow title="Phone" trailing={userProfile?.phone ?? user?.phone ?? "Not set"} />
+          </Group>
         </section>
 
         <section>

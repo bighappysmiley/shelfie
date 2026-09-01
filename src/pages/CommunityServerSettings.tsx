@@ -38,7 +38,10 @@ import { EmptyState, ToggleRow } from "@/components/layout";
 import { AuthedImage } from "@/components/AuthedImage";
 import { CommunityDiscordShell, CommunityPanelHeader, CommunityScrollBody } from "@/components/CommunityRail";
 import { CommunitySettingsSheet } from "@/components/community-settings/CommunitySettingsSheet";
-import { ComingSoonTab } from "@/components/community-settings/ComingSoonTab";
+import { AutomodTab } from "@/components/community-settings/AutomodTab";
+import { EmojiTab } from "@/components/community-settings/EmojiTab";
+import { IntegrationsTab } from "@/components/community-settings/IntegrationsTab";
+import { StickersTab } from "@/components/community-settings/StickersTab";
 import { InvitesTab } from "@/components/community-settings/InvitesTab";
 import { MembersTab } from "@/components/community-settings/MembersTab";
 import { ModerationTab } from "@/components/community-settings/ModerationTab";
@@ -98,6 +101,8 @@ export function CommunityServerSettingsPage() {
   const [defaultNotifications, setDefaultNotifications] = useState<DefaultNotifications>("all");
   const [systemChannelId, setSystemChannelId] = useState("");
   const [rulesChannelId, setRulesChannelId] = useState("");
+  const [automodEnabled, setAutomodEnabled] = useState(false);
+  const [automodKeywords, setAutomodKeywords] = useState<string[]>([]);
 
   const library = libraries.find((l) => l.id === server?.libraryId);
   const myRole = roles.find((r) => r.id === myRoleId);
@@ -191,6 +196,8 @@ export function CommunityServerSettingsPage() {
     setDefaultNotifications(s.defaultNotifications ?? "all");
     setSystemChannelId(s.systemChannelId ?? "");
     setRulesChannelId(s.rulesChannelId ?? "");
+    setAutomodEnabled(Boolean(s.automodEnabled));
+    setAutomodKeywords(s.automodKeywords ?? []);
   }, []);
 
   const refresh = useCallback(async () => {
@@ -482,18 +489,12 @@ export function CommunityServerSettingsPage() {
             <JoinRequestsPanel requests={joinRequests} onChanged={refresh} onError={setError} />
           )}
 
-          {tab === "emoji" && (
-            <ComingSoonTab
-              title="Custom emoji"
-              description="Upload custom emoji for this server, like Discord."
-            />
+          {tab === "emoji" && user && (
+            <EmojiTab serverId={serverId} userId={user.id} onError={setError} />
           )}
 
-          {tab === "stickers" && (
-            <ComingSoonTab
-              title="Stickers"
-              description="Add sticker packs members can use in chat."
-            />
+          {tab === "stickers" && user && (
+            <StickersTab serverId={serverId} userId={user.id} onError={setError} />
           )}
 
           {tab === "widget" && <WidgetTab serverId={serverId} serverName={server.name} />}
@@ -576,17 +577,18 @@ export function CommunityServerSettingsPage() {
             />
           )}
 
-          {tab === "integrations" && (
-            <ComingSoonTab
-              title="Integrations"
-              description="Connect webhooks, bots, and third-party apps."
-            />
+          {tab === "integrations" && user && (
+            <IntegrationsTab serverId={serverId} userId={user.id} onError={setError} />
           )}
 
           {tab === "automod" && (
-            <ComingSoonTab
-              title="AutoMod"
-              description="Automatically moderate messages with keyword and spam filters."
+            <AutomodTab
+              serverId={serverId}
+              automodEnabled={automodEnabled}
+              automodKeywords={automodKeywords}
+              busy={busy}
+              onChanged={refresh}
+              onError={setError}
             />
           )}
 

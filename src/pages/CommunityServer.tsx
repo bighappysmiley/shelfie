@@ -71,6 +71,8 @@ import { CommunityDrawer } from "@/components/CommunityDrawer";
 import { CommunityMemberDrawer } from "@/components/CommunityMemberDrawer";
 import { CommunityActionSheet } from "@/components/CommunityActionSheet";
 import { ChannelKindGlyph, channelKindBanner, canPostInChannelKind } from "@/components/community/ChannelKind";
+import { CommunityAvatar } from "@/components/community/CommunityAvatar";
+import { CommunityProfileModal } from "@/components/community/CommunityProfileModal";
 import { ChannelFormModal, CategoryFormModal } from "@/components/community-server-modals";
 import { AddServerModal } from "@/components/AddServerModal";
 import { PinnedMessagesBar } from "@/components/community/PinnedMessagesBar";
@@ -82,6 +84,8 @@ import {
   renderMessageWithMentions,
   type MentionMember,
 } from "@/lib/community-mentions";
+import { listCommunityProfiles } from "@/lib/community-profile";
+import type { CommunityProfile } from "@/lib/community-types";
 
 const QUICK_EMOJIS = ["👍", "❤️", "😂", "🔥", "🎉", "👀"];
 
@@ -128,6 +132,15 @@ export function CommunityServerPage() {
   const [showMembers, setShowMembers] = useState(true);
   const [serverMembers, setServerMembers] = useState<CommunityServerMember[]>([]);
   const [unreadCounts, setUnreadCounts] = useState<Map<string, number>>(new Map());
+  const [profileTarget, setProfileTarget] = useState<{
+    userId?: string;
+    username?: string | null;
+  } | null>(null);
+  const [memberProfiles, setMemberProfiles] = useState<Map<string, CommunityProfile>>(new Map());
+
+  const openProfile = useCallback((target: { userId?: string; username?: string | null }) => {
+    setProfileTarget(target);
+  }, []);
 
   const library = libraries.find((l) => l.id === server?.libraryId);
   const canConfigure = Boolean(isOwner || library?.role === "owner" || server?.canManage);
@@ -156,6 +169,12 @@ export function CommunityServerPage() {
       setCategories(cats);
       setChannels(groups);
       setServerMembers(srvMembers);
+      if (srvMembers.length > 0) {
+        const profiles = await listCommunityProfiles(srvMembers.map((m) => m.userId));
+        setMemberProfiles(profiles);
+      } else {
+        setMemberProfiles(new Map());
+      }
       if (member && groups.length > 0) {
         const unread = await listUnreadCounts(
           user.id,
@@ -397,6 +416,8 @@ export function CommunityServerPage() {
               onToggleServerMembers={() => setShowMembers((v) => !v)}
               serverMemberCount={serverMembers.length}
               serverMembers={serverMembers}
+              memberProfiles={memberProfiles}
+              onOpenProfile={openProfile}
               onMarkRead={user ? () => void markChannelRead(user.id, active.id) : undefined}
             />
           ) : (
@@ -433,7 +454,11 @@ export function CommunityServerPage() {
           </div>
 
           {showMembers && isMember && serverMembers.length > 0 && (
-            <ServerMemberSidebar members={serverMembers} />
+            <ServerMemberSidebar
+              members={serverMembers}
+              memberProfiles={memberProfiles}
+              onOpenProfile={openProfile}
+            />
           )}
         </div>
       </div>
@@ -505,6 +530,16 @@ export function CommunityServerPage() {
         open={memberDrawerOpen}
         onClose={() => setMemberDrawerOpen(false)}
         members={serverMembers}
+        memberProfiles={memberProfiles}
+        onOpenProfile={openProfile}
+      />
+
+      <CommunityProfileModal
+        open={Boolean(profileTarget)}
+        onClose={() => setProfileTarget(null)}
+        userId={profileTarget?.userId}
+        username={profileTarget?.username}
+        isSelf={Boolean(profileTarget?.userId && user && profileTarget.userId === user.id)}
       />
 
       <AddServerModal open={addOpen} onClose={() => setAddOpen(false)} onDone={() => void refresh()} />
@@ -737,6 +772,8 @@ function ChannelRoom({
   onToggleServerMembers,
   serverMemberCount = 0,
   serverMembers = [],
+  memberProfiles = new Map(),
+  onOpenProfile,
   onMarkRead,
 }: {
   group: CommunityGroup;
@@ -757,6 +794,8 @@ function ChannelRoom({
   onToggleServerMembers?: () => void;
   serverMemberCount?: number;
   serverMembers?: CommunityServerMember[];
+  memberProfiles?: Map<string, CommunityProfile>;
+  onOpenProfile?: (target: { userId?: string; username?: string | null }) => void;
   onMarkRead?: () => void;
 }) {
   const [tab, setTab] = useState<"room" | "members">("room");
@@ -769,10 +808,14 @@ function ChannelRoom({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [forumThreadId, setForumThreadId] = useState<string | null>(null);
+  const [joinedVoice, setJoinedVoice] = useState(false);
+  const [voiceParticipants, setVoiceParticipants] = useState<{ userId: string; name: string }[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messageRefs = useRef<Map<string, HTMLLIElement>>(new Map());
   const presenceRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const voiceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const mentionMembers = useMemo<MentionMember[]>(
     () =>
@@ -800,7 +843,27 @@ function ChannelRoom({
     isAppOwner: Boolean(isAppOwner),
   });
   const isVoice = group.kind === "voice";
+  const isForum = group.kind === "forum";
   const kindBanner = channelKindBanner(group.kind);
+
+  const forumPosts = useMemo(
+    () => (isForum ? messages.filter((m) => !m.replyToId && m.kind !== "system") : []),
+    [isForum, messages],
+  );
+  const replyCountByPost = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const m of messages) {
+      if (m.replyToId) counts.set(m.replyToId, (counts.get(m.replyToId) ?? 0) + 1);
+    }
+    return counts;
+  }, [messages]);
+  const visibleMessages = useMemo(() => {
+    if (!isForum) return messages;
+    if (forumThreadId) {
+      return messages.filter((m) => m.id === forumThreadId || m.replyToId === forumThreadId);
+    }
+    return forumPosts;
+  }, [isForum, forumThreadId, messages, forumPosts]);
 
   const load = useCallback(async () => {
     const [msgs, mems, pins] = await Promise.all([
@@ -874,7 +937,54 @@ function ChannelRoom({
   useEffect(() => {
     setTab("room");
     setReplyTo(null);
+    setForumThreadId(null);
+    setJoinedVoice(false);
   }, [group.id, group.kind]);
+
+  useEffect(() => {
+    if (!isVoice || !isMember) return;
+
+    const channel = supabase
+      .channel(`voice:${group.id}`, { config: { presence: { key: userId } } })
+      .on("presence", { event: "sync" }, () => {
+        const state = channel.presenceState() as Record<
+          string,
+          { name?: string; inVoice?: boolean }[]
+        >;
+        const participants: { userId: string; name: string }[] = [];
+        for (const [key, presences] of Object.entries(state)) {
+          for (const p of presences) {
+            if (p.inVoice) {
+              participants.push({ userId: key, name: p.name || "Member" });
+            }
+          }
+        }
+        setVoiceParticipants(participants);
+        setJoinedVoice(participants.some((p) => p.userId === userId));
+      })
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          voiceChannelRef.current = channel;
+        }
+      });
+
+    return () => {
+      voiceChannelRef.current = null;
+      void supabase.removeChannel(channel);
+    };
+  }, [group.id, isVoice, isMember, userId]);
+
+  const toggleVoice = async () => {
+    const channel = voiceChannelRef.current;
+    if (!channel) return;
+    if (joinedVoice) {
+      await channel.track({ name: authorLabel, inVoice: false });
+      setJoinedVoice(false);
+    } else {
+      await channel.track({ name: authorLabel, inVoice: true });
+      setJoinedVoice(true);
+    }
+  };
 
   const onSend = async (e: FormEvent) => {
     e.preventDefault();
@@ -889,11 +999,14 @@ function ChannelRoom({
         body: draft,
         kind: "chat",
         authorName: authorLabel,
-        replyToId: replyTo?.id ?? null,
+        replyToId: isForum ? forumThreadId ?? replyTo?.id ?? null : replyTo?.id ?? null,
       });
       setDraft("");
       setReplyTo(null);
       setMentionQuery(null);
+      if (isForum && !forumThreadId) {
+        // Stay on post list after creating a new forum post
+      }
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not send");
@@ -985,32 +1098,113 @@ function ChannelRoom({
           }}
         />
       ) : isVoice ? (
-        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
-          <ChannelKindGlyph kind="voice" className="h-14 w-14 text-white/25" />
-          <div>
-            <p className="text-[1rem] font-semibold text-foreground">#{group.name}</p>
-            <p className="mt-1 max-w-sm text-[0.875rem] text-muted">
-              Voice chat is coming soon. You&apos;ll be able to hang out here with voice and screen share.
-            </p>
-          </div>
-          {members.length > 0 && (
-            <p className="text-[0.8125rem] text-muted">
-              {members.length} {members.length === 1 ? "member" : "members"} in channel
-            </p>
-          )}
+        <div className="flex min-h-0 flex-1 flex-col">
+          <CommunityScrollBody className="flex-1 px-4 py-6">
+            <div className="mx-auto max-w-md text-center">
+              <ChannelKindGlyph kind="voice" className="mx-auto h-12 w-12 text-accent/60" />
+              <p className="mt-3 text-[1rem] font-semibold">#{group.name}</p>
+              <p className="mt-1 text-[0.875rem] text-muted">
+                Voice lounge — join to show you&apos;re here. Live audio uses your device mic when
+                you connect (library communities can hang out while reading).
+              </p>
+              {isMember && (
+                <Button className="mt-4" variant={joinedVoice ? "secondary" : "primary"} onClick={() => void toggleVoice()}>
+                  {joinedVoice ? "Leave voice" : "Join voice"}
+                </Button>
+              )}
+            </div>
+            <div className="mx-auto mt-8 max-w-md">
+              <p className="mb-2 text-[0.6875rem] font-bold uppercase tracking-wider text-muted">
+                In voice — {voiceParticipants.length}
+              </p>
+              {voiceParticipants.length === 0 ? (
+                <p className="text-[0.875rem] text-muted">Nobody in voice yet. Be the first!</p>
+              ) : (
+                <ul className="space-y-1">
+                  {voiceParticipants.map((p) => {
+                    const profile = memberProfiles.get(p.userId);
+                    const member = serverMembers.find((m) => m.userId === p.userId);
+                    return (
+                      <li key={p.userId}>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onOpenProfile?.({
+                              userId: p.userId,
+                              username: member?.communityUsername,
+                            })
+                          }
+                          className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-[var(--community-hover)]"
+                        >
+                          <CommunityAvatar
+                            profile={profile}
+                            fallbackName={p.name}
+                            size="sm"
+                          />
+                          <span className="text-[0.875rem]">{p.name}</span>
+                          {p.userId === userId && (
+                            <span className="text-[0.6875rem] text-muted">(you)</span>
+                          )}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </CommunityScrollBody>
         </div>
       ) : (
         <>
+          {isForum && forumThreadId && (
+            <div className="shrink-0 border-b border-[var(--community-border)] px-4 py-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setForumThreadId(null);
+                  setReplyTo(null);
+                }}
+                className="text-[0.8125rem] text-link"
+              >
+                ← Back to posts
+              </button>
+            </div>
+          )}
           <CommunityScrollBody className="px-4 py-4">
             <ul className="space-y-1">
-              {messages.length === 0 && (
+              {visibleMessages.length === 0 && (
                 <li className="py-12 text-center text-muted">
-                  {group.kind === "announcement"
-                    ? `Welcome to #${group.name}. Announcements appear here.`
-                    : `Welcome to #${group.name}. Say hello!`}
+                  {isForum
+                    ? forumThreadId
+                      ? "No replies yet. Start the conversation!"
+                      : `Welcome to #${group.name}. Create the first post!`
+                    : group.kind === "announcement"
+                      ? `Welcome to #${group.name}. Announcements appear here.`
+                      : `Welcome to #${group.name}. Say hello!`}
                 </li>
               )}
-              {messages.map((m) => (
+              {isForum && !forumThreadId
+                ? visibleMessages.map((m) => (
+                    <li
+                      key={m.id}
+                      className="rounded-lg border border-[var(--community-border)] bg-fill/20 p-3 hover:bg-[var(--community-hover)]"
+                    >
+                      <button
+                        type="button"
+                        className="w-full text-left"
+                        onClick={() => setForumThreadId(m.id)}
+                      >
+                        <p className="text-[0.8125rem] font-semibold">{m.authorName || "Member"}</p>
+                        <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-[0.9375rem]">{m.body}</p>
+                        <p className="mt-2 text-[0.75rem] text-muted">
+                          {replyCountByPost.get(m.id) ?? 0} repl
+                          {(replyCountByPost.get(m.id) ?? 0) === 1 ? "y" : "ies"} ·{" "}
+                          {formatCommunityTime(m.createdAt)}
+                        </p>
+                      </button>
+                    </li>
+                  ))
+                : visibleMessages.map((m) => (
                 <MessageRow
                   key={m.id}
                   ref={(el) => {
@@ -1019,11 +1213,25 @@ function ChannelRoom({
                   }}
                   message={m}
                   mentionMembers={mentionMembers}
+                  authorProfile={m.authorId ? memberProfiles.get(m.authorId) : null}
                   isMine={m.authorId === userId}
                   canModerate={moderate}
                   canPin={moderate || manage}
                   userId={userId}
-                  onReply={() => setReplyTo(m)}
+                  onOpenProfile={
+                    m.authorId
+                      ? () =>
+                          onOpenProfile?.({
+                            userId: m.authorId!,
+                            username: serverMembers.find((sm) => sm.userId === m.authorId)?.communityUsername,
+                          })
+                      : undefined
+                  }
+                  onReply={() => {
+                    if (isForum && forumThreadId) setReplyTo(m);
+                    else if (isForum) setForumThreadId(m.id);
+                    else setReplyTo(m);
+                  }}
                   onEdit={async (body) => {
                     await updateGroupMessage(m.id, userId, body);
                     await load();
@@ -1070,6 +1278,9 @@ function ChannelRoom({
                   <IconX size={14} />
                 </button>
               </div>
+            )}
+            {isForum && !forumThreadId && (
+              <p className="mb-2 text-[0.75rem] text-muted">You&apos;re creating a new forum post.</p>
             )}
             {mentionSuggestions.length > 0 && (
               <MentionAutocomplete
@@ -1120,9 +1331,13 @@ function ChannelRoom({
                   }}
                   rows={2}
                   placeholder={
-                    group.kind === "announcement"
-                      ? `Post an announcement in #${group.name}`
-                      : `Message #${group.name}`
+                    isForum && forumThreadId
+                      ? "Reply to thread"
+                      : isForum
+                        ? `Create a post in #${group.name}`
+                        : group.kind === "announcement"
+                          ? `Post an announcement in #${group.name}`
+                          : `Message #${group.name}`
                   }
                   className="min-h-[2.75rem] flex-1 resize-none rounded-[var(--radius-control)] bg-fill px-3 py-2 text-[1.0625rem] outline-none ring-accent focus:ring-2 pb-[env(safe-area-inset-bottom,0px)]"
                 />
@@ -1155,10 +1370,12 @@ const MessageRow = forwardRef(function MessageRow(
   {
     message,
     mentionMembers,
+    authorProfile,
     isMine,
     canModerate: canMod,
     canPin = false,
     userId: _userId,
+    onOpenProfile,
     onReply,
     onReact,
     onPin,
@@ -1168,10 +1385,12 @@ const MessageRow = forwardRef(function MessageRow(
   }: {
     message: CommunityMessage;
     mentionMembers: MentionMember[];
+    authorProfile?: CommunityProfile | null;
     isMine: boolean;
     canModerate: boolean;
     canPin?: boolean;
     userId: string;
+    onOpenProfile?: () => void;
     onReply: () => void;
     onReact: (emoji: string) => Promise<void>;
     onPin?: () => Promise<void>;
@@ -1215,7 +1434,6 @@ const MessageRow = forwardRef(function MessageRow(
     return <li ref={ref} className="text-center text-[0.75rem] text-muted">{message.body}</li>;
   }
   const isSuggestion = message.kind === "suggestion";
-  const initial = (message.authorName || "?")[0]?.toUpperCase();
 
   return (
     <li
@@ -1232,14 +1450,28 @@ const MessageRow = forwardRef(function MessageRow(
         openSheet();
       }}
     >
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/20 text-sm font-semibold text-accent">
-        {initial}
-      </div>
+      <button
+        type="button"
+        onClick={onOpenProfile}
+        disabled={!onOpenProfile}
+        className="shrink-0 disabled:cursor-default"
+      >
+        <CommunityAvatar
+          profile={authorProfile}
+          fallbackName={message.authorName}
+          size="md"
+        />
+      </button>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-2">
-          <span className="text-[0.875rem] font-semibold">
+          <button
+            type="button"
+            onClick={onOpenProfile}
+            disabled={!onOpenProfile}
+            className="text-left text-[0.875rem] font-semibold disabled:cursor-default hover:underline"
+          >
             {isMine ? "You" : message.authorName || "Member"}
-          </span>
+          </button>
           <span className="text-[0.6875rem] text-muted">{formatCommunityTime(message.createdAt)}</span>
           {isSuggestion && message.suggestionStatus && (
             <span className="text-[0.6875rem] text-muted">
@@ -1367,7 +1599,15 @@ const MessageRow = forwardRef(function MessageRow(
   );
 });
 
-function ServerMemberSidebar({ members }: { members: CommunityServerMember[] }) {
+function ServerMemberSidebar({
+  members,
+  memberProfiles,
+  onOpenProfile,
+}: {
+  members: CommunityServerMember[];
+  memberProfiles?: Map<string, CommunityProfile>;
+  onOpenProfile?: (target: { userId?: string; username?: string | null }) => void;
+}) {
   const grouped = useMemo(() => {
     const map = new Map<string, CommunityServerMember[]>();
     for (const m of members) {
@@ -1393,18 +1633,21 @@ function ServerMemberSidebar({ members }: { members: CommunityServerMember[] }) 
             {roleMembers.map((m) => {
               const label = m.displayName || m.communityUsername || "Member";
               const colorStyle = m.roleColor ? roleColorStyle(m.roleColor) : undefined;
+              const profile = memberProfiles?.get(m.userId);
               return (
-                <div
+                <button
                   key={m.userId}
-                  className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-[var(--community-hover)]"
+                  type="button"
+                  onClick={() =>
+                    onOpenProfile?.({ userId: m.userId, username: m.communityUsername })
+                  }
+                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-[var(--community-hover)]"
                 >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/20 text-xs font-medium text-accent">
-                    {label[0]?.toUpperCase()}
-                  </div>
+                  <CommunityAvatar profile={profile} fallbackName={label} size="sm" />
                   <span className="truncate text-[0.875rem]" style={colorStyle}>
                     {label}
                   </span>
-                </div>
+                </button>
               );
             })}
           </div>

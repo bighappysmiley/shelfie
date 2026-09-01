@@ -31,6 +31,7 @@ import { CommunityLayout } from "@/components/CommunityLayout";
 import { CommunityPage } from "@/pages/Community";
 import { CommunityServerPage } from "@/pages/CommunityServer";
 import { CommunityServerSettingsPage } from "@/pages/CommunityServerSettings";
+import { CommunityProfilePage } from "@/pages/CommunityProfile";
 import { SetupPage, needsSetup } from "@/pages/Setup";
 import { Logo } from "@/components/Logo";
 import { ButtonLink } from "@/components/Button";
@@ -164,6 +165,7 @@ function AppRoutes() {
             <Route path="/community/s/:serverId" element={<CommunityServerPage />} />
             <Route path="/community/s/:serverId/:channelId" element={<CommunityServerPage />} />
             <Route path="/community/s/:serverId/settings" element={<CommunityServerSettingsPage />} />
+            <Route path="/community/u/:username" element={<CommunityProfilePage />} />
           </Route>
           <Route path="/support" element={<SupportPage />} />
           <Route path="/support/:id" element={<SupportTicketPage />} />

@@ -14,8 +14,11 @@ import type {
   CommunityServer,
   CommunityServerAuditEntry,
   CommunityServerBan,
+  CommunityServerEmoji,
   CommunityServerMember,
   CommunityServerRole,
+  CommunityServerSticker,
+  CommunityServerWebhook,
   DefaultNotifications,
   ExplicitContentFilter,
   JoinRequestStatus,
@@ -50,6 +53,8 @@ type ServerRow = {
   default_notifications?: string | null;
   system_channel_id?: string | null;
   rules_channel_id?: string | null;
+  automod_enabled?: boolean | null;
+  automod_keywords?: string[] | null;
 };
 
 function generateInviteCode(): string {
@@ -164,6 +169,8 @@ function mapServer(row: ServerRow, extra?: Partial<CommunityServer>): CommunityS
     defaultNotifications: normalizeDefaultNotifications(row.default_notifications),
     systemChannelId: row.system_channel_id ?? null,
     rulesChannelId: row.rules_channel_id ?? null,
+    automodEnabled: Boolean(row.automod_enabled),
+    automodKeywords: row.automod_keywords ?? [],
     ...extra,
   };
 }
@@ -580,6 +587,8 @@ export async function updateServer(
     defaultNotifications?: DefaultNotifications;
     systemChannelId?: string | null;
     rulesChannelId?: string | null;
+    automodEnabled?: boolean;
+    automodKeywords?: string[];
   },
 ): Promise<void> {
   const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -595,6 +604,10 @@ export async function updateServer(
   if (patch.defaultNotifications !== undefined) row.default_notifications = patch.defaultNotifications;
   if (patch.systemChannelId !== undefined) row.system_channel_id = patch.systemChannelId || null;
   if (patch.rulesChannelId !== undefined) row.rules_channel_id = patch.rulesChannelId || null;
+  if (patch.automodEnabled !== undefined) row.automod_enabled = patch.automodEnabled;
+  if (patch.automodKeywords !== undefined) {
+    row.automod_keywords = patch.automodKeywords.map((k) => k.trim().toLowerCase()).filter(Boolean);
+  }
   if (patch.isOfficial !== undefined) {
     row.is_official = patch.isOfficial;
     if (patch.isOfficial && patch.officialPosition === undefined) {
@@ -1231,13 +1244,21 @@ export async function sendGroupMessage(input: {
   kind: CommunityMessageKind;
   authorName: string;
   replyToId?: string | null;
+  skipAutomod?: boolean;
 }): Promise<CommunityMessage> {
+  const trimmed = input.body.trim();
+  if (!trimmed) throw new Error("Message cannot be empty");
+
+  if (!input.skipAutomod) {
+    await assertAutomodAllows(input.serverId, trimmed);
+  }
+
   const { data, error } = await supabase
     .from("community_messages")
     .insert({
       group_id: input.groupId,
       author_id: input.userId,
-      body: input.body.trim(),
+      body: trimmed,
       kind: input.kind,
       suggestion_status: input.kind === "suggestion" ? "open" : null,
       author_name: input.authorName,
@@ -1247,7 +1268,20 @@ export async function sendGroupMessage(input: {
     .single();
   if (error || !data) throw error ?? new Error("Could not send");
   void recomputeServerScore(input.serverId);
-  return mapMessage(data as MessageRow);
+
+  const message = mapMessage(data as MessageRow);
+  void dispatchServerWebhooks(input.serverId, "message.created", {
+    message: {
+      id: message.id,
+      groupId: message.groupId,
+      authorId: message.authorId,
+      body: message.body,
+      authorName: message.authorName,
+      createdAt: message.createdAt,
+    },
+  });
+
+  return message;
 }
 
 export async function toggleMessageReaction(
@@ -1684,4 +1718,226 @@ export async function listPinnedMessages(groupId: string): Promise<CommunityMess
     .map((id) => byId.get(id))
     .filter(Boolean)
     .map((row) => mapMessage(row as MessageRow));
+}
+
+async function assertAutomodAllows(serverId: string, body: string): Promise<void> {
+  const { data, error } = await supabase
+    .from("community_servers")
+    .select("automod_enabled, automod_keywords")
+    .eq("id", serverId)
+    .maybeSingle();
+  if (error || !data?.automod_enabled) return;
+
+  const keywords = (data.automod_keywords as string[] | null) ?? [];
+  const lower = body.toLowerCase();
+  for (const kw of keywords) {
+    const needle = kw.trim().toLowerCase();
+    if (needle && lower.includes(needle)) {
+      throw new Error(`Message blocked by AutoMod (matched “${needle}”).`);
+    }
+  }
+}
+
+async function dispatchServerWebhooks(
+  serverId: string,
+  event: string,
+  payload: Record<string, unknown>,
+): Promise<void> {
+  try {
+    const { data: session } = await supabase.auth.getSession();
+    const token = session.session?.access_token;
+    if (!token) return;
+
+    await fetch("/api/community/webhooks", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ serverId, event, payload }),
+    });
+  } catch {
+    // Webhook delivery is best-effort
+  }
+}
+
+type EmojiRow = {
+  id: string;
+  server_id: string;
+  name: string;
+  image_url: string;
+  created_at: string;
+};
+
+type StickerRow = {
+  id: string;
+  server_id: string;
+  name: string;
+  description: string | null;
+  image_url: string;
+  created_at: string;
+};
+
+type WebhookRow = {
+  id: string;
+  server_id: string;
+  name: string;
+  url: string;
+  events: string[];
+  created_at: string;
+};
+
+function mapEmoji(row: EmojiRow): CommunityServerEmoji {
+  return {
+    id: row.id,
+    serverId: row.server_id,
+    name: row.name,
+    imageUrl: row.image_url,
+    createdAt: row.created_at,
+  };
+}
+
+function mapSticker(row: StickerRow): CommunityServerSticker {
+  return {
+    id: row.id,
+    serverId: row.server_id,
+    name: row.name,
+    description: row.description,
+    imageUrl: row.image_url,
+    createdAt: row.created_at,
+  };
+}
+
+function mapWebhook(row: WebhookRow): CommunityServerWebhook {
+  return {
+    id: row.id,
+    serverId: row.server_id,
+    name: row.name,
+    url: row.url,
+    events: row.events ?? ["message.created"],
+    createdAt: row.created_at,
+  };
+}
+
+export async function listServerEmoji(serverId: string): Promise<CommunityServerEmoji[]> {
+  const { data, error } = await supabase
+    .from("community_server_emoji")
+    .select("*")
+    .eq("server_id", serverId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return ((data ?? []) as EmojiRow[]).map(mapEmoji);
+}
+
+export async function createServerEmoji(input: {
+  serverId: string;
+  name: string;
+  imageUrl: string;
+  userId: string;
+}): Promise<CommunityServerEmoji> {
+  const name = input.name.trim().replace(/:/g, "");
+  if (!/^[a-zA-Z0-9_]{2,32}$/.test(name)) {
+    throw new Error("Emoji name must be 2–32 letters, numbers, or underscores.");
+  }
+  const { data, error } = await supabase
+    .from("community_server_emoji")
+    .insert({
+      server_id: input.serverId,
+      name,
+      image_url: input.imageUrl,
+      created_by: input.userId,
+    })
+    .select("*")
+    .single();
+  if (error || !data) throw error ?? new Error("Could not add emoji");
+  return mapEmoji(data as EmojiRow);
+}
+
+export async function deleteServerEmoji(emojiId: string): Promise<void> {
+  const { error } = await supabase.from("community_server_emoji").delete().eq("id", emojiId);
+  if (error) throw error;
+}
+
+export async function listServerStickers(serverId: string): Promise<CommunityServerSticker[]> {
+  const { data, error } = await supabase
+    .from("community_server_stickers")
+    .select("*")
+    .eq("server_id", serverId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return ((data ?? []) as StickerRow[]).map(mapSticker);
+}
+
+export async function createServerSticker(input: {
+  serverId: string;
+  name: string;
+  description?: string | null;
+  imageUrl: string;
+  userId: string;
+}): Promise<CommunityServerSticker> {
+  const name = input.name.trim();
+  if (!name) throw new Error("Sticker name is required.");
+  const { data, error } = await supabase
+    .from("community_server_stickers")
+    .insert({
+      server_id: input.serverId,
+      name,
+      description: input.description?.trim() || null,
+      image_url: input.imageUrl,
+      created_by: input.userId,
+    })
+    .select("*")
+    .single();
+  if (error || !data) throw error ?? new Error("Could not add sticker");
+  return mapSticker(data as StickerRow);
+}
+
+export async function deleteServerSticker(stickerId: string): Promise<void> {
+  const { error } = await supabase.from("community_server_stickers").delete().eq("id", stickerId);
+  if (error) throw error;
+}
+
+export async function listServerWebhooks(serverId: string): Promise<CommunityServerWebhook[]> {
+  const { data, error } = await supabase
+    .from("community_server_webhooks")
+    .select("id, server_id, name, url, events, created_at")
+    .eq("server_id", serverId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return ((data ?? []) as WebhookRow[]).map(mapWebhook);
+}
+
+export async function createServerWebhook(input: {
+  serverId: string;
+  name: string;
+  url: string;
+  events?: string[];
+  userId: string;
+}): Promise<CommunityServerWebhook> {
+  const name = input.name.trim();
+  const url = input.url.trim();
+  if (!name || !url) throw new Error("Webhook name and URL are required.");
+  try {
+    new URL(url);
+  } catch {
+    throw new Error("Enter a valid webhook URL.");
+  }
+  const { data, error } = await supabase
+    .from("community_server_webhooks")
+    .insert({
+      server_id: input.serverId,
+      name,
+      url,
+      events: input.events?.length ? input.events : ["message.created"],
+      created_by: input.userId,
+    })
+    .select("id, server_id, name, url, events, created_at")
+    .single();
+  if (error || !data) throw error ?? new Error("Could not create webhook");
+  return mapWebhook(data as WebhookRow);
+}
+
+export async function deleteServerWebhook(webhookId: string): Promise<void> {
+  const { error } = await supabase.from("community_server_webhooks").delete().eq("id", webhookId);
+  if (error) throw error;
 }

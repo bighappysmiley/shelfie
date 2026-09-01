@@ -1,16 +1,22 @@
 import type { CommunityServerMember } from "@/lib/community-types";
+import type { CommunityProfile } from "@/lib/community-types";
 import { communityAuthorLabel } from "@/lib/community-identity";
 import { roleColorStyle } from "@/lib/role-color";
 import { CommunityDrawer } from "@/components/CommunityDrawer";
+import { CommunityAvatar } from "@/components/community/CommunityAvatar";
 
 export function CommunityMemberDrawer({
   open,
   onClose,
   members,
+  memberProfiles,
+  onOpenProfile,
 }: {
   open: boolean;
   onClose: () => void;
   members: CommunityServerMember[];
+  memberProfiles?: Map<string, CommunityProfile>;
+  onOpenProfile?: (target: { userId?: string; username?: string | null }) => void;
 }) {
   const grouped = members.reduce<Map<string, CommunityServerMember[]>>((map, m) => {
     const list = map.get(m.roleName) ?? [];
@@ -38,17 +44,23 @@ export function CommunityMemberDrawer({
                   null,
                 );
                 return (
-                  <li
-                    key={m.userId}
-                    className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-[var(--community-hover)]"
-                  >
-                    <span
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[0.6875rem] font-bold text-white"
-                      style={roleColorStyle(m.roleColor)}
+                  <li key={m.userId}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onOpenProfile?.({ userId: m.userId, username: m.communityUsername });
+                        onClose();
+                      }}
+                      className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-[var(--community-hover)]"
                     >
-                      {label[0]?.toUpperCase()}
-                    </span>
-                    <span className="min-w-0 truncate text-[0.875rem]">{label}</span>
+                      <CommunityAvatar
+                        profile={memberProfiles?.get(m.userId)}
+                        fallbackName={label}
+                        size="sm"
+                        style={roleColorStyle(m.roleColor)}
+                      />
+                      <span className="min-w-0 truncate text-[0.875rem]">{label}</span>
+                    </button>
                   </li>
                 );
               })}
