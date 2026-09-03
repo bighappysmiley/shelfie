@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   PageHeader,
   Group,
@@ -260,14 +260,21 @@ export function AccountPage() {
         </section>
 
         <section>
-          <GroupHeader>Pine Pro (test)</GroupHeader>
+          <GroupHeader>Plans &amp; Pro</GroupHeader>
           <Group>
             <ToggleRow
-              label="Enable Pine Pro"
-              hint="No subscription — toggle to test premium profile and role features"
+              label="Enable Pine Pro (test)"
+              hint="Local test toggle for profile perks. Billing plans live on Pricing."
               checked={proEnabled}
               onChange={setProEnabled}
             />
+            <Link
+              to="/pricing"
+              className="flex min-h-[44px] items-center justify-between px-4 py-3 hairline-b last:border-b-0 text-[1.0625rem] active:bg-fill-secondary"
+            >
+              <span>View plans &amp; upgrade</span>
+              <span className="text-muted">→</span>
+            </Link>
             {proEnabled && (
               <div className="space-y-3 px-4 py-3 hairline-b">
                 <p className="text-[0.8125rem] font-medium text-muted">Animated profile ring</p>

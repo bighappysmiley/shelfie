@@ -13,17 +13,27 @@ import { PageLoading } from "@/components/LoadingTree";
 import { api } from "@/lib/api";
 import { useLibrary } from "@/lib/library";
 import type { LoanWithDetails } from "@/lib/types";
+import {
+  listMyNotifications,
+  markNotificationRead,
+  type AppNotification,
+} from "@/lib/admin";
 
 export function NotificationsPage() {
   const { pendingInvites, refreshLibraries } = useLibrary();
   const [loans, setLoans] = useState<LoanWithDetails[]>([]);
+  const [appNotes, setAppNotes] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.loans
-      .list(true)
-      .then(setLoans)
-      .catch(() => setLoans([]))
+    Promise.all([
+      api.loans.list(true).catch(() => [] as LoanWithDetails[]),
+      listMyNotifications().catch(() => [] as AppNotification[]),
+    ])
+      .then(([loanList, notes]) => {
+        setLoans(loanList);
+        setAppNotes(notes);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -46,7 +56,10 @@ export function NotificationsPage() {
   };
 
   const hasAny =
-    pendingInvites.length > 0 || overdue.length > 0 || dueSoon.length > 0;
+    pendingInvites.length > 0 ||
+    overdue.length > 0 ||
+    dueSoon.length > 0 ||
+    appNotes.length > 0;
 
   if (loading) {
     return <PageLoading />;
@@ -58,7 +71,7 @@ export function NotificationsPage() {
         <PageHeader title="Notifications" />
         <EmptyState
           title="All caught up"
-          description="Library invitations and loan reminders will appear here."
+          description="Library invitations, support messages, and loan reminders will appear here."
         />
       </div>
     );
@@ -69,6 +82,54 @@ export function NotificationsPage() {
       <PageHeader title="Notifications" />
 
       <div className="space-y-6">
+        {appNotes.length > 0 && (
+          <section>
+            <GroupHeader>Messages</GroupHeader>
+            <Group>
+              {appNotes.map((note) => (
+                <div
+                  key={note.id}
+                  className={`px-4 py-3 hairline-b last:border-b-0 ${
+                    note.readAt ? "" : "bg-fill/40"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-medium">{note.title}</p>
+                      <p className="mt-1 whitespace-pre-wrap text-[0.9375rem] text-muted">
+                        {note.body}
+                      </p>
+                      {note.kind === "library_access_code" && note.payload?.code ? (
+                        <p className="mt-2 font-mono text-[1.0625rem] font-semibold tracking-wide">
+                          {String(note.payload.code)}
+                        </p>
+                      ) : null}
+                    </div>
+                    {!note.readAt && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={async () => {
+                          await markNotificationRead(note.id);
+                          setAppNotes((prev) =>
+                            prev.map((n) =>
+                              n.id === note.id
+                                ? { ...n, readAt: new Date().toISOString() }
+                                : n,
+                            ),
+                          );
+                        }}
+                      >
+                        Mark read
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </Group>
+          </section>
+        )}
+
         {pendingInvites.length > 0 && (
           <section>
             <GroupHeader>Library Invitations</GroupHeader>
@@ -86,7 +147,7 @@ export function NotificationsPage() {
                       {inv.email ?? inv.phone ?? "Team invitation"}
                     </p>
                   </div>
-                  <Button size="sm" onClick={() => acceptInvite(inv.id)}>
+                  <Button size="sm" onClick={() => void acceptInvite(inv.id)}>
                     Accept
                   </Button>
                 </div>

@@ -2,8 +2,9 @@ import type { User } from "@supabase/supabase-js";
 import { AuthError, authErrorResponse, getBearerToken } from "./auth";
 import { handleOptions } from "../utils";
 import { supabaseForToken } from "./supabase";
+import { staffCanEditLibrary } from "./entitlements";
 
-export type LibraryRole = "owner" | "member";
+export type LibraryRole = "owner" | "member" | "staff_view" | "staff_edit";
 
 export interface LibraryContext {
   user: User;
@@ -42,16 +43,41 @@ export async function requireLibraryAccess(
     .eq("user_id", user.id)
     .maybeSingle();
 
-  if (error || !data) {
-    throw new AuthError("You do not have access to this library", 403);
+  if (data && !error) {
+    return {
+      user,
+      libraryId,
+      role: data.role as LibraryRole,
+      accessToken,
+    };
   }
 
-  return {
-    user,
-    libraryId,
-    role: data.role as LibraryRole,
-    accessToken,
-  };
+  const { data: staff } = await supabase
+    .from("staff")
+    .select("email")
+    .ilike("email", user.email ?? "")
+    .maybeSingle();
+
+  if (staff) {
+    const canEdit = await staffCanEditLibrary(supabase, libraryId);
+    return {
+      user,
+      libraryId,
+      role: canEdit ? "staff_edit" : "staff_view",
+      accessToken,
+    };
+  }
+
+  throw new AuthError("You do not have access to this library", 403);
+}
+
+export function assertLibraryWrite(ctx: LibraryContext) {
+  if (ctx.role === "staff_view") {
+    throw new AuthError(
+      "View-only staff access. Redeem a library access code to edit.",
+      403,
+    );
+  }
 }
 
 export function withLibraryAuth(

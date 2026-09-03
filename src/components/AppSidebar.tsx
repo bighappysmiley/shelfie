@@ -175,7 +175,7 @@ export function AppSidebar() {
           {isStaff && (
             <SidebarButton
               to="/admin"
-              label="Support Inbox"
+              label="Admin"
               icon={IconChat}
               onNavigate={closeAndGo}
               tabIndex={tabIndex}

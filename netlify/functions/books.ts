@@ -9,7 +9,9 @@ import {
 } from "./lib/store";
 import { isbnVariants, normalizeIsbn } from "./lib/isbn";
 import { json, error, parseBody } from "./utils";
-import { withLibraryAuth } from "./lib/library-auth";
+import { withLibraryAuth, assertLibraryWrite } from "./lib/library-auth";
+import { assertBookLimit } from "./lib/entitlements";
+import { supabaseForToken } from "./lib/supabase";
 
 export const config: Config = {
   path: "/api/books",
@@ -117,6 +119,7 @@ export default withLibraryAuth(async (request, ctx) => {
     }
 
     if (request.method === "POST") {
+      assertLibraryWrite(ctx);
       const body = await parseBody<{
         title: string;
         authors?: string;
@@ -143,6 +146,17 @@ export default withLibraryAuth(async (request, ctx) => {
       }>(request);
 
       if (!body.title?.trim()) return error("Title is required");
+
+      try {
+        await assertBookLimit(
+          supabaseForToken(ctx.accessToken),
+          ctx.user.id,
+          data.books.length,
+        );
+      } catch (err) {
+        const status = (err as { status?: number }).status ?? 400;
+        return error(err instanceof Error ? err.message : "Limit reached", status);
+      }
 
       if (body.isbn && !body.allowDuplicate) {
         const variants = new Set(isbnVariants(body.isbn));
@@ -196,6 +210,7 @@ export default withLibraryAuth(async (request, ctx) => {
     }
 
     if (request.method === "PUT" || request.method === "PATCH") {
+      assertLibraryWrite(ctx);
       if (!id) return error("Book id required");
       const idx = data.books.findIndex((b) => b.id === id);
       if (idx < 0) return error("Book not found", 404);
@@ -231,6 +246,7 @@ export default withLibraryAuth(async (request, ctx) => {
     }
 
     if (request.method === "DELETE") {
+      assertLibraryWrite(ctx);
       if (!id) return error("Book id required");
       data.books = data.books.filter((b) => b.id !== id);
       data.loans = data.loans.filter((l) => l.bookId !== id);

@@ -1,6 +1,8 @@
 import type { Config } from "@netlify/functions";
 import { json, error, parseBody } from "./utils";
-import { withAuth } from "./lib/auth";
+import { withAuth, getBearerToken } from "./lib/auth";
+import { supabaseForToken } from "./lib/supabase";
+import { assertAndIncrementShelfScan } from "./lib/entitlements";
 
 export const config: Config = {
   path: "/api/vision",
@@ -78,7 +80,7 @@ function parseJsonArray(text: string): VisionBook[] {
   }
 }
 
-export default withAuth(async (request) => {
+export default withAuth(async (request, user) => {
   if (request.method !== "POST") return error("Method not allowed", 405);
 
   const body = await parseBody<{
@@ -91,6 +93,8 @@ export default withAuth(async (request) => {
 
   const mediaType = body.mediaType ?? "image/jpeg";
   const base64 = body.image.replace(/^data:image\/\w+;base64,/, "");
+  const token = getBearerToken(request)!;
+  const supabase = supabaseForToken(token);
 
   if (body.mode === "cover") {
     const prompt = `Identify the book from this cover photo. Return ONLY a JSON object:
@@ -107,6 +111,13 @@ No markdown, no other text.`;
       author: String(obj.author ?? ""),
       confidence: Number(obj.confidence ?? 0.7),
     });
+  }
+
+  try {
+    await assertAndIncrementShelfScan(supabase, user.id);
+  } catch (err) {
+    const status = (err as { status?: number }).status ?? 400;
+    return error(err instanceof Error ? err.message : "Scan limit reached", status);
   }
 
   const prompt = `Analyze this bookshelf photo. Extract every visible book spine.

@@ -27,6 +27,7 @@ import { NotificationsPage } from "@/pages/Notifications";
 import { SupportPage } from "@/pages/Support";
 import { SupportTicketPage } from "@/pages/SupportTicket";
 import { AdminPage } from "@/pages/Admin";
+import { PricingPage } from "@/pages/Pricing";
 import { CommunityLayout } from "@/components/CommunityLayout";
 import { CommunityPage } from "@/pages/Community";
 import { CommunityServerPage } from "@/pages/CommunityServer";
@@ -173,6 +174,7 @@ function AppRoutes() {
           <Route path="/support" element={<SupportPage />} />
           <Route path="/support/:id" element={<SupportTicketPage />} />
           <Route path="/admin" element={<AdminPage />} />
+          <Route path="/pricing" element={<PricingPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/account" element={<AccountPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />

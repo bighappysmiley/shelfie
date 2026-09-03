@@ -134,7 +134,7 @@ export function DesktopSidebar() {
           />
         ))}
         {isStaff && (
-          <NavItem to="/admin" label="Support Inbox" icon={IconChat} />
+          <NavItem to="/admin" label="Admin" icon={IconChat} />
         )}
       </nav>
 
