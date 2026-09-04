@@ -47,11 +47,11 @@ function PublicShell() {
       </a>
       <header className="nav-material hairline-b safe-top">
         <Container size="desktop">
-          <div className="flex h-14 items-center justify-between">
-            <Link to="/" className="rounded-[var(--radius-control)] outline-offset-2">
-              <Logo size="sm" />
+          <div className="flex h-12 items-center justify-between gap-2">
+            <Link to="/" className="shrink-0 rounded-[var(--radius-control)] outline-offset-2" aria-label="Pine home">
+              <Logo size="sm" showText={false} />
             </Link>
-            <div className="flex items-center gap-3">
+            <div className="flex shrink-0 items-center gap-2 sm:gap-3">
               <Link to="/login" className="text-[0.9375rem] text-link">
                 Sign In
               </Link>
@@ -108,7 +108,7 @@ function AppShell() {
       className={
         isCommunity
           ? "min-h-dvh bg-[var(--community-rail)]"
-          : "min-h-dvh bg-background pb-[calc(3.25rem+env(safe-area-inset-bottom,0px))] md:pb-0"
+          : "min-h-dvh bg-background pb-[calc(3.25rem+env(safe-area-inset-bottom,0px))] lg:pb-0"
       }
     >
       <a href="#main" className="skip-link">

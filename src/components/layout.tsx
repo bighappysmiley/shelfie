@@ -36,12 +36,12 @@ export function PageHeader({
 }) {
   return (
     <header className="mb-5">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="min-w-0">
           <h1
             className={
               large
-                ? "text-[1.75rem] font-bold tracking-tight sm:text-[2.125rem]"
+                ? "text-[1.5rem] font-bold tracking-tight sm:text-[2.125rem]"
                 : "text-xl font-semibold tracking-tight"
             }
           >
@@ -51,7 +51,11 @@ export function PageHeader({
             <p className="mt-1 text-[0.9375rem] leading-snug text-muted">{subtitle}</p>
           )}
         </div>
-        {action && <div className="shrink-0 pt-1">{action}</div>}
+        {action && (
+          <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end sm:pt-1">
+            {action}
+          </div>
+        )}
       </div>
     </header>
   );

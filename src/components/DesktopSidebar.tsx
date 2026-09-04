@@ -102,8 +102,8 @@ export function DesktopSidebar() {
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-[15.5rem] flex-col border-r border-hairline bg-surface lg:flex">
       <div className="flex items-center gap-2 px-4 pt-5 pb-4">
-        <NavLink to="/home" className="rounded-[var(--radius-control)] outline-offset-2">
-          <Logo size="sm" />
+        <NavLink to="/home" className="rounded-[var(--radius-control)] outline-offset-2" aria-label="Home">
+          <Logo size="sm" showText={false} />
         </NavLink>
       </div>
 

@@ -9,9 +9,26 @@ import {
   setThemePreference,
   type ThemePreference,
 } from "@/lib/theme";
+import { Logo } from "@/components/Logo";
+import { LibrarySwitcher } from "@/components/LibrarySwitcher";
 import { UserAvatar, userDisplayName } from "@/components/UserAvatar";
 import { SegmentedControl } from "@/components/layout";
-import { IconApps, IconBell, IconChat, IconCommunity, IconUser, IconX } from "@/components/Icons";
+import {
+  IconApps,
+  IconBell,
+  IconChat,
+  IconCommunity,
+  IconHome,
+  IconLibrary,
+  IconLoan,
+  IconPeople,
+  IconPlus,
+  IconSettings,
+  IconShelf,
+  IconStats,
+  IconUser,
+  IconX,
+} from "@/components/Icons";
 
 function SidebarButton({
   to,
@@ -48,6 +65,16 @@ function SidebarButton({
     </Link>
   );
 }
+
+const browseLinks = [
+  { to: "/home", label: "Overview", icon: IconHome },
+  { to: "/library", label: "Library", icon: IconLibrary },
+  { to: "/locations", label: "Locations", icon: IconShelf },
+  { to: "/loaned", label: "Loans", icon: IconLoan },
+  { to: "/borrowers", label: "Borrowers", icon: IconPeople },
+  { to: "/community", label: "Community", icon: IconCommunity },
+  { to: "/stats", label: "Reports", icon: IconStats },
+] as const;
 
 export function AppSidebar() {
   const { open, closeSidebar } = useSidebar();
@@ -120,8 +147,8 @@ export function AppSidebar() {
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex items-center justify-between px-3 pt-3 pb-1">
-          <p className="text-[0.8125rem] font-medium text-muted">Menu</p>
+        <div className="flex items-center justify-between gap-2 px-3 pt-3 pb-1">
+          <Logo size="sm" showText={false} />
           <button
             type="button"
             onClick={closeSidebar}
@@ -133,64 +160,93 @@ export function AppSidebar() {
           </button>
         </div>
 
-        <button
-          type="button"
-          onClick={goAccount}
-          className="mx-3 mt-1 flex items-center gap-3 rounded-[var(--radius-group)] bg-fill-secondary px-3 py-3 text-left transition-colors hover:bg-fill active:opacity-90"
-          tabIndex={tabIndex}
-        >
-          <UserAvatar label={avatarLabel} size={44} />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[1.0625rem] font-semibold">{displayName}</p>
-            <p className="truncate text-[0.8125rem] text-muted">{subtitle}</p>
-          </div>
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="shrink-0 text-tertiary" aria-hidden>
-            <path d="M5 3.5L8.5 7L5 10.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-        </button>
+        <div className="px-3 pb-2 pt-1">
+          <LibrarySwitcher />
+        </div>
 
-        <nav className="mx-3 mt-4 overflow-hidden rounded-[var(--radius-group)] bg-surface ring-1 ring-black/[0.04] dark:ring-white/[0.06]">
-          <SidebarButton
-            to="/notifications"
-            label="Notifications"
-            icon={IconBell}
-            badge={pendingInvites.length}
-            onNavigate={closeAndGo}
+        <div className="px-3 pb-3">
+          <Link
+            to="/add"
+            onClick={closeAndGo}
             tabIndex={tabIndex}
-          />
-          <SidebarButton
-            to="/community"
-            label="Community"
-            icon={IconCommunity}
-            onNavigate={closeAndGo}
+            className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-[var(--radius-pill)] bg-accent px-3 text-[0.9375rem] font-medium text-accent-contrast hover:bg-accent-hover"
+          >
+            <IconPlus size={16} />
+            Add Book
+          </Link>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-3">
+          <button
+            type="button"
+            onClick={goAccount}
+            className="mb-3 flex w-full items-center gap-3 rounded-[var(--radius-group)] bg-fill-secondary px-3 py-3 text-left transition-colors hover:bg-fill active:opacity-90"
             tabIndex={tabIndex}
-          />
-          <SidebarButton
-            to="/support"
-            label="Support"
-            icon={IconChat}
-            onNavigate={closeAndGo}
-            tabIndex={tabIndex}
-          />
-          {isStaff && (
+          >
+            <UserAvatar label={avatarLabel} size={40} />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[1rem] font-semibold">{displayName}</p>
+              <p className="truncate text-[0.8125rem] text-muted">{subtitle}</p>
+            </div>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="shrink-0 text-tertiary" aria-hidden>
+              <path d="M5 3.5L8.5 7L5 10.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </button>
+
+          <nav className="mb-3 overflow-hidden rounded-[var(--radius-group)] bg-surface ring-1 ring-black/[0.04] dark:ring-white/[0.06]">
+            {browseLinks.map((item) => (
+              <SidebarButton
+                key={item.to}
+                to={item.to}
+                label={item.label}
+                icon={item.icon}
+                onNavigate={closeAndGo}
+                tabIndex={tabIndex}
+              />
+            ))}
+          </nav>
+
+          <nav className="overflow-hidden rounded-[var(--radius-group)] bg-surface ring-1 ring-black/[0.04] dark:ring-white/[0.06]">
             <SidebarButton
-              to="/admin"
-              label="Admin"
-              icon={IconApps}
+              to="/notifications"
+              label="Notifications"
+              icon={IconBell}
+              badge={pendingInvites.length}
               onNavigate={closeAndGo}
               tabIndex={tabIndex}
             />
-          )}
-          <SidebarButton
-            to="/account"
-            label="Account & Security"
-            icon={IconUser}
-            onNavigate={closeAndGo}
-            tabIndex={tabIndex}
-          />
-        </nav>
-
-        <div className="flex-1" />
+            <SidebarButton
+              to="/support"
+              label="Support"
+              icon={IconChat}
+              onNavigate={closeAndGo}
+              tabIndex={tabIndex}
+            />
+            {isStaff && (
+              <SidebarButton
+                to="/admin"
+                label="Admin"
+                icon={IconApps}
+                onNavigate={closeAndGo}
+                tabIndex={tabIndex}
+              />
+            )}
+            <SidebarButton
+              to="/settings"
+              label="Library Settings"
+              icon={IconSettings}
+              onNavigate={closeAndGo}
+              tabIndex={tabIndex}
+            />
+            <SidebarButton
+              to="/account"
+              label="Account & Security"
+              icon={IconUser}
+              onNavigate={closeAndGo}
+              tabIndex={tabIndex}
+            />
+          </nav>
+        </div>
 
         <div className="hairline-t px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
           <p className="mb-1.5 text-[0.75rem] text-muted">

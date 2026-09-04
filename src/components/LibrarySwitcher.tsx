@@ -35,7 +35,7 @@ export function LibrarySwitcher({ compact = false }: { compact?: boolean }) {
         onClick={() => setOpen((v) => !v)}
         className={
           compact
-            ? "flex max-w-[10rem] items-center gap-1 rounded-[var(--radius-control)] px-2 py-1 text-[0.8125rem] text-muted hover:bg-fill-secondary hover:text-foreground sm:max-w-[12rem]"
+            ? "flex w-full min-w-0 max-w-full items-center gap-1 rounded-[var(--radius-control)] px-2 py-1.5 text-[0.8125rem] text-muted hover:bg-fill-secondary hover:text-foreground"
             : "flex w-full items-center gap-2 rounded-[var(--radius-control)] bg-fill-secondary px-3 py-2 text-left hover:bg-fill"
         }
         aria-expanded={open}
