@@ -11,7 +11,7 @@ import {
 } from "@/lib/theme";
 import { UserAvatar, userDisplayName } from "@/components/UserAvatar";
 import { SegmentedControl } from "@/components/layout";
-import { IconBell, IconChat, IconCommunity, IconUser, IconX } from "@/components/Icons";
+import { IconApps, IconBell, IconChat, IconCommunity, IconUser, IconX } from "@/components/Icons";
 
 function SidebarButton({
   to,
@@ -176,7 +176,7 @@ export function AppSidebar() {
             <SidebarButton
               to="/admin"
               label="Admin"
-              icon={IconChat}
+              icon={IconApps}
               onNavigate={closeAndGo}
               tabIndex={tabIndex}
             />

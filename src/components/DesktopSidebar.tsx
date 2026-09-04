@@ -8,6 +8,7 @@ import { LibrarySwitcher } from "./LibrarySwitcher";
 import { UserAvatar, userDisplayName } from "./UserAvatar";
 import { SegmentedControl } from "./layout";
 import {
+  IconApps,
   IconBell,
   IconChat,
   IconCommunity,
@@ -36,7 +37,6 @@ const primaryNav = [
 const secondaryNav = [
   { to: "/notifications", label: "Notifications", icon: IconBell },
   { to: "/support", label: "Support", icon: IconChat },
-  { to: "/account", label: "Account", icon: IconUser },
 ];
 
 function NavItem({
@@ -133,9 +133,8 @@ export function DesktopSidebar() {
             badge={item.to === "/notifications" ? pendingInvites.length : undefined}
           />
         ))}
-        {isStaff && (
-          <NavItem to="/admin" label="Admin" icon={IconChat} />
-        )}
+        {isStaff && <NavItem to="/admin" label="Admin" icon={IconApps} />}
+        <NavItem to="/account" label="Account" icon={IconUser} />
       </nav>
 
       <div className="hairline-t px-3 py-3">

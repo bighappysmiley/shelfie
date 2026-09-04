@@ -19,6 +19,25 @@ import {
 
 export const APP_URL = "https://shelfielibrary.netlify.app";
 
+/** Platform owner — always treated as staff/admin even if the staff query fails. */
+export const PLATFORM_OWNER_EMAIL = "hillelfrankel0@icloud.com";
+
+const OWNER_STAFF_FALLBACK: StaffMember = {
+  email: PLATFORM_OWNER_EMAIL,
+  display_name: "Hillel Frankel",
+  title: "Owner",
+  role: "admin",
+};
+
+function normalizeEmail(email: string | null | undefined): string | null {
+  const trimmed = email?.trim().toLowerCase();
+  return trimmed || null;
+}
+
+function ownerFallback(email: string | null | undefined): StaffMember | null {
+  return normalizeEmail(email) === PLATFORM_OWNER_EMAIL ? { ...OWNER_STAFF_FALLBACK } : null;
+}
+
 type SignInResult = {
   needsSecondFactor: boolean;
   secondFactorTarget?: "email" | "phone";
@@ -56,13 +75,38 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-async function loadStaffProfile(email: string): Promise<StaffMember | null> {
-  const { data } = await supabase
-    .from("staff")
-    .select("email, display_name, title, role")
-    .ilike("email", email)
-    .maybeSingle();
-  return (data as StaffMember | null) ?? null;
+async function loadStaffProfile(email: string | null | undefined): Promise<StaffMember | null> {
+  const normalized = normalizeEmail(email);
+
+  const { data: rpcRows, error: rpcError } = await supabase.rpc("get_my_staff_profile");
+  if (!rpcError && Array.isArray(rpcRows) && rpcRows.length > 0) {
+    const row = rpcRows[0] as StaffMember;
+    return {
+      email: row.email,
+      display_name: row.display_name,
+      title: row.title,
+      role: row.role === "admin" ? "admin" : "staff",
+    };
+  }
+
+  if (normalized) {
+    const { data } = await supabase
+      .from("staff")
+      .select("email, display_name, title, role")
+      .ilike("email", normalized)
+      .maybeSingle();
+    if (data) {
+      const row = data as StaffMember;
+      return {
+        email: row.email,
+        display_name: row.display_name,
+        title: row.title,
+        role: row.role === "admin" ? "admin" : "staff",
+      };
+    }
+  }
+
+  return ownerFallback(normalized);
 }
 
 async function fetchUserProfile(userId: string): Promise<UserProfile | null> {
@@ -107,12 +151,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (next.email) {
-      const profile = await loadStaffProfile(next.email);
-      setStaffProfile(profile);
-    } else {
-      setStaffProfile(null);
-    }
+    const profile = await loadStaffProfile(next.email);
+    setStaffProfile(profile);
 
     const up = await fetchUserProfile(next.id);
     setUserProfile(up);
@@ -373,12 +413,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSecondFactor(null);
   }, []);
 
-  const isStaff = Boolean(staffProfile);
-  const isAdmin = staffProfile?.role === "admin";
+  const sessionEmail = normalizeEmail(session?.user?.email);
+  const staffEmail = normalizeEmail(staffProfile?.email);
+  const isPlatformOwnerEmail =
+    sessionEmail === PLATFORM_OWNER_EMAIL || staffEmail === PLATFORM_OWNER_EMAIL;
+  const isStaff = Boolean(staffProfile) || isPlatformOwnerEmail;
+  const isAdmin = staffProfile?.role === "admin" || isPlatformOwnerEmail;
   const isOwner =
-    isAdmin &&
-    (staffProfile?.title?.toLowerCase() === "owner" ||
-      staffProfile?.email?.toLowerCase() === "hillelfrankel0@icloud.com");
+    isPlatformOwnerEmail ||
+    (isAdmin && staffProfile?.title?.toLowerCase() === "owner");
 
   const value = useMemo<AuthContextValue>(
     () => ({

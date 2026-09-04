@@ -24,7 +24,7 @@ import {
 import { PRO_PERKS, PROFILE_RINGS, type ProfileRingId } from "@/lib/pro";
 
 export function AccountPage() {
-  const { user, signOut, userProfile, updateProfile } = useAuth();
+  const { user, signOut, userProfile, updateProfile, isStaff, isOwner } = useAuth();
   const navigate = useNavigate();
 
   const [displayName, setDisplayName] = useState("");
@@ -415,6 +415,24 @@ export function AccountPage() {
             Phone sign-in sends a verification code by SMS when enabled in Supabase.
           </GroupFooter>
         </section>
+
+        {isStaff && (
+          <section>
+            <GroupHeader>Platform</GroupHeader>
+            <Group>
+              <Link
+                to="/admin"
+                className="flex min-h-[44px] items-center justify-between px-4 py-3 hairline-b last:border-b-0 text-[1.0625rem] active:bg-fill-secondary"
+              >
+                <span>{isOwner ? "Admin (Owner)" : "Admin"}</span>
+                <span className="text-muted">→</span>
+              </Link>
+            </Group>
+            <GroupFooter>
+              Support inbox, users, libraries, enterprise leads, and plans.
+            </GroupFooter>
+          </section>
+        )}
 
         <Group>
           <PlainButton onClick={handleSignOut} disabled={signingOut} destructive>
