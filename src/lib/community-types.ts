@@ -55,7 +55,7 @@ export interface CommunityServerWebhook {
 
 export interface CommunityServer {
   id: string;
-  libraryId: string;
+  libraryId: string | null;
   name: string;
   description: string | null;
   iconUrl: string | null;

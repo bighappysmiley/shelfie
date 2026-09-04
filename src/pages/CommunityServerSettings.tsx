@@ -34,7 +34,7 @@ import type {
   VerificationLevel,
 } from "@/lib/community-types";
 import { Button } from "@/components/Button";
-import { TextField, TextArea, FormError } from "@/components/form";
+import { TextField, TextArea, FormError, SelectField } from "@/components/form";
 import { EmptyState, ToggleRow } from "@/components/layout";
 import { AuthedImage } from "@/components/AuthedImage";
 import { CommunityDiscordShell, CommunityPanelHeader, CommunityScrollBody } from "@/components/CommunityRail";
@@ -99,6 +99,7 @@ export function CommunityServerSettingsPage() {
   const [vanitySlug, setVanitySlug] = useState("");
   const [isPublic, setIsPublic] = useState(false);
   const [isOfficial, setIsOfficial] = useState(false);
+  const [linkedLibraryId, setLinkedLibraryId] = useState("");
   const [joinMode, setJoinMode] = useState<CommunityJoinMode>("open");
   const [inviteCode, setInviteCode] = useState("");
   const [rules, setRules] = useState("");
@@ -112,10 +113,14 @@ export function CommunityServerSettingsPage() {
   const [automodKeywords, setAutomodKeywords] = useState<string[]>([]);
   const [userPro, setUserPro] = useState(false);
 
-  const library = libraries.find((l) => l.id === server?.libraryId);
+  const library = libraries.find((l) => l.id === (server?.libraryId || linkedLibraryId));
+  const ownedLibraries = libraries.filter((l) => l.role === "owner");
   const myRole = roles.find((r) => r.id === myRoleId);
   const canManage = Boolean(
-    isOwner || library?.role === "owner" || myRole?.canManageServer || myRole?.name === "Owner",
+    isOwner ||
+      (server?.libraryId && library?.role === "owner") ||
+      myRole?.canManageServer ||
+      myRole?.name === "Owner",
   );
 
   const navGroups: SettingsNavGroup[] = useMemo(
@@ -198,6 +203,7 @@ export function CommunityServerSettingsPage() {
     setVanitySlug(s.vanitySlug ?? "");
     setIsPublic(s.isPublic);
     setIsOfficial(s.isOfficial);
+    setLinkedLibraryId(s.libraryId ?? "");
     setJoinMode(s.joinMode);
     setInviteCode(s.inviteCode || "");
     setRules(s.rules ?? "");
@@ -281,6 +287,11 @@ export function CommunityServerSettingsPage() {
     setError("");
     setSaved(false);
     try {
+      const wasOfficial = server.isOfficial;
+      const nextOfficial = isOwner ? isOfficial : wasOfficial;
+      if (!nextOfficial && !linkedLibraryId) {
+        throw new Error("Choose a library to link this community to.");
+      }
       await updateServer(serverId, {
         name,
         description,
@@ -288,6 +299,9 @@ export function CommunityServerSettingsPage() {
         bannerUrl,
         isPublic,
         isOfficial: isOwner ? isOfficial : undefined,
+        libraryId: nextOfficial
+          ? null
+          : linkedLibraryId || server.libraryId || null,
       });
       setSaved(true);
       await refresh();
@@ -477,7 +491,7 @@ export function CommunityServerSettingsPage() {
                 <div className="space-y-2">
                   <ToggleRow
                     label="Official server"
-                    hint="Featured in the Official servers list on Discover"
+                    hint="Featured in Official on Discover. Official servers are platform communities and are not linked to a personal library."
                     checked={isOfficial}
                     onChange={setIsOfficial}
                   />
@@ -492,12 +506,43 @@ export function CommunityServerSettingsPage() {
                 </div>
               )}
 
-              <p className="text-[0.8125rem] text-muted">
-                Created {new Date(server.createdAt).toLocaleDateString()} · Library:{" "}
-                <Link to="/settings" className="text-link">
-                  {library?.name || server.libraryId}
-                </Link>
-              </p>
+              {isOfficial ? (
+                <p className="text-[0.8125rem] text-muted">
+                  Created {new Date(server.createdAt).toLocaleDateString()} · Library link: none
+                  (platform official)
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  <SelectField
+                    label="Linked library"
+                    value={linkedLibraryId}
+                    onChange={(e) => setLinkedLibraryId(e.target.value)}
+                    required
+                    hint="Every non-official community must stay linked to a library you own."
+                  >
+                    <option value="" disabled>
+                      Select a library…
+                    </option>
+                    {ownedLibraries.map((lib) => (
+                      <option key={lib.id} value={lib.id}>
+                        {lib.name}
+                      </option>
+                    ))}
+                  </SelectField>
+                  <p className="text-[0.8125rem] text-muted">
+                    Created {new Date(server.createdAt).toLocaleDateString()}
+                    {library ? (
+                      <>
+                        {" "}
+                        · Open{" "}
+                        <Link to="/settings" className="text-link">
+                          {library.name}
+                        </Link>
+                      </>
+                    ) : null}
+                  </p>
+                </div>
+              )}
 
               <Button type="submit" disabled={busy || !name.trim()}>
                 {busy ? "Saving…" : "Save profile"}

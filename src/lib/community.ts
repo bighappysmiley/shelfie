@@ -43,7 +43,7 @@ function normalizeDescription(value: string | null | undefined): string | null {
 
 type ServerRow = {
   id: string;
-  library_id: string;
+  library_id: string | null;
   name: string;
   description: string | null;
   icon_url: string | null;
@@ -204,7 +204,7 @@ function mapServerFromRpc(row: Record<string, unknown>, extra?: Partial<Communit
   return mapServer(
     {
       id: String(row.id ?? ""),
-      library_id: String(row.library_id ?? ""),
+      library_id: row.library_id ? String(row.library_id) : null,
       name: String(row.name ?? ""),
       description: (row.description as string | null) ?? null,
       icon_url: (row.icon_url as string | null) ?? null,
@@ -586,7 +586,7 @@ export async function listMyServers(userId: string): Promise<CommunityServer[]> 
     mapServer(r, {
       myRoleId: roleByServer.get(r.id) ?? null,
       isMember: true,
-      canManage: libraryRole.get(r.library_id) === "owner",
+      canManage: Boolean(r.library_id && libraryRole.get(r.library_id) === "owner"),
     }),
   );
 }
@@ -611,6 +611,8 @@ export async function updateServer(
     isPublic?: boolean;
     isOfficial?: boolean;
     officialPosition?: number | null;
+    /** Required when demoting from official; cleared automatically when promoting. */
+    libraryId?: string | null;
     joinMode?: CommunityJoinMode;
     rules?: string | null;
     welcomeMessage?: string | null;
@@ -656,17 +658,29 @@ export async function updateServer(
   }
   if (patch.isOfficial !== undefined) {
     row.is_official = patch.isOfficial;
-    if (patch.isOfficial && patch.officialPosition === undefined) {
-      const { data: max } = await supabase
-        .from("community_servers")
-        .select("official_position")
-        .eq("is_official", true)
-        .order("official_position", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      row.official_position = (max?.official_position ?? -1) + 1;
+    if (patch.isOfficial) {
+      // Official servers are platform communities — not tied to a personal library.
+      row.library_id = null;
+      if (patch.officialPosition === undefined) {
+        const { data: max } = await supabase
+          .from("community_servers")
+          .select("official_position")
+          .eq("is_official", true)
+          .order("official_position", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        row.official_position = (max?.official_position ?? -1) + 1;
+      }
+    } else {
+      row.official_position = null;
+      const nextLibraryId = patch.libraryId?.trim() || null;
+      if (!nextLibraryId) {
+        throw new Error("Link this server to a library before removing Official status.");
+      }
+      row.library_id = nextLibraryId;
     }
-    if (!patch.isOfficial) row.official_position = null;
+  } else if (patch.libraryId !== undefined) {
+    row.library_id = patch.libraryId?.trim() || null;
   }
   if (patch.officialPosition !== undefined) row.official_position = patch.officialPosition;
 

@@ -248,8 +248,12 @@ export function CommunityServerPage() {
     setProfileTarget(target);
   }, []);
 
-  const library = libraries.find((l) => l.id === server?.libraryId);
-  const canConfigure = Boolean(isOwner || library?.role === "owner" || server?.canManage);
+  const library = server?.libraryId
+    ? libraries.find((l) => l.id === server.libraryId)
+    : undefined;
+  const canConfigure = Boolean(
+    isOwner || (server?.libraryId && library?.role === "owner") || server?.canManage,
+  );
 
   const refresh = useCallback(async () => {
     if (!user || !serverId) return;
@@ -268,10 +272,13 @@ export function CommunityServerPage() {
         member ? listServerRoles(serverId) : Promise.resolve([] as CommunityServerRole[]),
         listAppOwnerUserIds().catch(() => new Set<string>()),
       ]);
+      const linkedLibrary = s.libraryId
+        ? libraries.find((l) => l.id === s.libraryId)
+        : undefined;
       setServer({
         ...s,
         isMember: member,
-        canManage: library?.role === "owner" || isOwner,
+        canManage: Boolean(isOwner || linkedLibrary?.role === "owner"),
         myJoinRequestStatus: pending,
       });
       setCategories(cats);
@@ -313,7 +320,7 @@ export function CommunityServerPage() {
     } finally {
       setLoading(false);
     }
-  }, [user, serverId, library?.role, isOwner]);
+  }, [user, serverId, libraries, isOwner]);
 
   useEffect(() => {
     void refresh();

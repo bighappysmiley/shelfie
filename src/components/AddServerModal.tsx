@@ -117,7 +117,7 @@ export function AddServerModal({
       {mode === "menu" && (
         <div className="space-y-2">
           <p className="mb-3 text-[0.875rem] text-muted">
-            Create another server for your library, or enter an invite code.
+            Create a server linked to your library, or enter an invite code.
           </p>
           {canCreate ? (
             <button
@@ -134,7 +134,7 @@ export function AddServerModal({
               <span>
                 <span className="block font-semibold text-foreground">Create My Own</span>
                 <span className="text-[0.75rem] text-muted">
-                  Under {libraryName} — you can create as many as you want
+                  Linked to {libraryName} — required for every community server
                 </span>
               </span>
             </button>
@@ -191,6 +191,10 @@ export function AddServerModal({
             checked={isPublic}
             onChange={setIsPublic}
           />
+          <p className="text-[0.8125rem] text-muted">
+            This server will be linked to <span className="font-medium text-foreground">{libraryName}</span>.
+            Official platform communities are separate and are not tied to a personal library.
+          </p>
           {error && <FormError message={error} />}
         </div>
       )}
