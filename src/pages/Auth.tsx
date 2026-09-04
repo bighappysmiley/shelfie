@@ -116,7 +116,7 @@ function useAuthRedirect() {
 export function LoginPage() {
   const redirect = useAuthRedirect();
   const { email: inviteEmail } = useInviteParams();
-  const { signIn, signInWithPhone, verifyPhoneOtp } = useAuth();
+  const { signIn, signInWithPhone, verifyPhoneOtp, resendSignupConfirmation } = useAuth();
   const navigate = useNavigate();
   const [mode, setMode] = useState<AuthMode>("email");
   const [email, setEmail] = useState(inviteEmail);
@@ -125,13 +125,18 @@ export function LoginPage() {
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
   const [busy, setBusy] = useState(false);
+  const [needsConfirm, setNeedsConfirm] = useState(false);
+  const [resendBusy, setResendBusy] = useState(false);
 
   if (redirect) return redirect;
 
   const onEmailSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
+    setInfo("");
+    setNeedsConfirm(false);
     setBusy(true);
     try {
       const result = await signIn(email.trim(), password);
@@ -141,9 +146,30 @@ export function LoginPage() {
         navigate("/setup", { replace: true });
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sign in failed. Check your credentials.");
+      const message = err instanceof Error ? err.message : "Sign in failed. Check your credentials.";
+      const lower = message.toLowerCase();
+      if (lower.includes("email not confirmed") || lower.includes("not confirmed")) {
+        setNeedsConfirm(true);
+        setError("Confirm your email before signing in. Check your inbox for the link, or resend it below.");
+      } else {
+        setError(message);
+      }
     } finally {
       setBusy(false);
+    }
+  };
+
+  const onResendConfirm = async () => {
+    setError("");
+    setInfo("");
+    setResendBusy(true);
+    try {
+      await resendSignupConfirmation(email.trim());
+      setInfo("Confirmation email resent. Open the link, then sign in.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not resend confirmation email.");
+    } finally {
+      setResendBusy(false);
     }
   };
 
@@ -191,6 +217,9 @@ export function LoginPage() {
 
         {mode === "email" ? (
           <form onSubmit={onEmailSubmit}>
+            {info && (
+              <p className="px-4 pt-3 text-[0.9375rem] text-success">{info}</p>
+            )}
             <TextField
               label="Email"
               type="email"
@@ -214,6 +243,16 @@ export function LoginPage() {
               <Button type="submit" className="w-full" disabled={busy}>
                 {busy ? "Signing In…" : "Sign In"}
               </Button>
+              {needsConfirm && (
+                <button
+                  type="button"
+                  className="mt-3 w-full text-center text-[0.9375rem] text-link disabled:opacity-50"
+                  disabled={resendBusy || !email.trim()}
+                  onClick={() => void onResendConfirm()}
+                >
+                  {resendBusy ? "Resending…" : "Resend confirmation email"}
+                </button>
+              )}
             </div>
           </form>
         ) : !otpSent ? (
@@ -276,7 +315,7 @@ export function LoginPage() {
 export function SignupPage() {
   const redirect = useAuthRedirect();
   const { email: inviteEmail } = useInviteParams();
-  const { signUp, signUpWithPhone, verifyPhoneOtp } = useAuth();
+  const { signUp, signUpWithPhone, verifyPhoneOtp, resendSignupConfirmation } = useAuth();
   const navigate = useNavigate();
   const [mode, setMode] = useState<AuthMode>("email");
   const [email, setEmail] = useState(inviteEmail);
@@ -287,6 +326,8 @@ export function SignupPage() {
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [busy, setBusy] = useState(false);
+  const [awaitingConfirm, setAwaitingConfirm] = useState(false);
+  const [resendBusy, setResendBusy] = useState(false);
 
   if (redirect) return redirect;
 
@@ -302,7 +343,10 @@ export function SignupPage() {
     try {
       const result = await signUp(email.trim(), password);
       if (result.needsConfirmation) {
-        setInfo("A confirmation link has been sent to your email. Sign in after confirming.");
+        setAwaitingConfirm(true);
+        setInfo(
+          "Check your email for a confirmation link. Open it on this device to finish creating your account.",
+        );
       } else {
         navigate("/setup", { replace: true });
       }
@@ -310,6 +354,20 @@ export function SignupPage() {
       setError(err instanceof Error ? err.message : "Account creation failed. Please try again.");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const onResend = async () => {
+    setError("");
+    setInfo("");
+    setResendBusy(true);
+    try {
+      await resendSignupConfirmation(email.trim());
+      setInfo("Confirmation email resent. Check your inbox and spam folder.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not resend confirmation email.");
+    } finally {
+      setResendBusy(false);
     }
   };
 
@@ -382,8 +440,18 @@ export function SignupPage() {
             <div className="px-4 py-4">
               {error && <FormError message={error} />}
               <Button type="submit" className="w-full" disabled={busy}>
-                {busy ? "Creating Account…" : "Create Account"}
+                {busy ? "Creating Account…" : awaitingConfirm ? "Create Account Again" : "Create Account"}
               </Button>
+              {awaitingConfirm && (
+                <button
+                  type="button"
+                  className="mt-3 w-full text-center text-[0.9375rem] text-link disabled:opacity-50"
+                  disabled={resendBusy || !email.trim()}
+                  onClick={() => void onResend()}
+                >
+                  {resendBusy ? "Resending…" : "Resend confirmation email"}
+                </button>
+              )}
             </div>
           </form>
         ) : !otpSent ? (

@@ -12,6 +12,7 @@ import { initTheme } from "@/lib/theme";
 import { syncPending } from "@/lib/offline";
 import { FullPageLoading } from "@/components/LoadingTree";
 import { LandingPage, LoginPage, SignupPage, Verify2FAPage } from "@/pages/Auth";
+import { AuthCallbackPage } from "@/pages/AuthCallback";
 import { HomePage } from "@/pages/Home";
 import { LibraryPage } from "@/pages/Library";
 import { LocationsPage } from "@/pages/Locations";
@@ -147,6 +148,7 @@ function AppRoutes() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/auth/callback" element={<AuthCallbackPage />} />
         <Route path="/verify-2fa" element={<Verify2FAPage />} />
       </Route>
 

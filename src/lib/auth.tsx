@@ -19,6 +19,20 @@ import {
 
 export const APP_URL = "https://shelfielibrary.netlify.app";
 
+/** Prefer the current origin so local/preview confirmation links work. */
+export function getAppUrl(): string {
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return window.location.origin;
+  }
+  const fromEnv = import.meta.env.VITE_APP_URL;
+  if (typeof fromEnv === "string" && fromEnv.trim()) return fromEnv.trim().replace(/\/$/, "");
+  return APP_URL;
+}
+
+export function authCallbackUrl(): string {
+  return `${getAppUrl()}/auth/callback`;
+}
+
 /** Platform owner — always treated as staff/admin even if the staff query fails. */
 export const PLATFORM_OWNER_EMAIL = "hillelfrankel0@icloud.com";
 
@@ -60,6 +74,7 @@ type AuthContextValue = {
   verifyEmailOtp: (email: string, token: string) => Promise<void>;
   verifySecondFactor: (token: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<{ needsConfirmation: boolean }>;
+  resendSignupConfirmation: (email: string) => Promise<void>;
   signUpWithPhone: (phone: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -148,6 +163,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUserProfile(null);
       setPending2fa(false);
       setSecondFactor(null);
+      try {
+        sessionStorage.removeItem("pine-pending-2fa");
+      } catch {
+        /* ignore */
+      }
       return;
     }
 
@@ -164,6 +184,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!mounted) return;
       setSession(data.session);
       await applyUser(data.session?.user ?? null);
+      if (data.session?.user) {
+        try {
+          const raw = sessionStorage.getItem("pine-pending-2fa");
+          if (raw) {
+            const parsed = JSON.parse(raw) as {
+              target?: "email" | "phone";
+              contact?: string;
+              at?: number;
+            };
+            const fresh = typeof parsed.at === "number" && Date.now() - parsed.at < 15 * 60 * 1000;
+            if (fresh && parsed.target && parsed.contact) {
+              setPending2fa(true);
+              setSecondFactor({ target: parsed.target, contact: parsed.contact });
+            } else {
+              sessionStorage.removeItem("pine-pending-2fa");
+            }
+          }
+        } catch {
+          /* ignore */
+        }
+      }
       setLoading(false);
     });
 
@@ -292,13 +333,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         const { error } = await supabase.auth.signInWithOtp({
           email: contact,
-          options: { shouldCreateUser: false },
+          options: {
+            shouldCreateUser: false,
+            emailRedirectTo: authCallbackUrl(),
+          },
         });
         if (error) throw error;
       }
 
       setPending2fa(true);
       setSecondFactor({ target, contact });
+      try {
+        sessionStorage.setItem(
+          "pine-pending-2fa",
+          JSON.stringify({ target, contact, at: Date.now() }),
+        );
+      } catch {
+        /* ignore */
+      }
       return { needsSecondFactor: true, secondFactorTarget: target };
     },
     [],
@@ -373,26 +425,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setPending2fa(false);
       setSecondFactor(null);
+      try {
+        sessionStorage.removeItem("pine-pending-2fa");
+      } catch {
+        /* ignore */
+      }
     },
     [secondFactor],
   );
 
   const signUp = useCallback(async (email: string, password: string) => {
+    const normalized = email.trim();
     const { data, error } = await supabase.auth.signUp({
-      email,
+      email: normalized,
       password,
       options: {
-        emailRedirectTo: `${APP_URL}/library`,
+        emailRedirectTo: authCallbackUrl(),
       },
     });
     if (error) throw error;
 
+    // Supabase returns a user with empty identities when the email is already registered.
+    const identities = data.user?.identities ?? [];
+    if (data.user && identities.length === 0) {
+      throw new Error(
+        "An account with this email already exists. Sign in instead, or use Forgot password if you need to reset it.",
+      );
+    }
+
     if (data.session) return { needsConfirmation: false };
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+    // Confirm-email enabled: no session until the user clicks the link.
+    // Do not pretend a confirmation email was sent when password sign-in fails for other reasons.
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: normalized,
+      password,
+    });
     if (!signInError) return { needsConfirmation: false };
 
-    return { needsConfirmation: true };
+    const msg = (signInError.message || "").toLowerCase();
+    if (
+      msg.includes("email not confirmed") ||
+      msg.includes("not confirmed") ||
+      signInError.code === "email_not_confirmed"
+    ) {
+      return { needsConfirmation: true };
+    }
+
+    // No session after signup usually means confirmation is required.
+    if (!data.session && data.user) return { needsConfirmation: true };
+
+    throw signInError;
+  }, []);
+
+  const resendSignupConfirmation = useCallback(async (email: string) => {
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: email.trim(),
+      options: { emailRedirectTo: authCallbackUrl() },
+    });
+    if (error) throw error;
   }, []);
 
   const signUpWithPhone = useCallback(async (phone: string) => {
@@ -411,6 +503,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUserProfile(null);
     setPending2fa(false);
     setSecondFactor(null);
+    try {
+      sessionStorage.removeItem("pine-pending-2fa");
+    } catch {
+      /* ignore */
+    }
   }, []);
 
   const sessionEmail = normalizeEmail(session?.user?.email);
@@ -441,6 +538,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       verifyEmailOtp,
       verifySecondFactor,
       signUp,
+      resendSignupConfirmation,
       signUpWithPhone,
       signOut,
       refreshProfile,
@@ -461,6 +559,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       verifyEmailOtp,
       verifySecondFactor,
       signUp,
+      resendSignupConfirmation,
       signUpWithPhone,
       signOut,
       refreshProfile,
