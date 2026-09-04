@@ -1,6 +1,6 @@
 import type { Config } from "@netlify/functions";
-import { json, error, parseBody } from "../utils";
-import { withAuth } from "../lib/auth";
+import { json, error, parseBody } from "./utils";
+import { withAuth } from "./lib/auth";
 import { moderateTextContent } from "./lib/moderation/text";
 
 export const config: Config = {
