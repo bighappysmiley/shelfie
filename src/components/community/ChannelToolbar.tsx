@@ -185,20 +185,19 @@ export function ChannelToolbar({
   );
 
   if (isMobile) {
+    // Mobile actions live in CommunityChatHeader — only render the search bar here.
+    if (!searchOpen || !onSearchChange) return null;
     return (
-      <header className="shrink-0 border-b border-[var(--community-border)] shadow-[0_1px_0_0_var(--community-border)] md:hidden">
-        <div className="flex h-10 items-center justify-end gap-0.5 px-2">{actionButtons}</div>
-        {searchOpen && onSearchChange && (
-          <ChannelSearchBar
-            group={group}
-            searchQuery={searchQuery}
-            onSearchChange={onSearchChange}
-            searchResultCount={searchResultCount}
-            onSearchPrev={onSearchPrev}
-            onSearchNext={onSearchNext}
-          />
-        )}
-      </header>
+      <div className="shrink-0 border-b border-[var(--community-border)] md:hidden">
+        <ChannelSearchBar
+          group={group}
+          searchQuery={searchQuery}
+          onSearchChange={onSearchChange}
+          searchResultCount={searchResultCount}
+          onSearchPrev={onSearchPrev}
+          onSearchNext={onSearchNext}
+        />
+      </div>
     );
   }
 

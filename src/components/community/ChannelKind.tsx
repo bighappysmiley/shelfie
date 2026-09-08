@@ -100,22 +100,44 @@ export function ChannelTypeSelect({
   id?: string;
 }) {
   return (
-    <label className="block text-[0.8125rem] font-medium text-muted">
-      Channel type
-      <select
-        id={id}
-        value={value}
-        onChange={(e) => onChange(e.target.value as CommunityGroupKind)}
-        className="mt-1 w-full rounded-[var(--radius-control)] bg-fill px-3 py-2 text-[0.9375rem]"
-      >
-        {CHANNEL_KIND_ORDER.map((kind) => (
-          <option key={kind} value={kind}>
-            {KIND_LABELS[kind]} channel
-          </option>
-        ))}
-      </select>
-      <p className="mt-1.5 text-[0.75rem] font-normal text-muted">{CHANNEL_KIND_DESCRIPTIONS[value]}</p>
-    </label>
+    <fieldset className="block">
+      <legend className="mb-2 text-[0.8125rem] font-medium text-muted">Channel type</legend>
+      <div id={id} className="grid gap-2" role="radiogroup" aria-label="Channel type">
+        {CHANNEL_KIND_ORDER.map((kind) => {
+          const selected = value === kind;
+          return (
+            <button
+              key={kind}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              onClick={() => onChange(kind)}
+              className={`flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition ${
+                selected
+                  ? "bg-accent/15 ring-2 ring-accent"
+                  : "bg-[var(--community-input)] ring-1 ring-[var(--community-border)] hover:bg-[var(--community-hover)]"
+              }`}
+            >
+              <span
+                className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                  selected ? "bg-accent text-accent-contrast" : "bg-[var(--community-panel)] text-muted"
+                }`}
+              >
+                <ChannelKindGlyph kind={kind} className="h-5 w-5" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[0.9375rem] font-semibold text-foreground">
+                  {KIND_LABELS[kind]}
+                </span>
+                <span className="mt-0.5 block text-[0.75rem] leading-snug text-muted">
+                  {CHANNEL_KIND_DESCRIPTIONS[kind]}
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </fieldset>
   );
 }
 

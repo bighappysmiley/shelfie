@@ -125,6 +125,10 @@ export function CommunityDiscordShell({
   const [dmUnread, setDmUnread] = useState(0);
   const [railTick, setRailTick] = useState(0);
 
+  // Inside a server channel, go immersive on mobile — hide the stacked server strip
+  // and bottom tab bar so chat/forum content isn't crushed.
+  const immersiveMobile = pane === "server";
+
   useEffect(() => {
     const onRefresh = () => setRailTick((n) => n + 1);
     window.addEventListener("community-rail-refresh", onRefresh);
@@ -211,7 +215,7 @@ export function CommunityDiscordShell({
       </nav>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--community-panel)]">
-        {servers.length > 0 && (
+        {servers.length > 0 && !immersiveMobile && (
           <nav
             aria-label="Your servers"
             className="community-scroll flex shrink-0 gap-1 overflow-x-auto border-b border-[var(--community-border)] px-2 py-2 md:hidden"
@@ -223,7 +227,7 @@ export function CommunityDiscordShell({
                 onClick={() => navigate(`/community/s/${s.id}`)}
                 title={s.name}
                 className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
-                  pane === "server" && activeServerId === s.id ? "ring-2 ring-accent" : ""
+                  activeServerId === s.id ? "ring-2 ring-accent" : ""
                 }`}
               >
                 {s.iconUrl ? (
@@ -241,62 +245,64 @@ export function CommunityDiscordShell({
           </nav>
         )}
         {children}
-        <nav
-          aria-label="Community navigation"
-          className="flex shrink-0 border-t border-[var(--community-border)] bg-[var(--community-panel)] pb-[env(safe-area-inset-bottom,0px)] md:hidden"
-        >
-          <button
-            type="button"
-            onClick={() => navigate("/home")}
-            className="flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[0.625rem] font-medium text-muted"
+        {!immersiveMobile && (
+          <nav
+            aria-label="Community navigation"
+            className="flex shrink-0 border-t border-[var(--community-border)] bg-[var(--community-panel)] pb-[env(safe-area-inset-bottom,0px)] md:hidden"
           >
-            <IconHome size={20} />
-            Home
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate("/community")}
-            className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[0.625rem] font-medium ${
-              pane === "list" ? "text-[var(--accent)]" : "text-muted"
-            }`}
-          >
-            <IconList size={20} />
-            Servers
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate("/community/dm")}
-            className={`relative flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[0.625rem] font-medium ${
-              pane === "dm" ? "text-[var(--accent)]" : "text-muted"
-            }`}
-          >
-            <IconChat size={20} />
-            Messages
-            {dmUnread > 0 && (
-              <span className="absolute right-[calc(50%-1.25rem)] top-1.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-destructive px-0.5 text-[0.5625rem] font-bold text-white">
-                {dmUnread > 9 ? "9+" : dmUnread}
-              </span>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate("/community?tab=discover")}
-            className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[0.625rem] font-medium ${
-              pane === "discover" ? "text-[var(--accent)]" : "text-muted"
-            }`}
-          >
-            <IconCompass size={20} />
-            Discover
-          </button>
-          <button
-            type="button"
-            onClick={onAdd}
-            className="flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[0.625rem] font-medium text-muted"
-          >
-            <IconPlus size={20} />
-            Add
-          </button>
-        </nav>
+            <button
+              type="button"
+              onClick={() => navigate("/home")}
+              className="flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[0.625rem] font-medium text-muted"
+            >
+              <IconHome size={20} />
+              Home
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/community")}
+              className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[0.625rem] font-medium ${
+                pane === "list" ? "text-[var(--accent)]" : "text-muted"
+              }`}
+            >
+              <IconList size={20} />
+              Servers
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/community/dm")}
+              className={`relative flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[0.625rem] font-medium ${
+                pane === "dm" ? "text-[var(--accent)]" : "text-muted"
+              }`}
+            >
+              <IconChat size={20} />
+              Messages
+              {dmUnread > 0 && (
+                <span className="absolute right-[calc(50%-1.25rem)] top-1.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-destructive px-0.5 text-[0.5625rem] font-bold text-white">
+                  {dmUnread > 9 ? "9+" : dmUnread}
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/community?tab=discover")}
+              className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[0.625rem] font-medium ${
+                pane === "discover" ? "text-[var(--accent)]" : "text-muted"
+              }`}
+            >
+              <IconCompass size={20} />
+              Discover
+            </button>
+            <button
+              type="button"
+              onClick={onAdd}
+              className="flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[0.625rem] font-medium text-muted"
+            >
+              <IconPlus size={20} />
+              Add
+            </button>
+          </nav>
+        )}
       </div>
     </div>
   );

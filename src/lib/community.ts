@@ -1245,6 +1245,15 @@ export async function createCommunityGroup(input: {
     .limit(1);
   const nextPos = ((siblings?.[0]?.position as number | undefined) ?? 0) + 1;
 
+  const icon =
+    kind === "forum"
+      ? "forum"
+      : kind === "voice"
+        ? "voice"
+        : kind === "announcement"
+          ? "megaphone"
+          : "hash";
+
   const { data, error } = await supabase
     .from("community_groups")
     .insert({
@@ -1256,7 +1265,7 @@ export async function createCommunityGroup(input: {
       server_id: input.serverId,
       is_official: false,
       position: nextPos,
-      icon: "hash",
+      icon,
       created_by: input.userId,
       slow_mode_seconds: Math.max(0, input.slowModeSeconds ?? 0),
     })
@@ -1267,13 +1276,16 @@ export async function createCommunityGroup(input: {
   const group = data as GroupRow;
   await syncServerMembersToChannel(input.serverId, group.id, input.userId);
 
-  await supabase.from("community_messages").insert({
-    group_id: group.id,
-    author_id: input.userId,
-    body: `Welcome to #${group.name}.`,
-    kind: "system",
-    author_name: "Pine",
-  });
+  // Forums start empty so the first real post isn't buried under a system message.
+  if (kind !== "forum") {
+    await supabase.from("community_messages").insert({
+      group_id: group.id,
+      author_id: input.userId,
+      body: `Welcome to #${group.name}.`,
+      kind: "system",
+      author_name: "Pine",
+    });
+  }
 
   await recomputeServerScore(input.serverId);
   return mapGroup(group, { myRole: "admin", memberCount: 1 });

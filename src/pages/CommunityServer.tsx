@@ -65,7 +65,7 @@ import {
 import { Button } from "@/components/Button";
 import { FormError } from "@/components/form";
 import { EmptyState } from "@/components/layout";
-import { IconChat, IconDots, IconPlus, IconReply, IconSearch, IconSettings } from "@/components/Icons";
+import { IconArrowLeft, IconChat, IconDots, IconList, IconPlus, IconReply, IconSearch, IconSettings } from "@/components/Icons";
 import { communityAuthorLabel, communityShortName } from "@/lib/community-identity";
 import { isAppOwnerUser, listAppOwnerUserIds } from "@/lib/app-owner";
 import { getChatRoleIconUrl } from "@/lib/chat-badges";
@@ -79,6 +79,7 @@ import { ChannelKindGlyph, channelKindBanner, canPostInChannelKind } from "@/com
 import { DiscordChannelIcon } from "@/components/community/DiscordIcons";
 import { ChannelMessageComposer } from "@/components/community/ChannelMessageComposer";
 import { ChannelToolbar } from "@/components/community/ChannelToolbar";
+import { ForumNewPostModal } from "@/components/community/ForumNewPostModal";
 import { ThreadsPanel } from "@/components/community/ThreadsPanel";
 import { VoiceConnectedBar } from "@/components/community/VoiceConnectedBar";
 import { ReactionTooltip } from "@/components/community/ReactionTooltip";
@@ -216,6 +217,13 @@ export function CommunityServerPage() {
   const [error, setError] = useState("");
   const [modal, setModal] = useState<Modal>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [mobileChrome, setMobileChrome] = useState<{
+    pinnedCount: number;
+    pinsOpen: boolean;
+    searchOpen: boolean;
+    onToggleSearch: () => void;
+    onTogglePins: () => void;
+  } | null>(null);
   const [memberDrawerOpen, setMemberDrawerOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -570,8 +578,12 @@ export function CommunityServerPage() {
             <CommunityChatHeader
               serverName={server.name}
               channelName={active?.name}
+              channelKind={active?.kind ?? "text"}
               canManageChannel={canManageActiveChannel}
               memberCount={isMember ? serverMembers.length : (server.memberCount ?? 0)}
+              pinnedCount={mobileChrome?.pinnedCount ?? 0}
+              pinsOpen={mobileChrome?.pinsOpen ?? false}
+              searchOpen={mobileChrome?.searchOpen ?? false}
               onOpenChannels={() => setMobileNavOpen(true)}
               onOpenMembers={isMember ? () => setMemberDrawerOpen(true) : undefined}
               onOpenChannelSettings={
@@ -579,6 +591,8 @@ export function CommunityServerPage() {
                   ? () => setModal({ type: "edit-channel", channel: active })
                   : undefined
               }
+              onToggleSearch={mobileChrome?.onToggleSearch}
+              onTogglePins={mobileChrome?.onTogglePins}
             />
           )}
 
@@ -633,6 +647,7 @@ export function CommunityServerPage() {
               onToggleVoiceMute={() => setVoicePrefs(toggleVoiceMuted())}
               onToggleVoiceDeafen={() => setVoicePrefs(toggleVoiceDeafened())}
               initialHighlightMessageId={navigateHighlightId}
+              onMobileChrome={setMobileChrome}
             />
           ) : (
             <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
@@ -685,45 +700,69 @@ export function CommunityServerPage() {
         onClose={() => setMobileNavOpen(false)}
         title={server?.name ?? "Channels"}
         headerActions={
-          canConfigure && serverId ? (
+          <div className="flex items-center gap-1">
             <Link
-              to={`/community/s/${serverId}/settings`}
+              to="/community"
               onClick={() => setMobileNavOpen(false)}
               className="rounded-lg p-2 text-muted hover:bg-[var(--community-hover)] hover:text-foreground"
-              title="Server settings"
-              aria-label="Server settings"
+              title="All servers"
+              aria-label="All servers"
             >
-              <IconSettings size={18} />
+              <IconList size={18} />
             </Link>
-          ) : undefined
+            {canConfigure && serverId ? (
+              <Link
+                to={`/community/s/${serverId}/settings`}
+                onClick={() => setMobileNavOpen(false)}
+                className="rounded-lg p-2 text-muted hover:bg-[var(--community-hover)] hover:text-foreground"
+                title="Server settings"
+                aria-label="Server settings"
+              >
+                <IconSettings size={18} />
+              </Link>
+            ) : null}
+          </div>
         }
         footer={
-          canConfigure ? (
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setModal({ type: "create-category" });
-                  setMobileNavOpen(false);
-                }}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-fill px-3 py-2 text-[0.8125rem] font-medium text-foreground hover:bg-[var(--community-hover)]"
-              >
-                <IconPlus size={14} />
-                Category
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setModal({ type: "create-channel", categoryId: categories[0]?.id ?? null });
-                  setMobileNavOpen(false);
-                }}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-[0.8125rem] font-medium text-accent-contrast hover:opacity-90"
-              >
-                <IconChat size={14} />
-                Channel
-              </button>
-            </div>
-          ) : undefined
+          <div className="space-y-2">
+            {canConfigure ? (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModal({ type: "create-category" });
+                    setMobileNavOpen(false);
+                  }}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-fill px-3 py-2.5 text-[0.8125rem] font-medium text-foreground hover:bg-[var(--community-hover)]"
+                >
+                  <IconPlus size={14} />
+                  Category
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModal({ type: "create-channel", categoryId: categories[0]?.id ?? null });
+                    setMobileNavOpen(false);
+                  }}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-accent px-3 py-2.5 text-[0.8125rem] font-medium text-accent-contrast hover:opacity-90"
+                >
+                  <IconChat size={14} />
+                  Channel
+                </button>
+              </div>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => {
+                setMobileNavOpen(false);
+                navigate("/community");
+              }}
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[0.8125rem] font-medium text-muted hover:bg-[var(--community-hover)] hover:text-foreground"
+            >
+              <IconArrowLeft size={14} />
+              Back to servers
+            </button>
+          </div>
         }
       >
         <div className="px-2 py-2">
@@ -1077,6 +1116,7 @@ function ChannelRoom({
   onToggleVoiceMute,
   onToggleVoiceDeafen,
   initialHighlightMessageId,
+  onMobileChrome,
 }: {
   group: CommunityGroup;
   serverId: string;
@@ -1113,6 +1153,13 @@ function ChannelRoom({
   onToggleVoiceMute?: () => void;
   onToggleVoiceDeafen?: () => void;
   initialHighlightMessageId?: string | null;
+  onMobileChrome?: (chrome: {
+    pinnedCount: number;
+    pinsOpen: boolean;
+    searchOpen: boolean;
+    onToggleSearch: () => void;
+    onTogglePins: () => void;
+  } | null) => void;
 }) {
   const [messages, setMessages] = useState<CommunityMessage[]>([]);
   const [pinned, setPinned] = useState<CommunityMessage[]>([]);
@@ -1123,7 +1170,7 @@ function ChannelRoom({
   const [error, setError] = useState("");
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [forumThreadId, setForumThreadId] = useState<string | null>(null);
-  const [forumPostTitle, setForumPostTitle] = useState("");
+  const [forumComposerOpen, setForumComposerOpen] = useState(false);
   const [joinedVoice, setJoinedVoice] = useState(false);
   const [voiceParticipants, setVoiceParticipants] = useState<{ userId: string; name: string }[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -1340,6 +1387,7 @@ function ChannelRoom({
     return visibleMessages.filter(
       (m) =>
         m.body.toLowerCase().includes(q) ||
+        (m.forumTitle?.toLowerCase().includes(q) ?? false) ||
         (m.authorName?.toLowerCase().includes(q) ?? false),
     );
   }, [visibleMessages, searchQuery]);
@@ -1430,12 +1478,25 @@ function ChannelRoom({
   useEffect(() => {
     setReplyTo(null);
     setForumThreadId(null);
+    setForumComposerOpen(false);
     setThreadRootId(null);
     setThreadsPanelOpen(false);
     setJoinedVoice(false);
     setSearchOpen(false);
     setSearchQuery("");
   }, [group.id, group.kind]);
+
+  useEffect(() => {
+    if (!onMobileChrome) return;
+    onMobileChrome({
+      pinnedCount: pinned.length,
+      pinsOpen: pinsExpanded,
+      searchOpen,
+      onToggleSearch: () => setSearchOpen((v) => !v),
+      onTogglePins: () => setPinsExpanded((v) => !v),
+    });
+    return () => onMobileChrome(null);
+  }, [onMobileChrome, pinned.length, pinsExpanded, searchOpen]);
 
   useEffect(() => {
     if (!isVoice || !isMember) return;
@@ -1503,6 +1564,8 @@ function ChannelRoom({
   const onSend = async (e: FormEvent) => {
     e.preventDefault();
     if (!draft.trim() || !canPost || slowCooldown > 0) return;
+    // Forum posts use the dedicated new-post modal, not the chat composer.
+    if (isForum && !forumThreadId) return;
     setSending(true);
     setError("");
     try {
@@ -1514,18 +1577,13 @@ function ChannelRoom({
         kind: "chat",
         authorName: authorLabel,
         replyToId: isForum
-          ? forumThreadId ?? replyTo?.id ?? null
+          ? forumThreadId
           : threadRootId ?? replyTo?.id ?? null,
-        forumTitle: isForum && !forumThreadId ? forumPostTitle : undefined,
       });
       setDraft("");
-      setForumPostTitle("");
       setReplyTo(null);
       setMentionQuery(null);
       if (slowModeSeconds > 0) setSlowCooldown(slowModeSeconds);
-      if (isForum && !forumThreadId) {
-        // Stay on post list after creating a new forum post
-      }
       await load();
       onChanged();
     } catch (err) {
@@ -1533,6 +1591,22 @@ function ChannelRoom({
     } finally {
       setSending(false);
     }
+  };
+
+  const onCreateForumPost = async ({ title, body }: { title: string; body: string }) => {
+    const created = await sendGroupMessage({
+      groupId: group.id,
+      serverId,
+      userId,
+      body,
+      kind: "chat",
+      authorName: authorLabel,
+      replyToId: null,
+      forumTitle: title,
+    });
+    await load();
+    onChanged();
+    if (created?.id) setForumThreadId(created.id);
   };
 
   const channelToolbarProps = {
@@ -1669,17 +1743,36 @@ function ChannelRoom({
         <div className="flex min-h-0 flex-1">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {isForum && forumThreadId && (
-            <div className="shrink-0 border-b border-[var(--community-border)] px-4 py-2">
+            <div className="shrink-0 border-b border-[var(--community-border)] px-3 py-2.5 md:px-4">
               <button
                 type="button"
                 onClick={() => {
                   setForumThreadId(null);
                   setReplyTo(null);
                 }}
-                className="text-[0.8125rem] text-link"
+                className="inline-flex items-center gap-1.5 text-[0.875rem] font-medium text-link"
               >
-                ← Back to posts
+                <IconArrowLeft size={14} />
+                Back to posts
               </button>
+            </div>
+          )}
+          {isForum && !forumThreadId && (
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--community-border)] px-3 py-2.5 md:px-4">
+              <div className="min-w-0">
+                <p className="truncate text-[0.8125rem] font-semibold text-foreground">
+                  {forumPosts.length} post{forumPosts.length === 1 ? "" : "s"}
+                </p>
+                <p className="truncate text-[0.75rem] text-muted">
+                  {group.topic || group.description || "Start a discussion with a new post"}
+                </p>
+              </div>
+              {canPost && (
+                <Button size="sm" onClick={() => setForumComposerOpen(true)}>
+                  <IconPlus size={14} className="mr-1 inline" />
+                  New post
+                </Button>
+              )}
             </div>
           )}
           {!isForum && threadRootId && (
@@ -1708,14 +1801,14 @@ function ChannelRoom({
               }
             }}
           >
-            <ul className="space-y-1">
+            <ul className={`space-y-1 ${isForum && !forumThreadId ? "space-y-3 px-0 pb-4" : ""}`}>
               {!isForum && <ChannelWelcome group={group} />}
               {visibleMessages.length === 0 && (
-                <li className="py-12 text-center text-muted">
+                <li className="px-4 py-12 text-center text-muted">
                   {isForum
                     ? forumThreadId
                       ? "No replies yet. Start the conversation!"
-                      : `Welcome to #${group.name}. Create the first post!`
+                      : `No posts yet in #${group.name}. Create the first one.`
                     : group.kind === "announcement"
                       ? `Welcome to #${group.name}. Announcements appear here.`
                       : `Welcome to #${group.name}. Say hello!`}
@@ -1723,20 +1816,19 @@ function ChannelRoom({
               )}
               {isForum && !forumThreadId
                 ? visibleMessages.map((m) => (
-                    <li
-                      key={m.id}
-                      className="rounded-lg border border-[var(--community-border)] bg-fill/20 p-3 hover:bg-[var(--community-hover)]"
-                    >
+                    <li key={m.id} className="px-3 md:px-4">
                       <button
                         type="button"
-                        className="w-full text-left"
+                        className="w-full rounded-xl border border-[var(--community-border)] bg-[var(--community-panel)] p-4 text-left transition hover:bg-[var(--community-hover)] active:scale-[0.99]"
                         onClick={() => setForumThreadId(m.id)}
                       >
-                        <p className="text-[0.9375rem] font-semibold text-foreground">
+                        <p className="text-[1rem] font-semibold leading-snug text-foreground">
                           {m.forumTitle || m.body.split("\n")[0]?.slice(0, 80) || "Untitled post"}
                         </p>
-                        <p className="mt-0.5 text-[0.8125rem] font-medium text-muted">{m.authorName || "Member"}</p>
-                        <div className="mt-1 line-clamp-3">
+                        <p className="mt-1 text-[0.8125rem] font-medium text-muted">
+                          {m.authorName || "Member"} · {formatCommunityTime(m.createdAt)}
+                        </p>
+                        <div className="mt-2 line-clamp-3 text-[0.875rem] text-foreground/90">
                           <CommunityMessageContent
                             body={m.body}
                             mentionMembers={mentionMembers}
@@ -1745,10 +1837,9 @@ function ChannelRoom({
                             serverStickers={serverStickers}
                           />
                         </div>
-                        <p className="mt-2 text-[0.75rem] text-muted">
-                          {replyCountByPost.get(m.id) ?? 0} repl
-                          {(replyCountByPost.get(m.id) ?? 0) === 1 ? "y" : "ies"} ·{" "}
-                          {formatCommunityTime(m.createdAt)}
+                        <p className="mt-3 text-[0.75rem] font-medium text-muted">
+                          {replyCountByPost.get(m.id) ?? 0}{" "}
+                          {(replyCountByPost.get(m.id) ?? 0) === 1 ? "reply" : "replies"}
                         </p>
                       </button>
                     </li>
@@ -1819,7 +1910,6 @@ function ChannelRoom({
                   onReply={() => {
                     if (isForum && forumThreadId) setReplyTo(m);
                     else if (isForum) setForumThreadId(m.id);
-                    else if (threadRootId) setReplyTo(m);
                     else setReplyTo(m);
                   }}
                   onCreateThread={
@@ -1886,7 +1976,7 @@ function ChannelRoom({
           <TypingIndicator names={typingUsers} />
 
           {scrolledUp && (
-            <div className="pointer-events-none absolute bottom-[calc(6.5rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-10 flex justify-center px-4 md:bottom-24">
+            <div className="pointer-events-none absolute bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-10 flex justify-center px-4 md:bottom-24">
               <button
                 type="button"
                 onClick={() => {
@@ -1901,17 +1991,14 @@ function ChannelRoom({
           )}
 
           {canPost ? (
-            <>
-              {isForum && !forumThreadId && (
-                <div className="px-3 pb-1 md:px-4">
-                  <input
-                    value={forumPostTitle}
-                    onChange={(e) => setForumPostTitle(e.target.value)}
-                    placeholder="Post title"
-                    className="w-full rounded-lg bg-[var(--community-input)] px-3 py-2 text-sm outline-none ring-1 ring-[var(--community-border)]"
-                  />
-                </div>
-              )}
+            isForum && !forumThreadId ? (
+              <div className="shrink-0 border-t border-[var(--community-border)] px-3 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] md:px-4 md:pb-3">
+                <Button className="w-full" onClick={() => setForumComposerOpen(true)}>
+                  <IconPlus size={16} className="mr-1.5 inline" />
+                  Create a post
+                </Button>
+              </div>
+            ) : (
             <ChannelMessageComposer
               channelName={group.name}
               draft={draft}
@@ -1928,14 +2015,12 @@ function ChannelRoom({
               sending={sending}
               placeholder={
                 isForum && forumThreadId
-                  ? "Reply to thread"
-                  : isForum
-                    ? `Create a post in #${group.name}`
-                    : threadRootId
-                      ? "Reply to thread"
-                      : group.kind === "announcement"
-                        ? `Post an announcement in #${group.name}`
-                        : `Message #${group.name}`
+                  ? "Reply to this post"
+                  : threadRootId
+                    ? "Reply to thread"
+                    : group.kind === "announcement"
+                      ? `Post an announcement in #${group.name}`
+                      : `Message #${group.name}`
               }
               serverEmoji={serverEmoji}
               serverStickers={serverStickers}
@@ -1950,10 +2035,9 @@ function ChannelRoom({
                   : null
               }
               onClearReply={() => setReplyTo(null)}
-              hint={isForum && !forumThreadId ? "You're creating a new forum post." : undefined}
               slowModeRemaining={slowCooldown}
             />
-            </>
+            )
           ) : group.kind === "announcement" && (isMember || isAppOwner || canConfigure) ? (
             <div className="mx-4 mb-4 rounded-lg border border-dashed border-[var(--community-border)] px-4 py-3 text-center">
               <p className="text-[0.875rem] text-muted">
@@ -2004,6 +2088,13 @@ function ChannelRoom({
             }}
           />
         )}
+
+      <ForumNewPostModal
+        open={forumComposerOpen}
+        channelName={group.name}
+        onClose={() => setForumComposerOpen(false)}
+        onSubmit={onCreateForumPost}
+      />
 
       <KeyboardShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
         </>

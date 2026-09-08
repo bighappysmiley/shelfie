@@ -105,7 +105,13 @@ export function ChannelFormModal({
           </Button>
           {tab === "general" && (
             <Button type="submit" disabled={busy || !name.trim()}>
-              {busy ? "Saving…" : channel ? "Save" : "Create"}
+              {busy
+                ? "Saving…"
+                : channel
+                  ? "Save"
+                  : kind === "forum"
+                    ? "Create forum"
+                    : "Create channel"}
             </Button>
           )}
         </div>
@@ -137,11 +143,26 @@ export function ChannelFormModal({
           onError={setError}
         />
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           <TextField label="Channel name" value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
-          <TextField label="Topic" value={topic} onChange={(e) => setTopic(e.target.value)} />
-          <TextArea label="Description" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
           <ChannelTypeSelect value={kind} onChange={setKind} />
+          <TextField
+            label="Topic"
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            placeholder={kind === "forum" ? "What should people post about here?" : "Optional topic"}
+          />
+          <TextArea
+            label="Description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={2}
+            placeholder={
+              kind === "forum"
+                ? "Shown at the top of the post list"
+                : "Optional longer description"
+            }
+          />
           <label className="block text-[0.8125rem] font-medium text-muted">
             Slow mode
             <select
