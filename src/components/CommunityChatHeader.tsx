@@ -8,6 +8,7 @@ export function CommunityChatHeader({
   serverName,
   channelName,
   channelKind = "text",
+  channelIcon,
   canManageChannel = false,
   memberCount,
   pinnedCount = 0,
@@ -22,6 +23,7 @@ export function CommunityChatHeader({
   serverName: string;
   channelName?: string;
   channelKind?: CommunityGroupKind;
+  channelIcon?: string | null;
   canManageChannel?: boolean;
   memberCount: number;
   pinnedCount?: number;
@@ -80,7 +82,7 @@ export function CommunityChatHeader({
           className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-[var(--community-channel-hover)]"
           aria-label="Open channels"
         >
-          <DiscordChannelIcon kind={channelKind} className="h-5 w-5" />
+          <DiscordChannelIcon kind={channelKind} icon={channelIcon} className="h-5 w-5" />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-base font-semibold text-foreground">
               {inChannel ? channelName : serverName}

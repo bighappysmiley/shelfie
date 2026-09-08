@@ -1245,6 +1245,7 @@ export async function createCommunityGroup(input: {
   categoryId?: string | null;
   userId: string;
   slowModeSeconds?: number;
+  icon?: string | null;
 }): Promise<CommunityGroup> {
   const categoryId = input.categoryId ?? null;
   const kind = input.kind ?? "text";
@@ -1262,13 +1263,14 @@ export async function createCommunityGroup(input: {
   const nextPos = ((siblings?.[0]?.position as number | undefined) ?? 0) + 1;
 
   const icon =
-    kind === "forum"
+    input.icon?.trim() ||
+    (kind === "forum"
       ? "forum"
       : kind === "voice"
         ? "voice"
         : kind === "announcement"
           ? "megaphone"
-          : "hash";
+          : "hash");
 
   const { data, error } = await supabase
     .from("community_groups")
@@ -1318,6 +1320,7 @@ export async function updateCommunityGroup(
     position?: number;
     serverId?: string;
     slowModeSeconds?: number;
+    icon?: string | null;
   },
 ): Promise<void> {
   const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -1328,6 +1331,7 @@ export async function updateCommunityGroup(
   if (patch.position !== undefined) row.position = patch.position;
   if (patch.categoryId !== undefined) row.category_id = patch.categoryId;
   if (patch.slowModeSeconds !== undefined) row.slow_mode_seconds = patch.slowModeSeconds;
+  if (patch.icon !== undefined) row.icon = patch.icon?.trim() || "hash";
 
   const { error } = await supabase.from("community_groups").update(row).eq("id", groupId);
   if (error) throw error;

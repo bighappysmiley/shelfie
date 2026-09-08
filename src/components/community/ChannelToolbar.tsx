@@ -205,7 +205,7 @@ export function ChannelToolbar({
     <header className="hidden shrink-0 border-b border-[var(--community-border)] shadow-[0_1px_0_0_var(--community-border)] md:block">
       <div className="flex h-12 items-center gap-1 px-4">
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
-          <DiscordChannelIcon kind={group.kind} className="h-5 w-5" />
+          <DiscordChannelIcon kind={group.kind} icon={group.icon} className="h-5 w-5" />
           <h2 className="truncate text-base font-semibold text-foreground">{group.name}</h2>
           <span className="hidden text-xl leading-none text-muted sm:inline">|</span>
           <p className="hidden min-w-0 truncate text-sm text-muted sm:block">

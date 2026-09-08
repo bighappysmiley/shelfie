@@ -1,5 +1,5 @@
 import type { CommunityGroupKind } from "@/lib/community-types";
-import { ChannelKindGlyph } from "@/components/community/ChannelKind";
+import { ChannelIcon } from "@/components/community/ChannelIcon";
 
 /** Large # icon for channel welcome (Discord-style). */
 export function DiscordHashIcon({ className = "h-12 w-12" }: { className?: string }) {
@@ -15,20 +15,15 @@ export function DiscordHashIcon({ className = "h-12 w-12" }: { className?: strin
   );
 }
 
-/** Sidebar channel icon — # for text, megaphone/forum/voice glyphs otherwise. */
+/** Sidebar / header channel icon — prefers stored room icon, falls back to kind. */
 export function DiscordChannelIcon({
   kind,
+  icon,
   className = "h-5 w-5",
 }: {
   kind: CommunityGroupKind;
+  icon?: string | null;
   className?: string;
 }) {
-  if (kind === "text") {
-    return (
-      <span className={`inline-flex w-5 shrink-0 items-center justify-center text-[1.25rem] leading-none text-muted ${className}`}>
-        #
-      </span>
-    );
-  }
-  return <ChannelKindGlyph kind={kind} className={`${className} shrink-0 text-muted`} />;
+  return <ChannelIcon icon={icon} kind={kind} className={className} />;
 }

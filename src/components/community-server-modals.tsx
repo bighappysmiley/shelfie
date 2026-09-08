@@ -4,6 +4,12 @@ import type { CommunityCategory, CommunityGroup, CommunityGroupKind, CommunitySe
 import { Button } from "@/components/Button";
 import { TextField, TextArea, FormError } from "@/components/form";
 import { ChannelTypeSelect } from "@/components/community/ChannelKind";
+import {
+  ChannelIconPicker,
+  defaultIconForKind,
+  isChannelIconSlug,
+  type ChannelIconSlug,
+} from "@/components/community/ChannelIcon";
 import { CommunityModal } from "@/components/CommunityModal";
 import { PermissionOverridesEditor } from "@/components/community-settings/PermissionOverridesEditor";
 
@@ -30,8 +36,19 @@ export function ChannelFormModal({
   onSaved: (g?: CommunityGroup) => Promise<void>;
   onArchive?: () => Promise<void>;
 }) {
+  const initialKind = channel?.kind ?? "text";
   const [name, setName] = useState(channel?.name ?? "");
-  const [kind, setKind] = useState<CommunityGroupKind>(channel?.kind ?? "text");
+  const [kind, setKind] = useState<CommunityGroupKind>(initialKind);
+  const [icon, setIcon] = useState<ChannelIconSlug>(
+    isChannelIconSlug(channel?.icon) ? channel.icon : defaultIconForKind(initialKind),
+  );
+  const [iconTouched, setIconTouched] = useState(
+    Boolean(
+      channel?.icon &&
+        isChannelIconSlug(channel.icon) &&
+        channel.icon !== defaultIconForKind(initialKind),
+    ),
+  );
   const [topic, setTopic] = useState(channel?.topic ?? "");
   const [description, setDescription] = useState(channel?.description ?? "");
   const [categoryId, setCategoryId] = useState(
@@ -41,6 +58,14 @@ export function ChannelFormModal({
   const [tab, setTab] = useState<"general" | "permissions">("general");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  const onKindChange = (next: CommunityGroupKind) => {
+    setKind(next);
+    if (!iconTouched || icon === defaultIconForKind(kind)) {
+      setIcon(defaultIconForKind(next));
+      setIconTouched(false);
+    }
+  };
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -65,6 +90,7 @@ export function ChannelFormModal({
           categoryId: categoryId || null,
           serverId,
           slowModeSeconds,
+          icon,
         });
         await onSaved();
       } else {
@@ -77,6 +103,7 @@ export function ChannelFormModal({
           categoryId: categoryId || null,
           userId,
           slowModeSeconds,
+          icon,
         });
         await onSaved(g);
       }
@@ -150,7 +177,15 @@ export function ChannelFormModal({
       ) : (
         <div className="space-y-4">
           <TextField label="Channel name" value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
-          <ChannelTypeSelect value={kind} onChange={setKind} />
+          <ChannelTypeSelect value={kind} onChange={onKindChange} />
+          <ChannelIconPicker
+            value={icon}
+            kind={kind}
+            onChange={(next) => {
+              setIcon(next);
+              setIconTouched(true);
+            }}
+          />
           <TextField
             label="Topic"
             value={topic}

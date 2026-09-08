@@ -33,7 +33,6 @@ import { Button } from "@/components/Button";
 import { TextField } from "@/components/form";
 import { EmptyState, ToggleRow } from "@/components/layout";
 import { AuthedImage } from "@/components/AuthedImage";
-import { ChannelKindGlyph } from "@/components/community/ChannelKind";
 import { DiscordChannelIcon } from "@/components/community/DiscordIcons";
 import { ChannelFormModal } from "@/components/community-server-modals";
 import { IconPlus, IconSettings } from "@/components/Icons";
@@ -278,7 +277,7 @@ export function ChannelsPanel({
                       key={ch.id}
                       className="flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-fill/60"
                     >
-                      <ChannelKindGlyph kind={ch.kind} className="h-4 w-4 shrink-0 text-muted" />
+                      <DiscordChannelIcon kind={ch.kind} icon={ch.icon} className="h-4 w-4" />
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-medium">{ch.name}</p>
                         <p className="truncate text-[0.75rem] text-muted">
@@ -361,7 +360,7 @@ export function ChannelsPanel({
             <ul className="space-y-1">
               {uncategorized.map((ch) => (
                 <li key={ch.id} className="flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-fill/60">
-                  <DiscordChannelIcon kind={ch.kind} />
+                  <DiscordChannelIcon kind={ch.kind} icon={ch.icon} />
                   <p className="min-w-0 flex-1 truncate font-medium">{ch.name}</p>
                   <button
                     type="button"

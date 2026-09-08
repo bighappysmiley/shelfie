@@ -75,7 +75,8 @@ import { CommunityChatHeader } from "@/components/CommunityChatHeader";
 import { CommunityDrawer } from "@/components/CommunityDrawer";
 import { CommunityMemberDrawer } from "@/components/CommunityMemberDrawer";
 import { CommunityActionSheet } from "@/components/CommunityActionSheet";
-import { ChannelKindGlyph, channelKindBanner, canPostInChannelKind } from "@/components/community/ChannelKind";
+import { channelKindBanner, canPostInChannelKind } from "@/components/community/ChannelKind";
+import { ChannelIcon } from "@/components/community/ChannelIcon";
 import { DiscordChannelIcon } from "@/components/community/DiscordIcons";
 import { ChannelMessageComposer } from "@/components/community/ChannelMessageComposer";
 import { ChannelToolbar } from "@/components/community/ChannelToolbar";
@@ -581,6 +582,7 @@ export function CommunityServerPage() {
               serverName={server.name}
               channelName={active?.name}
               channelKind={active?.kind ?? "text"}
+              channelIcon={active?.icon}
               canManageChannel={canManageActiveChannel}
               memberCount={isMember ? serverMembers.length : (server.memberCount ?? 0)}
               pinnedCount={mobileChrome?.pinnedCount ?? 0}
@@ -1044,7 +1046,7 @@ function ChannelSidebar({
                       : "text-muted hover:bg-[var(--community-channel-hover)] hover:text-foreground"
                   }`}
                 >
-                  <DiscordChannelIcon kind={ch.kind} />
+                  <DiscordChannelIcon kind={ch.kind} icon={ch.icon} />
                   <span className={`truncate ${unreadCounts?.get(ch.id) ? "font-semibold text-foreground" : ""}`}>
                     {ch.name}
                   </span>
@@ -1076,7 +1078,7 @@ function ChannelSidebar({
                 : "text-muted hover:bg-[var(--community-channel-hover)] hover:text-foreground"
             }`}
           >
-            <DiscordChannelIcon kind={ch.kind} />
+            <DiscordChannelIcon kind={ch.kind} icon={ch.icon} />
             <span className="truncate">{ch.name}</span>
           </button>
         ))}
@@ -1742,7 +1744,7 @@ function ChannelRoom({
         <div className="flex min-h-0 flex-1 flex-col">
           <CommunityScrollBody className="flex-1 px-4 py-6">
             <div className="mx-auto max-w-md text-center">
-              <ChannelKindGlyph kind="voice" className="mx-auto h-12 w-12 text-accent/60" />
+              <ChannelIcon icon={group.icon} kind="voice" className="mx-auto h-12 w-12 text-accent/60" />
               <p className="mt-3 text-[1rem] font-semibold">#{group.name}</p>
               <p className="mt-1 text-[0.875rem] text-muted">
                 Voice lounge with live audio. Join to talk with others in this channel.
@@ -1865,7 +1867,7 @@ function ChannelRoom({
                 <li className="px-4 py-12 text-center">
                   {isForum && !forumThreadId ? (
                     <div className="mx-auto max-w-sm">
-                      <ChannelKindGlyph kind="forum" className="mx-auto h-12 w-12 text-muted" />
+                      <ChannelIcon icon={group.icon} kind="forum" className="mx-auto h-12 w-12 text-muted" />
                       <p className="mt-3 text-[1.0625rem] font-semibold text-foreground">
                         No posts yet
                       </p>
