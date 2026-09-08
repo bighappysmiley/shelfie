@@ -1,12 +1,13 @@
 /**
- * Capture real Pine Bookkeeping screens (pixel-accurate) and compose
- * App Store frames WITHOUT cropping/distorting the UI.
+ * Compose Apple Books–style App Store mockups from live app screenshots.
+ * Light gray rounded card + iPhone frame + headline with brand-colored highlight.
  *
  * Usage: node scripts/appstore-screenshots.mjs
+ *        (reuses marketing/app-store/raw/*.png when present)
  */
 import { chromium } from "playwright-core";
 import sharp from "sharp";
-import { readFileSync, mkdirSync, writeFileSync, unlinkSync, existsSync } from "fs";
+import { readFileSync, mkdirSync, writeFileSync, existsSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { createClient } from "@supabase/supabase-js";
@@ -21,15 +22,11 @@ const SUPABASE_URL = "https://xdsnoqckoolwatgwtyfy.supabase.co";
 const ANON =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhkc25vcWNrb29sd2F0Z3d0eWZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgxMzMzODksImV4cCI6MjEwMzcwOTM4OX0.3Nx7Aq40Tj10-Woc_5gcPUNU23qJWWI8X7kdwKvHXgg";
 
-const BG = "#f0f2e8";
-const INK = "#1a2426";
-const ACCENT = "#3d5248";
-const MUTED = "#5c6864";
-
-/** Logical CSS viewport — matches real iPhone width the app was designed for. */
-const VIEW_W = 390;
-const VIEW_H = 844;
-const DPR = 3;
+/** Brand highlight — replaces Apple Books orange (pine canopy sage, readable on gray) */
+const HIGHLIGHT = "#6b9078";
+const CARD_BG = "#e8e8ed";
+const PAGE_BG = "#ffffff";
+const INK = "#1d1d1f";
 
 const FONT_BOLD = join(
   ROOT,
@@ -40,70 +37,79 @@ const FONT_MED = join(
   "node_modules/@fontsource/open-sauce-sans/files/open-sauce-sans-latin-500-normal.woff2",
 );
 
+const VIEW_W = 390;
+const VIEW_H = 844;
+const DPR = 3;
+
+/** headlineHtml may include <span class="hi">…</span> for brand highlight */
 const SHOTS = [
   {
     id: "01-catalog",
     path: "/library",
-    headline: "Your library, finally organized",
-    sub: "Catalog every book you own",
     wait: "text=Circe",
     prepare: "grid",
+    headlineHtml: `<span class="hi">Catalog</span> every book you own.`,
   },
   {
     id: "02-loans",
     path: "/loaned",
-    headline: "Know who has what",
-    sub: "Track loans and due dates",
     wait: "text=Jordan Lee",
+    headlineHtml: `<span class="hi">Know</span> who has what — track loans and due dates.`,
   },
   {
     id: "03-locations",
     path: "/locations",
-    headline: "Find any book in seconds",
-    sub: "Organize by room and shelf",
     wait: "text=Living Room",
+    headlineHtml: `<span class="hi">Find</span> any book in seconds by room and shelf.`,
   },
   {
     id: "04-team",
     path: "/settings",
-    headline: "Share one catalog with your household",
-    sub: "Invite family to a team library",
     wait: "text=Team Members",
     prepare: "team",
+    headlineHtml: `<span class="hi">Share</span> one catalog with your household.`,
   },
   {
     id: "05-add",
     path: "/add?mode=cover",
-    headline: "Add books in a snap",
-    sub: "Photograph a cover to start",
     wait: "text=Photograph",
+    headlineHtml: `<span class="hi">Add</span> books in a snap — photograph a cover to start.`,
   },
 ];
 
-function escapeXml(s) {
-  return s
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
-}
-
-/**
- * App Store frame: brand copy ABOVE an untouched full screenshot.
- * Rendered in Chromium with Open Sauce Sans (same as the app) — no SVG text glitches.
- */
-async function composeMockup({ browser, rawPath, outPath, headline, sub }) {
+async function composeAppleBooksStyle({ browser, rawPath, outPath, headlineHtml }) {
   const W = 1290;
-  const screenH = Math.round(W * (VIEW_H / VIEW_W));
+  // Card proportions similar to Apple Books store screenshots
+  const CARD_W = 1100;
+  const CARD_PAD_X = 72;
+  const CARD_PAD_TOP = 72;
+  const CARD_RADIUS = 56;
+
+  // Phone size inside card
+  const PHONE_W = 780;
+  const PHONE_H = Math.round(PHONE_W * (VIEW_H / VIEW_W));
+  const BEZEL = 18;
+  const RADIUS_OUTER = 68;
+  const RADIUS_INNER = 54;
+
   const bold = readFileSync(FONT_BOLD).toString("base64");
   const med = readFileSync(FONT_MED).toString("base64");
-  const img = readFileSync(rawPath).toString("base64");
+
+  // Fit screen into inner phone display
+  const innerW = PHONE_W - BEZEL * 2;
+  const innerH = PHONE_H - BEZEL * 2;
+  const screenBuf = await sharp(rawPath)
+    .resize(innerW, innerH, { fit: "fill" })
+    .png()
+    .toBuffer();
+  const screenB64 = screenBuf.toString("base64");
 
   const context = await browser.newContext({
-    viewport: { width: W, height: 100 },
-    deviceScaleFactor: 1,
+    viewport: { width: W, height: 200 },
+    deviceScaleFactor: 2,
   });
   const page = await context.newPage();
+
   await page.setContent(
     `<!doctype html>
 <html>
@@ -123,62 +129,95 @@ async function composeMockup({ browser, rawPath, outPath, headline, sub }) {
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     width: ${W}px;
-    background: ${BG};
-    color: ${INK};
-    font-family: "Open Sauce Sans", system-ui, sans-serif;
+    background: ${PAGE_BG};
+    font-family: "Open Sauce Sans", -apple-system, system-ui, sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 40px 0 48px;
   }
-  .band {
-    padding: 64px 56px 48px;
+  .card {
+    width: ${CARD_W}px;
+    background: ${CARD_BG};
+    border-radius: ${CARD_RADIUS}px;
+    padding: ${CARD_PAD_TOP}px ${CARD_PAD_X}px 64px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .headline {
     text-align: center;
-    background: ${BG};
-  }
-  .mark {
-    width: 36px;
-    height: 36px;
-    margin: 0 auto 28px;
-    display: block;
-  }
-  h1 {
-    font-size: 60px;
+    font-size: 54px;
     font-weight: 700;
-    line-height: 1.12;
-    letter-spacing: -0.02em;
-    color: ${ACCENT};
-    max-width: 20ch;
-    margin: 0 auto;
+    line-height: 1.16;
+    letter-spacing: -0.03em;
+    color: ${INK};
+    max-width: 15.5em;
+    margin-bottom: 56px;
   }
-  p {
-    margin-top: 16px;
-    font-size: 30px;
-    font-weight: 500;
-    line-height: 1.35;
-    color: ${MUTED};
+  .headline .hi {
+    color: ${HIGHLIGHT};
   }
-  img.screen {
+  .phone-wrap {
+    filter: drop-shadow(0 28px 48px rgba(0,0,0,0.22));
+  }
+  .phone {
+    width: ${PHONE_W}px;
+    height: ${PHONE_H}px;
+    background: #0b0b0d;
+    border-radius: ${RADIUS_OUTER}px;
+    padding: ${BEZEL}px;
+    position: relative;
+  }
+  .screen {
+    width: ${innerW}px;
+    height: ${innerH}px;
+    border-radius: ${RADIUS_INNER}px;
+    overflow: hidden;
+    background: #f0f2e8;
+    position: relative;
+  }
+  .screen img {
+    width: 100%;
+    height: 100%;
     display: block;
-    width: ${W}px;
-    height: ${screenH}px;
+    object-fit: fill;
+  }
+  /* Dynamic Island */
+  .island {
+    position: absolute;
+    top: ${BEZEL + 14}px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 126px;
+    height: 36px;
+    background: #0b0b0d;
+    border-radius: 20px;
+    z-index: 5;
   }
 </style>
 </head>
 <body>
-  <div class="band">
-    <svg class="mark" viewBox="0 0 48 48" aria-hidden="true">
-      <path fill="#8fa898" d="M24 8 40 34a2 2 0 0 1-1.8 2H9.8A2 2 0 0 1 8 34L24 8Z"/>
-      <path fill="#7a5c44" d="M21.25 36.5h5.5v6.25a1.5 1.5 0 0 1-1.5 1.5h-2.5a1.5 1.5 0 0 1-1.5-1.5V36.5Z"/>
-    </svg>
-    <h1>${escapeXml(headline)}</h1>
-    <p>${escapeXml(sub)}</p>
+  <div class="card">
+    <div class="headline">${headlineHtml}</div>
+    <div class="phone-wrap">
+      <div class="phone">
+        <div class="screen">
+          <img alt="" src="data:image/png;base64,${screenB64}"/>
+          <div class="island"></div>
+        </div>
+      </div>
+    </div>
   </div>
-  <img class="screen" alt="" src="data:image/png;base64,${img}"/>
 </body>
 </html>`,
     { waitUntil: "load" },
   );
+
   await page.evaluate(async () => {
     await document.fonts.ready;
   });
-  // Size viewport to full document
+  await page.waitForTimeout(200);
+
   const h = await page.evaluate(() => document.body.scrollHeight);
   await page.setViewportSize({ width: W, height: h });
   await page.screenshot({ path: outPath, fullPage: true, type: "png" });
@@ -205,7 +244,6 @@ async function preparePage(page, shot) {
       await page.waitForTimeout(600);
     }
   }
-
   if (shot.prepare === "team") {
     await page.evaluate(() => {
       const el = [...document.querySelectorAll("h2,h3,div,p,span,label")].find((n) =>
@@ -217,16 +255,14 @@ async function preparePage(page, shot) {
   }
 }
 
-async function main() {
-  mkdirSync(RAW_DIR, { recursive: true });
-  mkdirSync(OUT_DIR, { recursive: true });
-
-  // Remove obsolete AI/scan asset if still present
-  for (const stale of ["appstore-05-scan.png"]) {
-    const p = join(OUT_DIR, stale);
-    if (existsSync(p)) unlinkSync(p);
+async function captureIfNeeded(browser) {
+  const missing = SHOTS.some((s) => !existsSync(join(RAW_DIR, `${s.id}.png`)));
+  if (!missing && !process.env.FORCE_RECAPTURE) {
+    console.log("Using existing raw screenshots");
+    return;
   }
 
+  mkdirSync(RAW_DIR, { recursive: true });
   const sessionMeta = JSON.parse(readFileSync("/tmp/appstore-demo-session.json", "utf8"));
   const supabase = createClient(SUPABASE_URL, ANON);
   const { data: auth, error } = await supabase.auth.signInWithPassword({
@@ -244,12 +280,6 @@ async function main() {
     token_type: "bearer",
     user: auth.user,
   };
-
-  const browser = await chromium.launch({
-    executablePath: "/usr/bin/google-chrome-stable",
-    headless: true,
-    args: ["--no-sandbox", "--disable-dev-shm-usage", "--font-render-hinting=none"],
-  });
 
   const context = await browser.newContext({
     viewport: { width: VIEW_W, height: VIEW_H },
@@ -270,7 +300,7 @@ async function main() {
   );
 
   await context.addInitScript(() => {
-    const hide = () => {
+    setInterval(() => {
       for (const el of document.querySelectorAll("body *")) {
         if (!(el instanceof HTMLElement)) continue;
         const t = (el.textContent || "").replace(/\s+/g, " ").trim();
@@ -278,33 +308,27 @@ async function main() {
           (el.closest("a,div,span,button") || el).style.setProperty("display", "none", "important");
         }
       }
-    };
-    setInterval(hide, 400);
+    }, 400);
   });
 
   const page = await context.newPage();
   await page.goto(`${APP}/home`, { waitUntil: "networkidle", timeout: 60000 });
-  await page.waitForTimeout(1200);
-  if (/\/login|\/signup/.test(page.url())) {
-    throw new Error(`Auth failed, at ${page.url()}`);
-  }
+  await page.waitForTimeout(800);
 
   for (const shot of SHOTS) {
-    console.log("capturing", shot.id, shot.path);
+    console.log("capturing", shot.id);
     await page.goto(`${APP}${shot.path}`, { waitUntil: "networkidle", timeout: 60000 });
     try {
       await page.waitForSelector(shot.wait, { timeout: 20000 });
     } catch {
-      console.warn("selector miss", shot.id);
+      /* continue */
     }
     await hideChromeNoise(page);
     await preparePage(page, shot);
-    // Wait for cover images
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(1200);
     await page.evaluate(async () => {
-      const imgs = [...document.images];
       await Promise.all(
-        imgs.map(
+        [...document.images].map(
           (img) =>
             img.complete ||
             new Promise((res) => {
@@ -314,29 +338,40 @@ async function main() {
         ),
       );
     });
-
-    const rawPath = join(RAW_DIR, `${shot.id}.png`);
-    await page.screenshot({ path: rawPath, fullPage: false, type: "png" });
-
-    // Sanity: raw must match viewport*dpr
-    const meta = await sharp(rawPath).metadata();
-    console.log("  raw", meta.width, "x", meta.height, "expected", VIEW_W * DPR, "x", VIEW_H * DPR);
-
-    const outPath = join(OUT_DIR, `appstore-${shot.id}.png`);
-    await composeMockup({
-      browser,
-      rawPath,
-      outPath,
-      headline: shot.headline,
-      sub: shot.sub,
-    });
-    console.log("  wrote", outPath);
+    await page.screenshot({ path: join(RAW_DIR, `${shot.id}.png`), fullPage: false, type: "png" });
   }
 
   await page.goto(`${APP}/home`, { waitUntil: "networkidle" });
   await hideChromeNoise(page);
-  await page.waitForTimeout(800);
+  await page.waitForTimeout(600);
   await page.screenshot({ path: join(RAW_DIR, "00-home.png"), fullPage: false });
+  await context.close();
+}
+
+async function main() {
+  mkdirSync(OUT_DIR, { recursive: true });
+  mkdirSync(RAW_DIR, { recursive: true });
+
+  const browser = await chromium.launch({
+    executablePath: "/usr/bin/google-chrome-stable",
+    headless: true,
+    args: ["--no-sandbox", "--disable-dev-shm-usage", "--font-render-hinting=none"],
+  });
+
+  await captureIfNeeded(browser);
+
+  for (const shot of SHOTS) {
+    const rawPath = join(RAW_DIR, `${shot.id}.png`);
+    const outPath = join(OUT_DIR, `appstore-${shot.id}.png`);
+    console.log("composing", shot.id);
+    await composeAppleBooksStyle({
+      browser,
+      rawPath,
+      outPath,
+      headlineHtml: shot.headlineHtml,
+    });
+    console.log("  wrote", outPath);
+  }
 
   await browser.close();
 
@@ -344,15 +379,12 @@ async function main() {
     join(OUT_DIR, "README.md"),
     `# App Store screenshots
 
-Pixel-accurate captures from the live Pine Bookkeeping UI (\`${APP}\`),
-composed with marketing copy. Screenshots are **not cropped** — phone slot
-matches the capture aspect ratio exactly.
-
-- \`appstore-*.png\` — store frames (Open Sauce Sans + brand palette)
-- \`raw/\` — unmodified device screenshots (1170×2532)
+Apple Books–style frames (light gray card + iPhone) with **live Pine UI** inside.
+Headline highlights use brand green \`#3d5248\` (not orange).
 
 \`\`\`bash
 node scripts/appstore-screenshots.mjs
+FORCE_RECAPTURE=1 node scripts/appstore-screenshots.mjs   # refresh raws from production
 \`\`\`
 `,
   );

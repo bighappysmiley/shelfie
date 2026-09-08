@@ -1,12 +1,9 @@
 # App Store screenshots
 
-Pixel-accurate captures from the live Pine Bookkeeping UI (`https://shelfielibrary.netlify.app`),
-composed with marketing copy. Screenshots are **not cropped** — phone slot
-matches the capture aspect ratio exactly.
-
-- `appstore-*.png` — store frames (Open Sauce Sans + brand palette)
-- `raw/` — unmodified device screenshots (1170×2532)
+Apple Books–style frames (light gray card + iPhone) with **live Pine UI** inside.
+Headline highlights use brand green `#3d5248` (not orange).
 
 ```bash
 node scripts/appstore-screenshots.mjs
+FORCE_RECAPTURE=1 node scripts/appstore-screenshots.mjs   # refresh raws from production
 ```
