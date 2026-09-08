@@ -112,19 +112,28 @@ async function buildPhoneScreen(rawPath, displayW) {
 async function composeAppleBooksStyle({ browser, rawPath, outPath, headlineHtml }) {
   const bold = readFileSync(FONT_BOLD).toString("base64");
 
-  // Phone sizing — large, like Apple Books (~72% of canvas width)
-  const phoneOuterW = Math.round(CANVAS_W * 0.72);
-  const bezel = Math.round(phoneOuterW * 0.022);
+  // Keep side bezels visible (~88% width). Sit the phone on the bottom edge with
+  // only a slight clip so the bottom corners still read — heavy clipping hides the
+  // bezel and makes empty app UI look like a gray strip under the card.
+  const phoneOuterW = Math.round(CANVAS_W * 0.88);
+  const bezel = Math.round(phoneOuterW * 0.019);
   const displayW = phoneOuterW - bezel * 2;
   const { buf: screenBuf, displayH, statusH } = await buildPhoneScreen(rawPath, displayW);
   const phoneOuterH = displayH + bezel * 2;
-  const radiusOuter = Math.round(phoneOuterW * 0.14);
+  const radiusOuter = Math.round(phoneOuterW * 0.135);
   const radiusInner = Math.round(radiusOuter * 0.82);
 
   const screenB64 = screenBuf.toString("base64");
   const islandW = Math.round(displayW * 0.32);
   const islandH = Math.round(statusH * 0.72);
   const islandTop = bezel + Math.round((statusH - islandH) / 2);
+
+  const padTop = 56;
+  const headlineBlock = 148;
+  const minPhoneTop = padTop + headlineBlock + 20;
+  const clipBottom = Math.round(phoneOuterH * 0.045);
+  let phoneTop = CANVAS_H - phoneOuterH + clipBottom;
+  if (phoneTop < minPhoneTop) phoneTop = minPhoneTop;
 
   const context = await browser.newContext({
     viewport: { width: CANVAS_W, height: CANVAS_H },
@@ -155,29 +164,27 @@ async function composeAppleBooksStyle({ browser, rawPath, outPath, headlineHtml 
     width: ${CANVAS_W}px;
     height: ${CANVAS_H}px;
     background: ${CARD_BG};
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 96px 64px 0;
+    position: relative;
+    overflow: hidden;
   }
   .headline {
+    position: absolute;
+    top: ${padTop}px;
+    left: 48px;
+    right: 48px;
     text-align: center;
-    font-size: 56px;
+    font-size: 54px;
     font-weight: 700;
     line-height: 1.12;
     letter-spacing: -0.035em;
     color: ${INK};
-    max-width: 11.5em;
-    margin-bottom: 52px;
-    flex-shrink: 0;
   }
   .headline .hi { color: ${HIGHLIGHT}; }
   .phone-wrap {
-    flex: 1;
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    filter: drop-shadow(0 32px 60px rgba(0,0,0,0.28));
+    position: absolute;
+    top: ${phoneTop}px;
+    left: 50%;
+    transform: translateX(-50%);
   }
   .phone {
     width: ${phoneOuterW}px;
@@ -186,6 +193,7 @@ async function composeAppleBooksStyle({ browser, rawPath, outPath, headlineHtml 
     border-radius: ${radiusOuter}px;
     padding: ${bezel}px;
     position: relative;
+    box-shadow: 0 28px 50px rgba(0,0,0,0.26);
   }
   .screen {
     width: ${displayW}px;
@@ -397,6 +405,7 @@ Apple Books layout at **device aspect** (1290×2796):
 
 - Full-bleed light gray panel (not a wide card on white)
 - Large iPhone with Dynamic Island in a status band (does not cover UI)
+- Phone anchored to the bottom and clipped (no empty gray strip under the device)
 - Headline accent in brand forest green \`#3d5248\` (not orange)
 - Live Pine screenshots inside
 
