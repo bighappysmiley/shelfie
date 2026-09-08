@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import type { Ticket } from "@/lib/support-types";
 import { formatWhen } from "@/lib/support-types";
+import { isClosedTicketExpired, purgeExpiredClosedTickets } from "@/lib/support";
 import { APP_NAME } from "@/lib/brand";
 import { PageHeader, Group, GroupHeader } from "@/components/layout";
 import { SupportChat } from "@/components/SupportChat";
@@ -15,16 +16,17 @@ export function SupportPage() {
 
   const loadHistory = async () => {
     if (!user) return;
+    await purgeExpiredClosedTickets().catch(() => 0);
     const { data } = await supabase
       .from("tickets")
       .select("*")
       .eq("owner_id", user.id)
       .order("created_at", { ascending: false });
-    setTickets((data ?? []) as Ticket[]);
+    setTickets(((data ?? []) as Ticket[]).filter((t) => !isClosedTicketExpired(t)));
   };
 
   useEffect(() => {
-    loadHistory();
+    void loadHistory();
   }, [user]);
 
   const closedTickets = tickets.filter((t) => t.status === "closed");
@@ -39,7 +41,7 @@ export function SupportPage() {
       <SupportChat
         onTicketChange={(ticket) => {
           setActiveTicket(ticket);
-          if (ticket) loadHistory();
+          if (ticket) void loadHistory();
         }}
       />
 
@@ -57,11 +59,14 @@ export function SupportPage() {
               >
                 <span className="truncate text-[1.0625rem]">{ticket.subject}</span>
                 <span className="shrink-0 text-[0.9375rem] text-muted">
-                  Closed · {formatWhen(ticket.created_at)}
+                  Closed · {formatWhen(ticket.closed_at || ticket.created_at)}
                 </span>
               </Link>
             ))}
           </Group>
+          <p className="mt-2 px-1 text-[0.75rem] text-muted">
+            Closed conversations are removed automatically after 24 hours.
+          </p>
         </section>
       )}
     </div>

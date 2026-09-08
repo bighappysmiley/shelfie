@@ -1,10 +1,16 @@
 import { Link, useParams } from "react-router-dom";
+import { useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { SupportChat } from "@/components/SupportChat";
+import { purgeExpiredClosedTickets } from "@/lib/support";
 
 export function SupportTicketPage() {
   const { id } = useParams<{ id: string }>();
   const { isStaff } = useAuth();
+
+  useEffect(() => {
+    void purgeExpiredClosedTickets().catch(() => 0);
+  }, []);
 
   if (!id) {
     return (

@@ -11,6 +11,8 @@ export interface Ticket {
   subject: string;
   status: TicketStatus;
   created_at: string;
+  /** Set when the ticket is closed; used for 24h auto-delete. */
+  closed_at?: string | null;
 }
 
 export interface TicketMessage {

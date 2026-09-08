@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import type { Ticket } from "@/lib/support-types";
 import { formatWhen } from "@/lib/support-types";
+import { isClosedTicketExpired, purgeExpiredClosedTickets } from "@/lib/support";
 import { PageHeader, Group, EmptyState } from "@/components/layout";
 import { Button } from "@/components/Button";
 import { FormError, TextField, TextArea } from "@/components/form";
@@ -92,14 +93,15 @@ function SupportInboxTab() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    supabase
-      .from("tickets")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .then(({ data }) => {
-        setTickets((data ?? []) as Ticket[]);
-        setReady(true);
-      });
+    void (async () => {
+      await purgeExpiredClosedTickets().catch(() => 0);
+      const { data } = await supabase
+        .from("tickets")
+        .select("*")
+        .order("created_at", { ascending: false });
+      setTickets(((data ?? []) as Ticket[]).filter((t) => !isClosedTicketExpired(t)));
+      setReady(true);
+    })();
   }, []);
 
   const openCount = tickets.filter((t) => t.status === "open").length;
@@ -107,7 +109,7 @@ function SupportInboxTab() {
   return (
     <div>
       <p className="mb-3 px-1 text-[0.875rem] text-muted">
-        {openCount} open · {tickets.length} total
+        {openCount} open · {tickets.length} total · closed tickets auto-delete after 24h
       </p>
       {ready && tickets.length === 0 ? (
         <p className="px-1 text-[0.9375rem] text-muted">No support requests received.</p>
@@ -128,7 +130,12 @@ function SupportInboxTab() {
                   ticket.status === "open" ? "font-medium text-link" : "text-muted"
                 }`}
               >
-                {ticket.status === "open" ? "Open" : "Closed"} · {formatWhen(ticket.created_at)}
+                {ticket.status === "open" ? "Open" : "Closed"} ·{" "}
+                {formatWhen(
+                  ticket.status === "closed"
+                    ? ticket.closed_at || ticket.created_at
+                    : ticket.created_at,
+                )}
               </span>
             </Link>
           ))}
