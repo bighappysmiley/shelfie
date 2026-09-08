@@ -22,7 +22,7 @@ export interface CommunityProfile {
   currentReadingTitle: string | null;
   currentReadingAuthor: string | null;
   nitroEnabled?: boolean;
-  /** Pine Pro subscription (test mode) */
+  /** Pine Pro — granted via admin / billing, not a client toggle */
   proEnabled?: boolean;
   profileRing?: string | null;
 }

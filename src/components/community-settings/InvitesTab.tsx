@@ -79,7 +79,7 @@ export function InvitesTab({
               className="min-w-0 flex-1 bg-transparent outline-none"
             />
           </div>
-          <p className="mt-1 text-[0.75rem] text-muted">Boost Level 2+ perk. Save to apply.</p>
+          <p className="mt-1 text-[0.75rem] text-muted">Optional custom invite path. Save to apply.</p>
         </div>
       )}
 

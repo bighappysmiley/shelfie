@@ -47,7 +47,7 @@ export function EmojiTab({
       return;
     }
     if (emoji.length >= slotLimit) {
-      onError(`Emoji limit reached (${slotLimit}). Boost the server to unlock more slots.`);
+      onError(`Emoji limit reached (${slotLimit}).`);
       return;
     }
     setBusy(true);

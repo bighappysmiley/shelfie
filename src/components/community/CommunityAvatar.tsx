@@ -11,12 +11,12 @@ const SIZE_CLASSES = {
   xl: "h-24 w-24 text-3xl",
 } as const;
 
-const RING_PADDING: Record<keyof typeof SIZE_CLASSES, string> = {
-  xs: "p-[2px]",
-  sm: "p-[2.5px]",
-  md: "p-[3px]",
-  lg: "p-[3.5px]",
-  xl: "p-1",
+const DECO_PAD: Record<keyof typeof SIZE_CLASSES, string> = {
+  xs: "p-[3px]",
+  sm: "p-[4px]",
+  md: "p-[5px]",
+  lg: "p-[6px]",
+  xl: "p-[8px]",
 };
 
 type ProfilePick = Pick<
@@ -45,6 +45,7 @@ export function CommunityAvatar({
   className?: string;
   style?: React.CSSProperties;
   isServerBooster?: boolean;
+  /** Force-show decoration in pickers when a ring id is set on profile. */
   previewRing?: boolean;
 }) {
   const label =
@@ -54,15 +55,15 @@ export function CommunityAvatar({
   const initial = label[0]?.toUpperCase() ?? "?";
   const sizeClass = SIZE_CLASSES[size];
 
-  const showRing =
-    previewRing ||
+  const showDeco =
+    (previewRing && Boolean(profile?.profileRing)) ||
     canShowProfileRing({
       proEnabled: profile?.proEnabled,
       nitroEnabled: profile?.nitroEnabled,
       profileRing: profile?.profileRing,
       isServerBooster,
     });
-  const ringClass = showRing ? profileRingClass(profile?.profileRing) : null;
+  const decoClass = showDeco ? profileRingClass(profile?.profileRing) : null;
 
   const inner = profile?.avatarUrl ? (
     <AuthedImage
@@ -80,11 +81,16 @@ export function CommunityAvatar({
     </div>
   );
 
-  if (!ringClass) return <div className="inline-flex shrink-0">{inner}</div>;
+  if (!decoClass) return <div className="inline-flex shrink-0">{inner}</div>;
 
   return (
-    <div className={`inline-flex shrink-0 rounded-full ${ringClass} ${RING_PADDING[size]}`}>
-      <div className="rounded-full bg-[var(--community-chat)]">{inner}</div>
+    <div className={`profile-deco-wrap inline-flex shrink-0 ${DECO_PAD[size]} ${decoClass}`}>
+      <span className="profile-deco__aura" aria-hidden />
+      <span className="profile-deco__fx profile-deco__fx--a" aria-hidden />
+      <span className="profile-deco__fx profile-deco__fx--b" aria-hidden />
+      <div className="profile-deco__avatar relative z-[1] rounded-full bg-[var(--community-chat,#f5f6f1)]">
+        {inner}
+      </div>
     </div>
   );
 }
@@ -92,7 +98,7 @@ export function CommunityAvatar({
 export function ProBadge({ className = "" }: { className?: string }) {
   return (
     <span
-      className={`inline-flex items-center rounded px-1 py-0.5 text-[0.5625rem] font-bold uppercase tracking-wide profile-ring profile-ring--pro ${className}`}
+      className={`inline-flex items-center rounded px-1 py-0.5 text-[0.5625rem] font-bold uppercase tracking-wide bg-gradient-to-r from-[#3d8f6e] to-[#5bb88a] text-white ${className}`}
       title="Pine Pro"
     >
       Pro

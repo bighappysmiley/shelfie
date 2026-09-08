@@ -299,7 +299,7 @@ h1, h2, h3 {
   }
 }
 
-@keyframes profile-ring-shimmer {
+@keyframes profile-deco-shimmer {
   0% {
     background-position: 0% 50%;
   }
@@ -308,35 +308,169 @@ h1, h2, h3 {
   }
 }
 
-@keyframes profile-ring-spin {
+@keyframes profile-deco-spin {
   to {
     transform: rotate(360deg);
   }
 }
 
-@keyframes profile-ring-pulse {
+@keyframes profile-deco-pulse {
   0%,
   100% {
-    opacity: 1;
+    opacity: 0.85;
     transform: scale(1);
   }
   50% {
-    opacity: 0.85;
-    transform: scale(1.02);
+    opacity: 1;
+    transform: scale(1.06);
   }
 }
 
-.profile-ring {
-  background-size: 200% 200%;
+@keyframes profile-deco-wave {
+  0% {
+    transform: translateX(-18%) rotate(0deg);
+  }
+  50% {
+    transform: translateX(12%) rotate(8deg);
+  }
+  100% {
+    transform: translateX(-18%) rotate(0deg);
+  }
 }
 
-.profile-ring--pro,
-.profile-ring--nitro {
+@keyframes profile-deco-drift {
+  0%,
+  100% {
+    transform: translate(-8%, -4%) scale(1);
+    opacity: 0.55;
+  }
+  50% {
+    transform: translate(10%, 6%) scale(1.12);
+    opacity: 0.9;
+  }
+}
+
+@keyframes profile-deco-flare {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.92) rotate(0deg);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.08) rotate(12deg);
+  }
+}
+
+/* Nitro-style avatar frames: aura + moving fx layers, not a thin ring */
+.profile-deco-wrap {
+  position: relative;
+  isolation: isolate;
+  border-radius: 9999px;
+}
+
+.profile-deco__aura,
+.profile-deco__fx {
+  position: absolute;
+  inset: -18%;
+  border-radius: 9999px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.profile-deco__aura {
+  filter: blur(10px);
+  opacity: 0.75;
+}
+
+.profile-deco__fx {
+  inset: -8%;
+  mix-blend-mode: screen;
+}
+
+.profile-deco__avatar {
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
+}
+
+.profile-deco {
+  background-size: 220% 220%;
+}
+
+.profile-deco--pro,
+.profile-deco--nitro {
   background-image: linear-gradient(135deg, #f47fff, #7b61ff, #5865f2, #f47fff);
-  animation: profile-ring-shimmer 3s linear infinite;
+  animation: profile-deco-shimmer 3s linear infinite;
+}
+.profile-deco--pro .profile-deco__aura,
+.profile-deco--nitro .profile-deco__aura {
+  background: radial-gradient(circle, rgba(244, 127, 255, 0.85), transparent 70%);
+  animation: profile-deco-pulse 3s ease-in-out infinite;
+}
+.profile-deco--pro .profile-deco__fx--a,
+.profile-deco--nitro .profile-deco__fx--a {
+  background: conic-gradient(from 0deg, transparent, rgba(123, 97, 255, 0.7), transparent 40%);
+  animation: profile-deco-spin 8s linear infinite;
 }
 
-.profile-ring--holo {
+.profile-deco--tide {
+  background-image: linear-gradient(135deg, #1a5c45, #3d8f6e, #7dcea0, #1a5c45);
+  animation: profile-deco-shimmer 4s ease infinite;
+}
+.profile-deco--tide .profile-deco__aura {
+  background: radial-gradient(circle, rgba(61, 143, 110, 0.9), transparent 68%);
+  animation: profile-deco-pulse 2.8s ease-in-out infinite;
+}
+.profile-deco--tide .profile-deco__fx--a {
+  background:
+    radial-gradient(ellipse 70% 35% at 20% 80%, rgba(125, 206, 160, 0.95), transparent 60%),
+    radial-gradient(ellipse 60% 30% at 80% 70%, rgba(26, 92, 69, 0.8), transparent 55%);
+  animation: profile-deco-wave 5s ease-in-out infinite;
+  filter: blur(2px);
+}
+.profile-deco--tide .profile-deco__fx--b {
+  background: radial-gradient(ellipse 80% 40% at 50% 100%, rgba(168, 230, 200, 0.7), transparent 55%);
+  animation: profile-deco-wave 7s ease-in-out infinite reverse;
+  filter: blur(3px);
+}
+
+.profile-deco--mist {
+  background-image: linear-gradient(135deg, #c7d2d8, #e8eef2, #9db0bc, #c7d2d8);
+  animation: profile-deco-shimmer 6s ease infinite;
+}
+.profile-deco--mist .profile-deco__aura {
+  background: radial-gradient(circle, rgba(232, 238, 242, 0.95), transparent 70%);
+  animation: profile-deco-drift 6s ease-in-out infinite;
+  filter: blur(14px);
+}
+.profile-deco--mist .profile-deco__fx--a {
+  background:
+    radial-gradient(circle at 30% 40%, rgba(255, 255, 255, 0.9), transparent 45%),
+    radial-gradient(circle at 70% 60%, rgba(200, 214, 222, 0.85), transparent 50%);
+  animation: profile-deco-drift 8s ease-in-out infinite;
+  filter: blur(6px);
+}
+.profile-deco--mist .profile-deco__fx--b {
+  background: radial-gradient(circle at 55% 30%, rgba(255, 255, 255, 0.75), transparent 40%);
+  animation: profile-deco-drift 5.5s ease-in-out infinite reverse;
+  filter: blur(8px);
+}
+
+.profile-deco--flare {
+  background-image: linear-gradient(135deg, #ffd36a, #ff8a3d, #ffef9a, #ffd36a);
+  animation: profile-deco-shimmer 3.2s linear infinite;
+}
+.profile-deco--flare .profile-deco__aura {
+  background: radial-gradient(circle, rgba(255, 211, 106, 0.95), transparent 65%);
+  animation: profile-deco-flare 2.4s ease-in-out infinite;
+}
+.profile-deco--flare .profile-deco__fx--a {
+  background: conic-gradient(from 90deg, transparent 0 55%, rgba(255, 255, 255, 0.85), transparent 75%);
+  animation: profile-deco-spin 5s linear infinite;
+}
+
+.profile-deco--holo {
   background-image: linear-gradient(
     115deg,
     #f6a8ff,
@@ -347,32 +481,91 @@ h1, h2, h3 {
     #c8a8ff,
     #f6a8ff
   );
-  animation: profile-ring-shimmer 4s ease infinite;
+  animation: profile-deco-shimmer 4s ease infinite;
+}
+.profile-deco--holo .profile-deco__aura {
+  background: radial-gradient(circle, rgba(168, 212, 255, 0.85), transparent 70%);
+  animation: profile-deco-pulse 3.5s ease-in-out infinite;
+}
+.profile-deco--holo .profile-deco__fx--a {
+  background: conic-gradient(from 0deg, #f6a8ff88, #a8ffe888, #fff2a888, #c8a8ff88, #f6a8ff88);
+  animation: profile-deco-spin 10s linear infinite;
+  opacity: 0.55;
 }
 
-.profile-ring--sparkle {
+.profile-deco--sparkle {
   background-image: linear-gradient(135deg, #fef08a, #f472b6, #a78bfa, #38bdf8, #fef08a);
-  animation: profile-ring-spin 6s linear infinite;
+  animation: profile-deco-spin 6s linear infinite;
+}
+.profile-deco--sparkle .profile-deco__aura {
+  background: radial-gradient(circle, rgba(254, 240, 138, 0.8), transparent 70%);
+  animation: profile-deco-pulse 2.2s ease-in-out infinite;
+}
+.profile-deco--sparkle .profile-deco__fx--a {
+  background:
+    radial-gradient(circle at 20% 30%, #fff 0 2px, transparent 3px),
+    radial-gradient(circle at 70% 25%, #fff 0 1.5px, transparent 3px),
+    radial-gradient(circle at 40% 75%, #fff 0 2px, transparent 3px),
+    radial-gradient(circle at 80% 70%, #fff 0 1px, transparent 2px);
+  animation: profile-deco-spin 12s linear infinite reverse;
+  mix-blend-mode: plus-lighter;
 }
 
-.profile-ring--ember {
+.profile-deco--ember {
   background-image: linear-gradient(135deg, #fb923c, #ef4444, #fbbf24, #fb923c);
-  animation: profile-ring-pulse 2.5s ease-in-out infinite;
+  animation: profile-deco-pulse 2.5s ease-in-out infinite;
+}
+.profile-deco--ember .profile-deco__aura {
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.85), transparent 68%);
+  animation: profile-deco-pulse 2s ease-in-out infinite;
+}
+.profile-deco--ember .profile-deco__fx--a {
+  background: radial-gradient(ellipse at 50% 100%, rgba(251, 191, 36, 0.9), transparent 55%);
+  animation: profile-deco-wave 3.5s ease-in-out infinite;
 }
 
-.profile-ring--frost {
+.profile-deco--frost {
   background-image: linear-gradient(135deg, #67e8f9, #93c5fd, #e0f2fe, #67e8f9);
-  animation: profile-ring-shimmer 3.5s ease infinite;
+  animation: profile-deco-shimmer 3.5s ease infinite;
+}
+.profile-deco--frost .profile-deco__aura {
+  background: radial-gradient(circle, rgba(103, 232, 249, 0.85), transparent 70%);
+  animation: profile-deco-drift 5s ease-in-out infinite;
+}
+.profile-deco--frost .profile-deco__fx--a {
+  background: linear-gradient(120deg, transparent 30%, rgba(255, 255, 255, 0.7), transparent 55%);
+  animation: profile-deco-shimmer 2.8s linear infinite;
 }
 
-.profile-ring--aurora {
+.profile-deco--aurora {
   background-image: linear-gradient(135deg, #34d399, #22d3ee, #818cf8, #a78bfa, #34d399);
-  animation: profile-ring-shimmer 5s ease infinite;
+  animation: profile-deco-shimmer 5s ease infinite;
+}
+.profile-deco--aurora .profile-deco__aura {
+  background: radial-gradient(circle, rgba(52, 211, 153, 0.8), transparent 70%);
+  animation: profile-deco-pulse 4s ease-in-out infinite;
+}
+.profile-deco--aurora .profile-deco__fx--a {
+  background: linear-gradient(100deg, transparent, rgba(129, 140, 248, 0.75), transparent);
+  animation: profile-deco-wave 6s ease-in-out infinite;
 }
 
-.profile-ring--pulse {
+.profile-deco--pulse {
   background-image: linear-gradient(135deg, #a8c0ad, #6ee7b7, #a8c0ad);
-  animation: profile-ring-pulse 2s ease-in-out infinite;
+  animation: profile-deco-pulse 2s ease-in-out infinite;
+}
+.profile-deco--pulse .profile-deco__aura {
+  background: radial-gradient(circle, rgba(110, 231, 183, 0.85), transparent 70%);
+  animation: profile-deco-pulse 2s ease-in-out infinite;
+}
+
+/* Legacy class names still used by ProBadge / older markup */
+.profile-ring {
+  background-size: 200% 200%;
+}
+.profile-ring--pro,
+.profile-ring--nitro {
+  background-image: linear-gradient(135deg, #f47fff, #7b61ff, #5865f2, #f47fff);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -380,14 +573,10 @@ h1, h2, h3 {
     animation: none !important;
   }
 
-  .profile-ring--nitro,
-  .profile-ring--holo,
-  .profile-ring--sparkle,
-  .profile-ring--ember,
-  .profile-ring--frost,
-  .profile-ring--aurora,
-  .profile-ring--pulse {
-    animation: none;
+  .profile-deco,
+  .profile-deco__aura,
+  .profile-deco__fx {
+    animation: none !important;
   }
 }
 

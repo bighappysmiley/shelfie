@@ -1026,15 +1026,15 @@ export function RoleColorPicker({
         </p>
       )}
 
-      <div className="mt-4 rounded-xl border border-[#5865f2]/30 bg-gradient-to-r from-[#5865f2]/10 to-[#f47fff]/10 px-3 py-3">
-        <p className="text-[0.8125rem] font-semibold text-foreground">Pine Pro &amp; Boosts</p>
+      <div className="mt-4 rounded-xl border border-accent/25 bg-accent/5 px-3 py-3">
+        <p className="text-[0.8125rem] font-semibold text-foreground">Pine Pro</p>
         {canUseHolo ? (
           <p className="mt-0.5 text-[0.75rem] text-muted">
-            Holographic role colors unlocked via Pine Pro or Server Boost Level 2+.
+            Holographic role colors are available with Pine Pro.
           </p>
         ) : (
           <p className="mt-0.5 text-[0.75rem] text-muted">
-            Unlock holographic colors with Pine Pro (Account → Pro) or boost this server to Level 2.
+            Unlock holographic colors with Pine Pro (granted from the admin dashboard).
           </p>
         )}
       </div>

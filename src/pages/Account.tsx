@@ -21,7 +21,7 @@ import {
   updateCommunityProfile,
   uploadCommunityProfileImage,
 } from "@/lib/community-profile";
-import { PRO_PERKS, PROFILE_RINGS, type ProfileRingId } from "@/lib/pro";
+import { isProEnabled, PRO_PERKS, PROFILE_RINGS, type ProfileRingId } from "@/lib/pro";
 
 export function AccountPage() {
   const { user, signOut, userProfile, updateProfile, isStaff, isOwner } = useAuth();
@@ -46,7 +46,7 @@ export function AccountPage() {
   const [currentReadingTitle, setCurrentReadingTitle] = useState("");
   const [currentReadingAuthor, setCurrentReadingAuthor] = useState("");
   const [proEnabled, setProEnabled] = useState(false);
-  const [profileRing, setProfileRing] = useState<ProfileRingId | "">("pro");
+  const [profileRing, setProfileRing] = useState<ProfileRingId | "">("");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const avatarInput = useRef<HTMLInputElement>(null);
@@ -76,8 +76,9 @@ export function AccountPage() {
         setBooksReadCount(p.booksReadCount);
         setCurrentReadingTitle(p.currentReadingTitle ?? "");
         setCurrentReadingAuthor(p.currentReadingAuthor ?? "");
-        setProEnabled(Boolean(p.proEnabled ?? p.nitroEnabled));
-        setProfileRing((p.profileRing === "nitro" ? "pro" : (p.profileRing as ProfileRingId)) || "pro");
+        setProEnabled(isProEnabled(p));
+        const ring = p.profileRing === "nitro" ? "pro" : p.profileRing;
+        setProfileRing((ring as ProfileRingId) || "");
       })
       .catch(() => {});
   }, [user]);
@@ -104,8 +105,8 @@ export function AccountPage() {
         booksReadCount,
         currentReadingTitle: currentReadingTitle.trim() || null,
         currentReadingAuthor: currentReadingAuthor.trim() || null,
-        proEnabled,
-        profileRing: proEnabled ? profileRing || "pro" : null,
+        // Pro is admin-granted only — never write proEnabled from the client.
+        profileRing: proEnabled && profileRing ? profileRing : null,
       });
       setProfileMsg("Settings saved");
     } catch (err) {
@@ -147,7 +148,7 @@ export function AccountPage() {
     avatarUrl,
     proEnabled,
     nitroEnabled: proEnabled,
-    profileRing: proEnabled ? profileRing || "pro" : null,
+    profileRing: proEnabled && profileRing ? profileRing : null,
   };
 
   return (
@@ -170,7 +171,6 @@ export function AccountPage() {
                     profile={previewProfile}
                     size="lg"
                     className="ring-4 ring-surface"
-                    previewRing={proEnabled}
                   />
                 </div>
                 <div className="flex flex-1 flex-wrap gap-2 pb-1">
@@ -262,23 +262,41 @@ export function AccountPage() {
         <section>
           <GroupHeader>Plans &amp; Pro</GroupHeader>
           <Group>
-            <ToggleRow
-              label="Enable Pine Pro (test)"
-              hint="Local test toggle for profile perks. Billing plans live on Pricing."
-              checked={proEnabled}
-              onChange={setProEnabled}
+            <ListRow
+              title={proEnabled ? "Pine Pro active" : "Free plan"}
+              trailing={proEnabled ? "Pro" : "—"}
             />
             <Link
               to="/pricing"
               className="flex min-h-[44px] items-center justify-between px-4 py-3 hairline-b last:border-b-0 text-[1.0625rem] active:bg-fill-secondary"
             >
-              <span>View plans &amp; upgrade</span>
+              <span>View plans</span>
               <span className="text-muted">→</span>
             </Link>
             {proEnabled && (
               <div className="space-y-3 px-4 py-3 hairline-b">
-                <p className="text-[0.8125rem] font-medium text-muted">Animated profile ring</p>
+                <p className="text-[0.8125rem] font-medium text-muted">
+                  Avatar decoration (optional)
+                </p>
+                <p className="text-[0.75rem] text-muted">
+                  Pro does not force a decoration — pick one or leave it off.
+                </p>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <button
+                    type="button"
+                    onClick={() => setProfileRing("")}
+                    className={`flex flex-col items-center gap-2 rounded-xl border p-3 transition ${
+                      !profileRing
+                        ? "border-accent bg-accent/10"
+                        : "border-black/10 hover:bg-fill dark:border-white/10"
+                    }`}
+                  >
+                    <CommunityAvatar
+                      profile={{ ...previewProfile, profileRing: null }}
+                      size="md"
+                    />
+                    <span className="text-[0.75rem] font-medium">None</span>
+                  </button>
                   {PROFILE_RINGS.map((ring) => (
                     <button
                       key={ring.id}
@@ -307,7 +325,7 @@ export function AccountPage() {
               </div>
             )}
             <div className="px-4 py-3">
-              <p className="text-[0.8125rem] font-medium text-muted">Pro perks (test)</p>
+              <p className="text-[0.8125rem] font-medium text-muted">Included with Pro</p>
               <ul className="mt-2 space-y-1">
                 {PRO_PERKS.map((perk) => (
                   <li key={perk} className="text-[0.875rem] text-foreground">
@@ -318,7 +336,8 @@ export function AccountPage() {
             </div>
           </Group>
           <GroupFooter>
-            Boost a server to unlock perks for everyone at Level 2+, including holographic roles.
+            Pro is granted by an admin until billing is connected. Decorations and other Pro
+            cosmetics stay optional.
           </GroupFooter>
         </section>
 

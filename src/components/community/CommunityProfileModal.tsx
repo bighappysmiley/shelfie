@@ -73,7 +73,7 @@ export function CommunityProfileModal({
               )}
               <div className="relative px-4 pb-4">
                 <div className="-mt-8">
-                  <CommunityAvatar profile={profile} size="lg" previewRing={profile.proEnabled ?? profile.nitroEnabled} />
+                  <CommunityAvatar profile={profile} size="lg" />
                 </div>
                 <h2 className="mt-2 flex flex-wrap items-center gap-2 text-[1.125rem] font-semibold">
                   {label}

@@ -5,7 +5,10 @@ export type ProfileRingId =
   | "frost"
   | "aurora"
   | "pulse"
-  | "pro";
+  | "pro"
+  | "tide"
+  | "mist"
+  | "flare";
 
 /** @deprecated Use ProfileRingId with `pro` */
 export type LegacyProfileRingId = ProfileRingId | "nitro";
@@ -33,22 +36,23 @@ export const PROFILE_RINGS: {
   label: string;
   description: string;
 }[] = [
-  { id: "pro", label: "Pro", description: "Classic pink-purple shimmer" },
-  { id: "holo", label: "Holographic", description: "Iridescent rainbow spin" },
+  { id: "tide", label: "Tide", description: "Green glow with rolling waves" },
+  { id: "mist", label: "Mist", description: "Soft clouds drifting over your avatar" },
+  { id: "flare", label: "Flare", description: "Radiant light bursting from the edges" },
+  { id: "pro", label: "Prism", description: "Shifting pink–violet aura" },
+  { id: "holo", label: "Holographic", description: "Iridescent rainbow wash" },
   { id: "sparkle", label: "Sparkle", description: "Twinkling star field" },
-  { id: "ember", label: "Ember", description: "Warm glowing ring" },
-  { id: "frost", label: "Frost", description: "Cool icy pulse" },
+  { id: "ember", label: "Ember", description: "Warm firelight glow" },
+  { id: "frost", label: "Frost", description: "Cool icy shimmer" },
   { id: "aurora", label: "Aurora", description: "Northern lights sweep" },
   { id: "pulse", label: "Pulse", description: "Soft breathing glow" },
 ];
 
 export const PRO_PERKS = [
-  "Animated profile rings",
+  "Optional animated avatar decorations",
   "Holographic role colors",
-  "Larger uploads in chat (coming soon)",
-  "Custom emoji anywhere (coming soon)",
-  "Profile banner effects (test)",
   "Pro badge on your profile",
+  "Higher book and shelf-scan limits",
 ] as const;
 
 /** @deprecated Use PRO_PERKS */
@@ -56,23 +60,9 @@ export const NITRO_PERKS = PRO_PERKS;
 
 export const BOOST_PERKS_BY_LEVEL: Record<BoostLevel, string[]> = {
   0: ["Base server features"],
-  1: [
-    "Animated rings for boosters",
-    "50% more custom emoji slots",
-    "128 Kbps voice quality (test)",
-  ],
-  2: [
-    "Holographic role colors for everyone",
-    "Server banner slot",
-    "100 emoji slots",
-    "Invite splash background",
-  ],
-  3: [
-    "Vanity invite URL (test)",
-    "250 emoji slots",
-    "Banner GIF support (test)",
-    "Max boost perks unlocked",
-  ],
+  1: ["Extra custom emoji slots"],
+  2: ["Holographic role colors for everyone", "100 emoji slots"],
+  3: ["250 emoji slots", "Max boost perks unlocked"],
 };
 
 export function normalizeProfileRing(ring: string | null | undefined): ProfileRingId | null {
@@ -90,6 +80,7 @@ export function canUseHoloRoles(opts: {
   nitroEnabled?: boolean;
   boostLevel?: number;
 }): boolean {
+  // Boosts are no longer a self-serve unlock path; Pro grants holo.
   return isProEnabled(opts) || getBoostLevel(opts.boostLevel ?? 0) >= 2;
 }
 
@@ -99,6 +90,7 @@ export function canShowProfileRing(opts: {
   profileRing?: string | null;
   isServerBooster?: boolean;
 }): boolean {
+  // Decoration are opt-in: Pro alone does not force a frame.
   if (!normalizeProfileRing(opts.profileRing)) return false;
   return isProEnabled(opts) || Boolean(opts.isServerBooster);
 }
@@ -114,5 +106,5 @@ export function getEmojiSlotLimit(boostLevel: number): number {
 export function profileRingClass(ring: string | null | undefined): string | null {
   const normalized = normalizeProfileRing(ring);
   if (!normalized) return null;
-  return `profile-ring profile-ring--${normalized}`;
+  return `profile-deco profile-deco--${normalized}`;
 }

@@ -129,7 +129,9 @@ export async function updateCommunityProfile(
     booksReadCount?: number;
     currentReadingTitle?: string | null;
     currentReadingAuthor?: string | null;
+    /** @deprecated Ignored — Pro is admin-granted only. */
     nitroEnabled?: boolean;
+    /** @deprecated Ignored — Pro is admin-granted only. */
     proEnabled?: boolean;
     profileRing?: string | null;
   },
@@ -154,14 +156,7 @@ export async function updateCommunityProfile(
   if (patch.currentReadingAuthor !== undefined) {
     row.current_reading_author = patch.currentReadingAuthor?.trim() || null;
   }
-  if (patch.nitroEnabled !== undefined) {
-    row.nitro_enabled = patch.nitroEnabled;
-    row.pro_enabled = patch.nitroEnabled;
-  }
-  if (patch.proEnabled !== undefined) {
-    row.pro_enabled = patch.proEnabled;
-    row.nitro_enabled = patch.proEnabled;
-  }
+  // Never write pro_enabled / nitro_enabled from the client.
   if (patch.profileRing !== undefined) {
     const ring = patch.profileRing === "nitro" ? "pro" : patch.profileRing;
     row.profile_ring = ring || null;
@@ -172,9 +167,6 @@ export async function updateCommunityProfile(
     const legacyRow = { ...row };
     delete legacyRow.pro_enabled;
     if (legacyRow.profile_ring !== undefined) delete legacyRow.profile_ring;
-    if (patch.nitroEnabled !== undefined || patch.proEnabled !== undefined) {
-      legacyRow.nitro_enabled = patch.proEnabled ?? patch.nitroEnabled;
-    }
     ({ error } = await supabase.from("user_profiles").upsert(legacyRow));
   }
   if (error) throw error;

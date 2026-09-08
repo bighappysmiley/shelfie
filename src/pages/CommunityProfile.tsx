@@ -64,7 +64,7 @@ export function CommunityProfilePage() {
             )}
             <div className="px-5 pb-6">
               <div className="-mt-10">
-                <CommunityAvatar profile={profile} size="xl" previewRing={profile.proEnabled ?? profile.nitroEnabled} />
+                <CommunityAvatar profile={profile} size="xl" />
               </div>
               <h1 className="mt-3 flex flex-wrap items-center gap-2 text-[1.375rem] font-bold">
                 {label}

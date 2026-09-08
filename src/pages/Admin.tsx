@@ -197,6 +197,7 @@ function UsersTab() {
                 <span className="text-[0.8125rem] text-muted">
                   {u.communityUsername ? `@${u.communityUsername}` : u.userId.slice(0, 8)}
                   {u.email ? ` · ${u.email}` : ""} · {u.subscriptionTier}
+                  {u.proEnabled ? " · Pro" : ""}
                 </span>
               </button>
             ))
@@ -265,7 +266,7 @@ function UserModPanel({
       </div>
 
       <div>
-        <label className="mb-1 block text-[0.8125rem] font-medium">Subscription tier</label>
+        <label className="mb-1 block text-[0.8125rem] font-medium">Grant Pro / subscription tier</label>
         <select
           value={tier}
           onChange={(e) => setTier(e.target.value as SubscriptionTier)}
@@ -278,6 +279,7 @@ function UserModPanel({
           ))}
         </select>
         <p className="mt-1 text-[0.75rem] text-muted">
+          {user.proEnabled || tier !== "free" ? "Pro cosmetics unlocked for paid tiers." : "Free — no Pro."}{" "}
           Effective limits: {limits.maxBooks} books · {limits.maxShelfScansPerMonth} shelf scans/mo
         </p>
       </div>
@@ -323,7 +325,7 @@ function UserModPanel({
           }
         }}
       >
-        Save tier / limits
+        Save Pro / limits
       </Button>
 
       <div className="space-y-2 border-t border-[var(--border)] pt-4">

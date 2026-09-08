@@ -8,7 +8,6 @@ export type SettingsTab =
   | "emoji"
   | "stickers"
   | "widget"
-  | "boost"
   | "onboarding"
   | "verification"
   | "notifications"
@@ -33,7 +32,6 @@ export const SETTINGS_TAB_LABELS: Record<SettingsTab, string> = {
   emoji: "Emoji",
   stickers: "Stickers",
   widget: "Widget",
-  boost: "Server Boost",
   onboarding: "Onboarding",
   verification: "Verification",
   notifications: "Notifications",
@@ -46,5 +44,7 @@ export const SETTINGS_TAB_LABELS: Record<SettingsTab, string> = {
 
 export function parseSettingsTab(value: string | null): SettingsTab {
   const tabs = Object.keys(SETTINGS_TAB_LABELS) as SettingsTab[];
+  // Legacy ?tab=boost → overview (boost UI removed)
+  if (value === "boost") return "overview";
   return tabs.includes(value as SettingsTab) ? (value as SettingsTab) : "overview";
 }

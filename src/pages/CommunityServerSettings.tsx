@@ -40,7 +40,6 @@ import { AuthedImage } from "@/components/AuthedImage";
 import { CommunityDiscordShell, CommunityPanelHeader, CommunityScrollBody } from "@/components/CommunityRail";
 import { CommunitySettingsSheet } from "@/components/community-settings/CommunitySettingsSheet";
 import { AutomodTab } from "@/components/community-settings/AutomodTab";
-import { BoostTab } from "@/components/community-settings/BoostTab";
 import { EmojiTab } from "@/components/community-settings/EmojiTab";
 import { IntegrationsTab } from "@/components/community-settings/IntegrationsTab";
 import { StickersTab } from "@/components/community-settings/StickersTab";
@@ -151,7 +150,6 @@ export function CommunityServerSettingsPage() {
         items: [
           { id: "onboarding", label: "Onboarding" },
           { id: "widget", label: "Widget" },
-          { id: "boost", label: "Server Boost", badge: server?.boostCount },
         ],
       },
       {
@@ -176,7 +174,7 @@ export function CommunityServerSettingsPage() {
         items: [{ id: "danger", label: "Delete server" }],
       },
     ],
-    [members.length, joinRequests.length, server?.boostCount],
+    [members.length, joinRequests.length],
   );
 
   const selectTab = useCallback(
@@ -635,10 +633,6 @@ export function CommunityServerSettingsPage() {
           )}
 
           {tab === "widget" && <WidgetTab serverId={serverId} serverName={server.name} />}
-
-          {tab === "boost" && user && (
-            <BoostTab server={server} userId={user.id} onChanged={refresh} onError={setError} />
-          )}
 
           {tab === "onboarding" && (
             <OnboardingTab
