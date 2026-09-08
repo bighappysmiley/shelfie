@@ -7,7 +7,7 @@ import {
   forwardRef,
   type FormEvent,
 } from "react";
-import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
+import { Link, useNavigate, useParams, useLocation, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { useLibrary } from "@/lib/library";
 import { supabase } from "@/lib/supabase";
@@ -65,7 +65,7 @@ import {
 import { Button } from "@/components/Button";
 import { FormError } from "@/components/form";
 import { EmptyState } from "@/components/layout";
-import { IconArrowLeft, IconChat, IconDots, IconList, IconPlus, IconReply, IconSearch, IconSettings } from "@/components/Icons";
+import { IconArrowLeft, IconChat, IconDots, IconList, IconPlus, IconReply, IconSearch, IconSettings, IconUserPlus } from "@/components/Icons";
 import { communityAuthorLabel, communityShortName } from "@/lib/community-identity";
 import { isAppOwnerUser, listAppOwnerUserIds } from "@/lib/app-owner";
 import { getChatRoleIconUrl } from "@/lib/chat-badges";
@@ -204,6 +204,7 @@ export function CommunityServerPage() {
   const { serverId, channelId } = useParams<{ serverId: string; channelId?: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, userProfile, isOwner } = useAuth();
   const { libraries } = useLibrary();
 
@@ -424,6 +425,7 @@ export function CommunityServerPage() {
   const channelIds = useMemo(() => channels.map((c) => c.id), [channels]);
   const navigateHighlightId =
     (location.state as { highlightMessageId?: string } | null)?.highlightMessageId ?? null;
+  const forumPostParam = searchParams.get("post");
 
   useEffect(() => {
     if (loading || !serverId || channels.length === 0 || channelId) return;
@@ -647,6 +649,13 @@ export function CommunityServerPage() {
               onToggleVoiceMute={() => setVoicePrefs(toggleVoiceMuted())}
               onToggleVoiceDeafen={() => setVoicePrefs(toggleVoiceDeafened())}
               initialHighlightMessageId={navigateHighlightId}
+              initialForumPostId={forumPostParam}
+              onForumPostChange={(postId) => {
+                const next = new URLSearchParams(searchParams);
+                if (postId) next.set("post", postId);
+                else next.delete("post");
+                setSearchParams(next, { replace: true });
+              }}
               onMobileChrome={setMobileChrome}
             />
           ) : (
@@ -710,6 +719,20 @@ export function CommunityServerPage() {
             >
               <IconList size={18} />
             </Link>
+            {canInviteMembers && (
+              <button
+                type="button"
+                onClick={() => {
+                  setInviteOpen(true);
+                  setMobileNavOpen(false);
+                }}
+                className="rounded-lg p-2 text-muted hover:bg-[var(--community-hover)] hover:text-foreground"
+                title="Invite people"
+                aria-label="Invite people"
+              >
+                <IconUserPlus size={18} />
+              </button>
+            )}
             {canConfigure && serverId ? (
               <Link
                 to={`/community/s/${serverId}/settings`}
@@ -833,7 +856,9 @@ export function CommunityServerPage() {
           channelIds={channelIds}
           channelNames={channelNames}
           onJumpTo={(chId, msgId) => {
-            navigate(`/community/s/${serverId}/${chId}`, { state: { highlightMessageId: msgId } });
+            navigate(`/community/s/${serverId}/${chId}?post=${msgId}`, {
+              state: { highlightMessageId: msgId },
+            });
           }}
         />
       )}
@@ -1116,6 +1141,8 @@ function ChannelRoom({
   onToggleVoiceMute,
   onToggleVoiceDeafen,
   initialHighlightMessageId,
+  initialForumPostId = null,
+  onForumPostChange,
   onMobileChrome,
 }: {
   group: CommunityGroup;
@@ -1153,6 +1180,8 @@ function ChannelRoom({
   onToggleVoiceMute?: () => void;
   onToggleVoiceDeafen?: () => void;
   initialHighlightMessageId?: string | null;
+  initialForumPostId?: string | null;
+  onForumPostChange?: (postId: string | null) => void;
   onMobileChrome?: (chrome: {
     pinnedCount: number;
     pinsOpen: boolean;
@@ -1332,7 +1361,13 @@ function ChannelRoom({
   const kindBanner = channelKindBanner(group.kind);
 
   const forumPosts = useMemo(
-    () => (isForum ? messages.filter((m) => !m.replyToId && m.kind !== "system") : []),
+    () =>
+      isForum
+        ? messages
+            .filter((m) => !m.replyToId && m.kind !== "system")
+            .slice()
+            .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        : [],
     [isForum, messages],
   );
   const replyCountByPost = useMemo(() => {
@@ -1484,7 +1519,33 @@ function ChannelRoom({
     setJoinedVoice(false);
     setSearchOpen(false);
     setSearchQuery("");
+    onForumPostChange?.(null);
   }, [group.id, group.kind]);
+
+  useEffect(() => {
+    if (!isForum) return;
+    if (initialForumPostId) setForumThreadId(initialForumPostId);
+  }, [isForum, initialForumPostId, group.id]);
+
+  useEffect(() => {
+    if (!isForum || !initialHighlightMessageId || messages.length === 0) return;
+    const target = messages.find((m) => m.id === initialHighlightMessageId);
+    if (!target) return;
+    const rootId = target.replyToId || target.id;
+    setForumThreadId(rootId);
+    onForumPostChange?.(rootId);
+    // Intentionally omit onForumPostChange from deps — parent passes an inline callback.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isForum, initialHighlightMessageId, messages]);
+
+  const openForumPost = useCallback(
+    (postId: string | null) => {
+      setForumThreadId(postId);
+      setReplyTo(null);
+      onForumPostChange?.(postId);
+    },
+    [onForumPostChange],
+  );
 
   useEffect(() => {
     if (!onMobileChrome) return;
@@ -1606,7 +1667,7 @@ function ChannelRoom({
     });
     await load();
     onChanged();
-    if (created?.id) setForumThreadId(created.id);
+    if (created?.id) openForumPost(created.id);
   };
 
   const channelToolbarProps = {
@@ -1746,10 +1807,7 @@ function ChannelRoom({
             <div className="shrink-0 border-b border-[var(--community-border)] px-3 py-2.5 md:px-4">
               <button
                 type="button"
-                onClick={() => {
-                  setForumThreadId(null);
-                  setReplyTo(null);
-                }}
+                onClick={() => openForumPost(null)}
                 className="inline-flex items-center gap-1.5 text-[0.875rem] font-medium text-link"
               >
                 <IconArrowLeft size={14} />
@@ -1804,14 +1862,32 @@ function ChannelRoom({
             <ul className={`space-y-1 ${isForum && !forumThreadId ? "space-y-3 px-0 pb-4" : ""}`}>
               {!isForum && <ChannelWelcome group={group} />}
               {visibleMessages.length === 0 && (
-                <li className="px-4 py-12 text-center text-muted">
-                  {isForum
-                    ? forumThreadId
-                      ? "No replies yet. Start the conversation!"
-                      : `No posts yet in #${group.name}. Create the first one.`
-                    : group.kind === "announcement"
-                      ? `Welcome to #${group.name}. Announcements appear here.`
-                      : `Welcome to #${group.name}. Say hello!`}
+                <li className="px-4 py-12 text-center">
+                  {isForum && !forumThreadId ? (
+                    <div className="mx-auto max-w-sm">
+                      <ChannelKindGlyph kind="forum" className="mx-auto h-12 w-12 text-muted" />
+                      <p className="mt-3 text-[1.0625rem] font-semibold text-foreground">
+                        No posts yet
+                      </p>
+                      <p className="mt-1 text-[0.875rem] text-muted">
+                        Start the first discussion in #{group.name}.
+                      </p>
+                      {canPost && (
+                        <Button className="mt-4" onClick={() => setForumComposerOpen(true)}>
+                          <IconPlus size={16} className="mr-1.5 inline" />
+                          Create a post
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-muted">
+                      {isForum
+                        ? "No replies yet. Start the conversation!"
+                        : group.kind === "announcement"
+                          ? `Welcome to #${group.name}. Announcements appear here.`
+                          : `Welcome to #${group.name}. Say hello!`}
+                    </p>
+                  )}
                 </li>
               )}
               {isForum && !forumThreadId
@@ -1820,7 +1896,7 @@ function ChannelRoom({
                       <button
                         type="button"
                         className="w-full rounded-xl border border-[var(--community-border)] bg-[var(--community-panel)] p-4 text-left transition hover:bg-[var(--community-hover)] active:scale-[0.99]"
-                        onClick={() => setForumThreadId(m.id)}
+                        onClick={() => openForumPost(m.id)}
                       >
                         <p className="text-[1rem] font-semibold leading-snug text-foreground">
                           {m.forumTitle || m.body.split("\n")[0]?.slice(0, 80) || "Untitled post"}
@@ -1909,7 +1985,7 @@ function ChannelRoom({
                   }
                   onReply={() => {
                     if (isForum && forumThreadId) setReplyTo(m);
-                    else if (isForum) setForumThreadId(m.id);
+                    else if (isForum) openForumPost(m.id);
                     else setReplyTo(m);
                   }}
                   onCreateThread={

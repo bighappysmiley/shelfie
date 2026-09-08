@@ -1,16 +1,14 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   archiveCommunityGroup,
   createCommunityCategory,
-  createCommunityGroup,
   createServerRole,
   deleteCommunityCategory,
   deleteServerRole,
   renameCommunityCategory,
   reviewJoinRequest,
   reorderServerRoles,
-  updateCommunityGroup,
   updateServerRole,
   updateChannelPosition,
   uploadCommunityImage,
@@ -19,7 +17,6 @@ import {
   KIND_LABELS,
   type CommunityCategory,
   type CommunityGroup,
-  type CommunityGroupKind,
   type CommunityJoinRequest,
   type CommunityServerRole,
 } from "@/lib/community-types";
@@ -33,10 +30,12 @@ import {
 } from "@/lib/role-color";
 import { CommunityModal } from "@/components/CommunityModal";
 import { Button } from "@/components/Button";
-import { TextField, TextArea, SelectField } from "@/components/form";
+import { TextField } from "@/components/form";
 import { EmptyState, ToggleRow } from "@/components/layout";
 import { AuthedImage } from "@/components/AuthedImage";
-import { ChannelTypeSelect, ChannelKindGlyph } from "@/components/community/ChannelKind";
+import { ChannelKindGlyph } from "@/components/community/ChannelKind";
+import { DiscordChannelIcon } from "@/components/community/DiscordIcons";
+import { ChannelFormModal } from "@/components/community-server-modals";
 import { IconPlus, IconSettings } from "@/components/Icons";
 import { PermissionOverridesEditor } from "@/components/community-settings/PermissionOverridesEditor";
 
@@ -170,7 +169,7 @@ export function ChannelsPanel({
         Organize channels into categories — just like Discord. Create a category, then add channels under it.
       </p>
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <input
           value={newCategory}
           onChange={(e) => setNewCategory(e.target.value)}
@@ -200,6 +199,14 @@ export function ChannelsPanel({
         >
           <IconPlus size={16} />
           Category
+        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => setEditor({ type: "channel", categoryId: orderedCategories[0]?.id ?? null })}
+        >
+          <IconPlus size={16} />
+          Channel
         </Button>
       </div>
 
@@ -354,7 +361,7 @@ export function ChannelsPanel({
             <ul className="space-y-1">
               {uncategorized.map((ch) => (
                 <li key={ch.id} className="flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-fill/60">
-                  <span className="text-muted">#</span>
+                  <DiscordChannelIcon kind={ch.kind} />
                   <p className="min-w-0 flex-1 truncate font-medium">{ch.name}</p>
                   <button
                     type="button"
@@ -372,27 +379,41 @@ export function ChannelsPanel({
         )}
       </div>
 
-      {orderedCategories.length === 0 && (
+      {orderedCategories.length === 0 && uncategorized.length === 0 && (
         <EmptyState
-          title="No categories"
-          description="Create a category, then add channels under it."
+          title="No channels yet"
+          description="Create a category or add a channel to get started."
         />
       )}
 
       {editor?.type === "channel" && (
-        <ChannelEditorModal
-          serverId={serverId}
-          userId={userId}
+        <ChannelFormModal
+          title={editor.channel ? "Channel settings" : "Create channel"}
           categories={orderedCategories}
-          roles={roles}
           channel={editor.channel}
           defaultCategoryId={editor.categoryId}
+          serverId={serverId}
+          userId={userId}
+          roles={roles}
           onClose={() => setEditor(null)}
           onSaved={async () => {
             setEditor(null);
             await onChanged();
           }}
-          onError={onError}
+          onArchive={
+            editor.channel
+              ? async () => {
+                  if (!confirm(`Archive #${editor.channel!.name}?`)) return;
+                  try {
+                    await archiveCommunityGroup(editor.channel!.id);
+                    setEditor(null);
+                    await onChanged();
+                  } catch (err) {
+                    onError(err instanceof Error ? err.message : "Could not archive");
+                  }
+                }
+              : undefined
+          }
         />
       )}
 
@@ -418,166 +439,6 @@ export function ChannelsPanel({
         />
       )}
     </div>
-  );
-}
-
-function ChannelEditorModal({
-  serverId,
-  userId,
-  categories,
-  roles,
-  channel,
-  defaultCategoryId,
-  onClose,
-  onSaved,
-  onError,
-}: {
-  serverId: string;
-  userId: string;
-  categories: CommunityCategory[];
-  roles: CommunityServerRole[];
-  channel?: CommunityGroup;
-  defaultCategoryId: string | null;
-  onClose: () => void;
-  onSaved: () => Promise<void>;
-  onError: (msg: string) => void;
-}) {
-  const editing = Boolean(channel);
-  const [tab, setTab] = useState<"general" | "permissions">("general");
-  const [name, setName] = useState(channel?.name ?? "");
-  const [topic, setTopic] = useState(channel?.topic ?? "");
-  const [description, setDescription] = useState(channel?.description ?? "");
-  const [kind, setKind] = useState<CommunityGroupKind>(channel?.kind ?? "text");
-  const [categoryId, setCategoryId] = useState(channel?.categoryId ?? defaultCategoryId ?? categories[0]?.id ?? "");
-  const [busy, setBusy] = useState(false);
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) return;
-    if (!categoryId) {
-      onError("Create a category first.");
-      return;
-    }
-    setBusy(true);
-    onError("");
-    try {
-      if (editing && channel) {
-        await updateCommunityGroup(channel.id, {
-          name: name.trim(),
-          topic: topic.trim() || null,
-          description: description.trim() || null,
-          kind,
-          categoryId: categoryId || null,
-          serverId,
-        });
-      } else {
-        await createCommunityGroup({
-          serverId,
-          userId,
-          name: name.trim(),
-          topic: topic.trim() || undefined,
-          description: description.trim() || undefined,
-          kind,
-          categoryId: categoryId || null,
-        });
-      }
-      await onSaved();
-    } catch (err) {
-      onError(err instanceof Error ? err.message : "Could not save channel");
-      setBusy(false);
-    }
-  };
-
-  return (
-    <CommunityModal
-      open
-      onClose={onClose}
-      title={editing ? "Edit channel" : "Create channel"}
-      onSubmit={submit}
-      footer={
-        <div className="flex flex-wrap justify-between gap-2">
-          {editing && channel && (
-            <Button
-              type="button"
-              variant="danger"
-              size="sm"
-              disabled={busy}
-              onClick={async () => {
-                if (!confirm(`Archive #${channel.name}?`)) return;
-                setBusy(true);
-                try {
-                  await archiveCommunityGroup(channel.id);
-                  await onSaved();
-                } catch (err) {
-                  onError(err instanceof Error ? err.message : "Could not archive");
-                  setBusy(false);
-                }
-              }}
-            >
-              Archive
-            </Button>
-          )}
-          <div className="ml-auto flex gap-2">
-            <Button type="button" variant="ghost" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={busy || !name.trim() || !categoryId}>
-              {busy ? "Saving…" : editing ? "Save" : "Create"}
-            </Button>
-          </div>
-        </div>
-      }
-    >
-      {editing && (
-        <div className="mb-4 flex gap-1 rounded-lg bg-fill p-1">
-          {(["general", "permissions"] as const).map((id) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setTab(id)}
-              className={`flex-1 rounded-md px-3 py-1.5 text-[0.8125rem] font-medium capitalize ${
-                tab === id ? "bg-surface shadow-sm" : "text-muted"
-              }`}
-            >
-              {id}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {tab === "permissions" && editing && channel ? (
-        <PermissionOverridesEditor
-          serverId={serverId}
-          targetType="channel"
-          targetId={channel.id}
-          roles={roles}
-          onError={onError}
-        />
-      ) : (
-      <div className="space-y-3">
-        <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
-        <TextField label="Topic" value={topic} onChange={(e) => setTopic(e.target.value)} hint="Shown under the channel name" />
-        <TextArea label="Description" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
-        <ChannelTypeSelect value={kind} onChange={setKind} id="settings-channel-type" />
-        <SelectField
-          label="Category"
-          value={categoryId}
-          onChange={(e) => setCategoryId(e.target.value)}
-          required
-        >
-          {categories.length === 0 ? (
-            <option value="">No categories — create one first</option>
-          ) : (
-            categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))
-          )}
-        </SelectField>
-      </div>
-      )}
-    </CommunityModal>
   );
 }
 

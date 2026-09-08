@@ -341,7 +341,7 @@ export function CommunityServerSettingsPage() {
   };
 
   return (
-    <CommunityDiscordShell pane="server" activeServerId={serverId} onAdd={() => navigate("/community")}>
+    <CommunityDiscordShell pane="settings" activeServerId={serverId} onAdd={() => navigate("/community")}>
       <CommunityPanelHeader
         title="Server settings"
         subtitle={server.name}

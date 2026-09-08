@@ -471,6 +471,22 @@ export async function createLibraryServer(input: {
     role_id: ownerRole?.id ?? null,
   });
 
+  // Seed a starter text channel so new servers aren't an empty dead-end.
+  const category = await createCommunityCategory({
+    serverId: server.id,
+    name: "Text Channels",
+    userId: input.userId,
+  });
+
+  await createCommunityGroup({
+    serverId: server.id,
+    name: "general",
+    kind: "text",
+    topic: "General chat",
+    categoryId: category.id,
+    userId: input.userId,
+  });
+
   await recomputeServerScore(server.id);
   bumpCommunityRail();
   return mapServer(server, { canManage: true, isMember: true, memberCount: 1 });

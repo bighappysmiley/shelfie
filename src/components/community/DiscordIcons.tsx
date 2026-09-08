@@ -15,7 +15,7 @@ export function DiscordHashIcon({ className = "h-12 w-12" }: { className?: strin
   );
 }
 
-/** Sidebar channel icon — # for text channels, glyph for voice/forum. */
+/** Sidebar channel icon — # for text, megaphone/forum/voice glyphs otherwise. */
 export function DiscordChannelIcon({
   kind,
   className = "h-5 w-5",
@@ -23,7 +23,7 @@ export function DiscordChannelIcon({
   kind: CommunityGroupKind;
   className?: string;
 }) {
-  if (kind === "text" || kind === "announcement") {
+  if (kind === "text") {
     return (
       <span className={`inline-flex w-5 shrink-0 items-center justify-center text-[1.25rem] leading-none text-muted ${className}`}>
         #

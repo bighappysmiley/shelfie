@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Button, ButtonLink } from "@/components/Button";
 import { CommunityDiscordShell, CommunityScrollBody } from "@/components/CommunityRail";
+import { AddServerModal } from "@/components/AddServerModal";
 import { CommunityAvatar, ProBadge } from "@/components/community/CommunityAvatar";
 import { AuthedImage } from "@/components/AuthedImage";
 import { getCommunityProfileByUsername, communityProfileLabel } from "@/lib/community-profile";
@@ -17,6 +18,7 @@ export function CommunityProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [messaging, setMessaging] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
 
   useEffect(() => {
     if (!username) return;
@@ -41,7 +43,8 @@ export function CommunityProfilePage() {
   const isSelf = Boolean(profile && user && profile.userId === user.id);
 
   return (
-    <CommunityDiscordShell pane="discover" onAdd={() => {}}>
+    <CommunityDiscordShell pane="discover" onAdd={() => setAddOpen(true)}>
+      <AddServerModal open={addOpen} onClose={() => setAddOpen(false)} onDone={() => setAddOpen(false)} />
       <CommunityScrollBody className="mx-auto max-w-lg px-4 py-6">
         <div className="mb-4">
           <Link to="/community" className="text-[0.875rem] text-link">

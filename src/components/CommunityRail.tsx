@@ -7,7 +7,7 @@ import type { CommunityServer } from "@/lib/community-types";
 import { AuthedImage } from "@/components/AuthedImage";
 import { IconCompass, IconHome, IconList, IconPlus, IconChat } from "@/components/Icons";
 
-export type CommunityPane = "list" | "discover" | "server" | "dm";
+export type CommunityPane = "list" | "discover" | "server" | "dm" | "settings";
 
 function ServerGlyph({
   server,
@@ -126,7 +126,7 @@ export function CommunityDiscordShell({
   const [railTick, setRailTick] = useState(0);
 
   // Inside a server channel, go immersive on mobile — hide the stacked server strip
-  // and bottom tab bar so chat/forum content isn't crushed.
+  // and bottom tab bar so chat/forum content isn't crushed. Settings/DMs keep chrome.
   const immersiveMobile = pane === "server";
 
   useEffect(() => {

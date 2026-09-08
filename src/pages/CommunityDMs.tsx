@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { CommunityDiscordShell, CommunityScrollBody } from "@/components/CommunityRail";
+import { AddServerModal } from "@/components/AddServerModal";
 import { FormError } from "@/components/form";
 import {
   blockDmUser,
@@ -27,6 +28,7 @@ export function CommunityDMsPage() {
   const [error, setError] = useState("");
   const [otherLabel, setOtherLabel] = useState("Direct Message");
   const [otherUserId, setOtherUserId] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
 
   const refreshThreads = useCallback(async () => {
     if (!user) return;
@@ -105,14 +107,16 @@ export function CommunityDMsPage() {
 
   if (!user) {
     return (
-      <CommunityDiscordShell pane="dm" onAdd={() => {}}>
+      <CommunityDiscordShell pane="dm" onAdd={() => setAddOpen(true)}>
         <div className="p-6 text-muted">Sign in to view direct messages.</div>
+        <AddServerModal open={addOpen} onClose={() => setAddOpen(false)} onDone={() => setAddOpen(false)} />
       </CommunityDiscordShell>
     );
   }
 
   return (
-    <CommunityDiscordShell pane="dm" onAdd={() => {}}>
+    <CommunityDiscordShell pane="dm" onAdd={() => setAddOpen(true)}>
+      <AddServerModal open={addOpen} onClose={() => setAddOpen(false)} onDone={() => setAddOpen(false)} />
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <aside
           className={`flex shrink-0 flex-col border-r border-[var(--community-border)] bg-[var(--community-panel)] md:w-72 ${

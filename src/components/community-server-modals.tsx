@@ -45,7 +45,8 @@ export function ChannelFormModal({
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (tab === "permissions") {
-      onClose();
+      // Permissions auto-save in the editor — don't discard General by closing here.
+      setTab("general");
       return;
     }
     if (!name.trim()) {
@@ -101,9 +102,13 @@ export function ChannelFormModal({
           )}
           <div className="flex-1" />
           <Button type="button" variant="ghost" onClick={onClose}>
-            {tab === "permissions" ? "Done" : "Cancel"}
+            {tab === "permissions" ? "Close" : "Cancel"}
           </Button>
-          {tab === "general" && (
+          {tab === "permissions" ? (
+            <Button type="button" onClick={() => setTab("general")}>
+              Back to general
+            </Button>
+          ) : (
             <Button type="submit" disabled={busy || !name.trim()}>
               {busy
                 ? "Saving…"
