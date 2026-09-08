@@ -1,4 +1,4 @@
-# Shelfie / Pine Bookkeeping data model
+# Pine Bookkeeping data model
 
 Library documents in Netlify Blobs, keyed by shared library id.
 

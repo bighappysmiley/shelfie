@@ -39,6 +39,7 @@ import { SetupPage, needsSetup } from "@/pages/Setup";
 import { Logo } from "@/components/Logo";
 import { ButtonLink } from "@/components/Button";
 import { UpdateBanner } from "@/components/UpdateBanner";
+import { NotificationToaster } from "@/components/NotificationToaster";
 
 function PublicShell() {
   return (
@@ -192,6 +193,7 @@ export default function App() {
       <AuthProvider>
         <SidebarProvider>
           <UpdateBanner />
+          <NotificationToaster />
           <AppRoutes />
         </SidebarProvider>
       </AuthProvider>

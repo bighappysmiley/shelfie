@@ -165,7 +165,7 @@ export function PricingPage() {
                 rows={4}
                 required
               />
-              <Button type="submit">Send to Shelfie</Button>
+              <Button type="submit">Send to Pine</Button>
             </form>
           )}
         </div>

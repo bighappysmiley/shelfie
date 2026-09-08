@@ -12,8 +12,6 @@ import {
   listAdminLibraries,
   listEnterpriseLeads,
   notifyUser,
-  redeemLibraryAccessCode,
-  requestLibraryAccessCode,
   searchAdminUsers,
   setUserTier,
   unbanUser,
@@ -22,6 +20,7 @@ import {
   type AdminUserRow,
   type EnterpriseLead,
 } from "@/lib/admin";
+import { APP_WORDMARK_PRIMARY } from "@/lib/brand";
 import { TIER_LIMITS, TIER_ORDER, type SubscriptionTier, getTierLimits } from "@/lib/tiers";
 
 type AdminTab = "support" | "users" | "libraries" | "enterprise" | "pricing";
@@ -397,7 +396,7 @@ function UserModPanel({
             try {
               await notifyUser({
                 userId: user.userId,
-                title: "Message from Shelfie Support",
+                title: `Message from ${APP_WORDMARK_PRIMARY} Support`,
                 body: message.trim(),
               });
               setMessage("");
@@ -419,9 +418,6 @@ function LibrariesTab() {
   const [query, setQuery] = useState("");
   const [libraries, setLibraries] = useState<AdminLibraryRow[]>([]);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
-  const [redeemCode, setRedeemCode] = useState("");
-  const [busyId, setBusyId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setError("");
@@ -439,9 +435,8 @@ function LibrariesTab() {
   return (
     <div className="space-y-4">
       <p className="text-[0.875rem] text-muted">
-        You can always view libraries. To edit, request a one-time access code — the library owner
-        gets it in Notifications and shares it via support. Redeem the code here to unlock 4 hours of
-        edit access.
+        Browse libraries for support. Editing remains view-only from here — contact the library
+        owner through Support if changes are needed.
       </p>
 
       <div className="flex flex-col gap-2 sm:flex-row">
@@ -456,35 +451,7 @@ function LibrariesTab() {
         </Button>
       </div>
 
-      <div className="flex flex-col gap-2 rounded-[var(--radius-group)] border border-[var(--border)] bg-fill/40 p-3 sm:flex-row sm:items-end">
-        <TextField
-          label="Redeem access code"
-          value={redeemCode}
-          onChange={(e) => setRedeemCode(e.target.value.toUpperCase())}
-          placeholder="ABCD1234"
-        />
-        <Button
-          disabled={!redeemCode.trim()}
-          onClick={async () => {
-            setError("");
-            setNotice("");
-            try {
-              const result = await redeemLibraryAccessCode(redeemCode);
-              setNotice(
-                `Edit access unlocked for library ${result.libraryId} until ${new Date(result.expiresAt).toLocaleString()}`,
-              );
-              setRedeemCode("");
-            } catch (err) {
-              setError(err instanceof Error ? err.message : "Invalid code");
-            }
-          }}
-        >
-          Redeem
-        </Button>
-      </div>
-
       {error && <FormError message={error} />}
-      {notice && <p className="text-[0.875rem] text-link">{notice}</p>}
 
       <Group>
         {libraries.length === 0 ? (
@@ -493,38 +460,12 @@ function LibrariesTab() {
           libraries.map((lib) => (
             <div
               key={lib.id}
-              className="flex flex-col gap-2 px-4 py-3 hairline-b last:border-b-0 sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-1 px-4 py-3 hairline-b last:border-b-0"
             >
-              <div className="min-w-0">
-                <p className="font-medium">{lib.name}</p>
-                <p className="text-[0.8125rem] text-muted">
-                  Owner: {lib.ownerName || lib.ownerUserId || "—"} · {lib.memberCount} members
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={busyId === lib.id}
-                  onClick={async () => {
-                    setBusyId(lib.id);
-                    setError("");
-                    setNotice("");
-                    try {
-                      const result = await requestLibraryAccessCode(lib.id);
-                      setNotice(
-                        `Access code sent to the library owner’s Notifications. Code (for your records if they share it): ${result.code}`,
-                      );
-                    } catch (err) {
-                      setError(err instanceof Error ? err.message : "Could not request code");
-                    } finally {
-                      setBusyId(null);
-                    }
-                  }}
-                >
-                  Request access code
-                </Button>
-              </div>
+              <p className="font-medium">{lib.name}</p>
+              <p className="text-[0.8125rem] text-muted">
+                Owner: {lib.ownerName || lib.ownerUserId || "—"} · {lib.memberCount} members
+              </p>
             </div>
           ))
         )}

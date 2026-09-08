@@ -46,14 +46,6 @@ export type AppNotification = {
   createdAt: string;
 };
 
-export type LibraryAccessCodeResult = {
-  id: string;
-  code: string;
-  libraryId: string;
-  ownerUserId: string;
-  expiresAt: string;
-};
-
 async function adminFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const { data: session } = await supabase.auth.getSession();
   const token = session.session?.access_token;
@@ -116,29 +108,6 @@ export async function listAdminLibraries(query = ""): Promise<AdminLibraryRow[]>
     `/api/admin/libraries?q=${encodeURIComponent(query)}`,
   );
   return result.libraries;
-}
-
-export async function requestLibraryAccessCode(
-  libraryId: string,
-): Promise<LibraryAccessCodeResult> {
-  const { data, error } = await supabase.rpc("request_library_access_code", {
-    p_library_id: libraryId,
-  });
-  if (error) throw error;
-  const row = data as LibraryAccessCodeResult;
-  return row;
-}
-
-export async function redeemLibraryAccessCode(code: string): Promise<{
-  sessionId: string;
-  libraryId: string;
-  expiresAt: string;
-}> {
-  const { data, error } = await supabase.rpc("redeem_library_access_code", {
-    p_code: code.trim(),
-  });
-  if (error) throw error;
-  return data as { sessionId: string; libraryId: string; expiresAt: string };
 }
 
 export async function listEnterpriseLeads(): Promise<EnterpriseLead[]> {
@@ -216,6 +185,42 @@ export async function markNotificationRead(id: string): Promise<void> {
     .update({ read_at: new Date().toISOString() })
     .eq("id", id);
   if (error) throw error;
+}
+
+/** Live updates for in-app notification toasts. Returns an unsubscribe fn. */
+export function subscribeToNotifications(
+  userId: string,
+  onInsert: (note: AppNotification) => void,
+): () => void {
+  const channel = supabase
+    .channel(`app-notifications:${userId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "app_notifications",
+        filter: `user_id=eq.${userId}`,
+      },
+      (payload) => {
+        const r = payload.new as Record<string, unknown>;
+        if (!r?.id) return;
+        onInsert({
+          id: r.id as string,
+          kind: (r.kind as string) ?? "admin_message",
+          title: (r.title as string) ?? "Notification",
+          body: (r.body as string) ?? "",
+          payload: (r.payload as Record<string, unknown>) ?? {},
+          readAt: (r.read_at as string | null) ?? null,
+          createdAt: (r.created_at as string) ?? new Date().toISOString(),
+        });
+      },
+    )
+    .subscribe();
+
+  return () => {
+    void supabase.removeChannel(channel);
+  };
 }
 
 export async function notifyUser(input: {

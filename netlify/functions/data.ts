@@ -71,7 +71,7 @@ export default withLibraryAuth(async (request, ctx) => {
       return new Response(csv, {
         headers: corsHeaders({
           "Content-Type": "text/csv",
-          "Content-Disposition": 'attachment; filename="shelfie-export.csv"',
+          "Content-Disposition": 'attachment; filename="pine-bookkeeping-export.csv"',
         }),
       });
     }
