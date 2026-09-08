@@ -32,10 +32,25 @@ function normalizeChar(char: string): string {
 /** Collapse leetspeak and strip decorative characters for token matching. */
 export function normalizeForModeration(input: string): string {
   const spaced = input.replace(UNICODE_SPACES, " ");
+  const isWordish = (c: string | undefined) => !!c && /[a-z0-9@$!+]/i.test(c);
+
   let out = "";
-  for (const char of spaced) {
-    if (/[a-z0-9@$!+]/i.test(char)) {
+  for (let i = 0; i < spaced.length; i++) {
+    const char = spaced[i];
+    if (/[a-z0-9]/i.test(char)) {
       out += normalizeChar(char);
+    } else if (/[@$!+]/.test(char)) {
+      const prev = spaced[i - 1];
+      const next = spaced[i + 1];
+      // Interior leet ("sh!t", "a$$") or leading leet ("$hit", "@ss").
+      if ((isWordish(prev) && isWordish(next)) || (!prev && isWordish(next))) {
+        out += normalizeChar(char);
+      } else if (isWordish(prev) && !isWordish(next)) {
+        // Trailing: keep $/@ as leet ("ass$"), treat !/+ as punctuation ("Ass!").
+        out += char === "!" || char === "+" ? " " : normalizeChar(char);
+      } else {
+        out += " ";
+      }
     } else if (/\s/.test(char)) {
       out += " ";
     }
@@ -76,9 +91,38 @@ function tokenize(input: string): string[] {
     .filter((t) => t.length > 0);
 }
 
-function matchesProfanityInCompact(compact: string): string | null {
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Match needle only as its own alphanumeric run — not inside longer words like "assign". */
+function containsWholeWord(haystack: string, needle: string): boolean {
+  const re = new RegExp(`(?:^|[^a-z0-9])${escapeRegExp(needle)}(?:[^a-z0-9]|$)`, "i");
+  return re.test(haystack);
+}
+
+const INFLECTION_SUFFIX = /^(s|es|ed|er|ers|ing|ings|y|ie|ies|iest|ly)$/i;
+
+/** 4-letter stems safe to inflect — excludes butter/butt, hello/hell-style collisions. */
+const INFLECTABLE_SHORT = new Set(["fuck", "shit", "cunt", "slut", "piss"]);
+
+/**
+ * Exact token match, short-word plurals, or longer stems with common inflections.
+ * Never treats a blocked stem as a substring inside an unrelated word.
+ */
+function tokenMatchesBlocked(token: string): string | null {
+  const t = token.toLowerCase();
+  if (PROFANITY_WORDS.has(t)) return t;
+
   for (const word of PROFANITY_WORDS) {
-    if (word.length >= 3 && compact.includes(word)) return word;
+    if (word.length < 4) {
+      if (t === `${word}s` || t === `${word}es`) return word;
+      continue;
+    }
+    if (word.length === 4 && !INFLECTABLE_SHORT.has(word)) continue;
+    if (!t.startsWith(word)) continue;
+    const rest = t.slice(word.length);
+    if (!rest || INFLECTION_SUFFIX.test(rest)) return word;
   }
   return null;
 }
@@ -87,29 +131,24 @@ function findBlockedWord(text: string): string | null {
   const normalized = normalizeForModeration(text);
   const candidates = [
     collapseRepeats(collapseSeparatedLetters(collapseSpacedLetters(normalized))),
-    collapseRepeats(alphaCompact(normalized)),
     collapseRepeats(collapseSpacedLetters(normalized)),
+    collapseRepeats(normalized),
   ];
 
   for (const candidate of candidates) {
-    const tokens = tokenize(candidate);
-    for (const token of tokens) {
-      if (PROFANITY_WORDS.has(token)) return token;
-      if (token.length >= 4) {
-        for (const word of PROFANITY_WORDS) {
-          if (word.length >= 4 && token.includes(word)) return word;
-        }
-      }
+    for (const word of PROFANITY_WORDS) {
+      if (containsWholeWord(candidate, word)) return word;
     }
 
-    const compact = candidate.replace(/\s+/g, "");
-    const blocked = matchesProfanityInCompact(compact);
-    if (blocked) return blocked;
+    for (const token of tokenize(candidate)) {
+      const hit = tokenMatchesBlocked(collapseRepeats(token.toLowerCase()));
+      if (hit) return hit;
+    }
   }
 
-  // Catch mixed separators without word boundaries, e.g. "f u.c-k".
+  // Catch mixed separators without word boundaries, e.g. "f u.c-k" → exact/inflected token only.
   const mixed = collapseRepeats(alphaCompact(normalized.split(LETTER_SEPARATORS).join("")));
-  return matchesProfanityInCompact(mixed);
+  return tokenMatchesBlocked(mixed);
 }
 
 function findBlockedPhrase(text: string): string | null {
