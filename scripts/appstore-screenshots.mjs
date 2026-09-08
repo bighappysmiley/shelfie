@@ -1,9 +1,8 @@
 /**
- * Compose Apple Books–style App Store mockups from live app screenshots.
- * Light gray rounded card + iPhone frame + headline with brand-colored highlight.
+ * Apple Books–style App Store screenshots at correct device aspect.
+ * Canvas matches iPhone App Store size (1290×2796 ≈ 0.46), not a wide card.
  *
  * Usage: node scripts/appstore-screenshots.mjs
- *        (reuses marketing/app-store/raw/*.png when present)
  */
 import { chromium } from "playwright-core";
 import sharp from "sharp";
@@ -22,26 +21,25 @@ const SUPABASE_URL = "https://xdsnoqckoolwatgwtyfy.supabase.co";
 const ANON =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhkc25vcWNrb29sd2F0Z3d0eWZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgxMzMzODksImV4cCI6MjEwMzcwOTM4OX0.3Nx7Aq40Tj10-Woc_5gcPUNU23qJWWI8X7kdwKvHXgg";
 
-/** Brand highlight — replaces Apple Books orange (pine canopy sage, readable on gray) */
-const HIGHLIGHT = "#6b9078";
+/** Brand highlight replacing Apple Books orange */
+const HIGHLIGHT = "#3d5248";
 const CARD_BG = "#e8e8ed";
-const PAGE_BG = "#ffffff";
 const INK = "#1d1d1f";
+const APP_BG = "#f0f2e8";
 
 const FONT_BOLD = join(
   ROOT,
   "node_modules/@fontsource/open-sauce-sans/files/open-sauce-sans-latin-700-normal.woff2",
-);
-const FONT_MED = join(
-  ROOT,
-  "node_modules/@fontsource/open-sauce-sans/files/open-sauce-sans-latin-500-normal.woff2",
 );
 
 const VIEW_W = 390;
 const VIEW_H = 844;
 const DPR = 3;
 
-/** headlineHtml may include <span class="hi">…</span> for brand highlight */
+/** App Store 6.7" portrait — same aspect as Apple Books refs (1125×2436) */
+const CANVAS_W = 1290;
+const CANVAS_H = 2796;
+
 const SHOTS = [
   {
     id: "01-catalog",
@@ -54,13 +52,13 @@ const SHOTS = [
     id: "02-loans",
     path: "/loaned",
     wait: "text=Jordan Lee",
-    headlineHtml: `<span class="hi">Know</span> who has what — track loans and due dates.`,
+    headlineHtml: `<span class="hi">Know</span> who has what.`,
   },
   {
     id: "03-locations",
     path: "/locations",
     wait: "text=Living Room",
-    headlineHtml: `<span class="hi">Find</span> any book in seconds by room and shelf.`,
+    headlineHtml: `Find any book <span class="hi">in seconds.</span>`,
   },
   {
     id: "04-team",
@@ -73,40 +71,64 @@ const SHOTS = [
     id: "05-add",
     path: "/add?mode=cover",
     wait: "text=Photograph",
-    headlineHtml: `<span class="hi">Add</span> books in a snap — photograph a cover to start.`,
+    headlineHtml: `Add books <span class="hi">in a snap.</span>`,
   },
 ];
 
-async function composeAppleBooksStyle({ browser, rawPath, outPath, headlineHtml }) {
-  const W = 1290;
-  // Card proportions similar to Apple Books store screenshots
-  const CARD_W = 1100;
-  const CARD_PAD_X = 72;
-  const CARD_PAD_TOP = 72;
-  const CARD_RADIUS = 56;
+/**
+ * Build phone screen: status-bar band (for Dynamic Island) + untouched app UI.
+ * Island must NEVER cover the real chrome.
+ */
+async function buildPhoneScreen(rawPath, displayW) {
+  const aspect = VIEW_H / VIEW_W;
+  const displayH = Math.round(displayW * aspect);
+  // Status band ~6.5% of height (island lives here only)
+  const statusH = Math.round(displayH * 0.055);
+  const uiH = displayH - statusH;
 
-  // Phone size inside card
-  const PHONE_W = 780;
-  const PHONE_H = Math.round(PHONE_W * (VIEW_H / VIEW_W));
-  const BEZEL = 18;
-  const RADIUS_OUTER = 68;
-  const RADIUS_INNER = 54;
-
-  const bold = readFileSync(FONT_BOLD).toString("base64");
-  const med = readFileSync(FONT_MED).toString("base64");
-
-  // Fit screen into inner phone display
-  const innerW = PHONE_W - BEZEL * 2;
-  const innerH = PHONE_H - BEZEL * 2;
-  const screenBuf = await sharp(rawPath)
-    .resize(innerW, innerH, { fit: "fill" })
+  const ui = await sharp(rawPath)
+    .resize(displayW, uiH, { fit: "fill" })
     .png()
     .toBuffer();
+
+  const status = await sharp({
+    create: { width: displayW, height: statusH, channels: 3, background: APP_BG },
+  })
+    .png()
+    .toBuffer();
+
+  return sharp({
+    create: { width: displayW, height: displayH, channels: 3, background: APP_BG },
+  })
+    .composite([
+      { input: status, left: 0, top: 0 },
+      { input: ui, left: 0, top: statusH },
+    ])
+    .png()
+    .toBuffer()
+    .then(async (buf) => ({ buf, displayW, displayH, statusH }));
+}
+
+async function composeAppleBooksStyle({ browser, rawPath, outPath, headlineHtml }) {
+  const bold = readFileSync(FONT_BOLD).toString("base64");
+
+  // Phone sizing — large, like Apple Books (~72% of canvas width)
+  const phoneOuterW = Math.round(CANVAS_W * 0.72);
+  const bezel = Math.round(phoneOuterW * 0.022);
+  const displayW = phoneOuterW - bezel * 2;
+  const { buf: screenBuf, displayH, statusH } = await buildPhoneScreen(rawPath, displayW);
+  const phoneOuterH = displayH + bezel * 2;
+  const radiusOuter = Math.round(phoneOuterW * 0.14);
+  const radiusInner = Math.round(radiusOuter * 0.82);
+
   const screenB64 = screenBuf.toString("base64");
+  const islandW = Math.round(displayW * 0.32);
+  const islandH = Math.round(statusH * 0.72);
+  const islandTop = bezel + Math.round((statusH - islandH) / 2);
 
   const context = await browser.newContext({
-    viewport: { width: W, height: 200 },
-    deviceScaleFactor: 2,
+    viewport: { width: CANVAS_W, height: CANVAS_H },
+    deviceScaleFactor: 1,
   });
   const page = await context.newPage();
 
@@ -121,90 +143,85 @@ async function composeAppleBooksStyle({ browser, rawPath, outPath, headlineHtml 
     font-weight: 700;
     src: url("data:font/woff2;base64,${bold}") format("woff2");
   }
-  @font-face {
-    font-family: "Open Sauce Sans";
-    font-weight: 500;
-    src: url("data:font/woff2;base64,${med}") format("woff2");
-  }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    width: ${W}px;
-    background: ${PAGE_BG};
-    font-family: "Open Sauce Sans", -apple-system, system-ui, sans-serif;
-    display: flex;
-    justify-content: center;
-    padding: 40px 0 48px;
-  }
-  .card {
-    width: ${CARD_W}px;
+  html, body {
+    width: ${CANVAS_W}px;
+    height: ${CANVAS_H}px;
+    overflow: hidden;
     background: ${CARD_BG};
-    border-radius: ${CARD_RADIUS}px;
-    padding: ${CARD_PAD_TOP}px ${CARD_PAD_X}px 64px;
+    font-family: "Open Sauce Sans", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+  }
+  .frame {
+    width: ${CANVAS_W}px;
+    height: ${CANVAS_H}px;
+    background: ${CARD_BG};
     display: flex;
     flex-direction: column;
     align-items: center;
+    padding: 96px 64px 0;
   }
   .headline {
     text-align: center;
-    font-size: 54px;
+    font-size: 56px;
     font-weight: 700;
-    line-height: 1.16;
-    letter-spacing: -0.03em;
+    line-height: 1.12;
+    letter-spacing: -0.035em;
     color: ${INK};
-    max-width: 15.5em;
-    margin-bottom: 56px;
+    max-width: 11.5em;
+    margin-bottom: 52px;
+    flex-shrink: 0;
   }
-  .headline .hi {
-    color: ${HIGHLIGHT};
-  }
+  .headline .hi { color: ${HIGHLIGHT}; }
   .phone-wrap {
-    filter: drop-shadow(0 28px 48px rgba(0,0,0,0.22));
+    flex: 1;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    filter: drop-shadow(0 32px 60px rgba(0,0,0,0.28));
   }
   .phone {
-    width: ${PHONE_W}px;
-    height: ${PHONE_H}px;
-    background: #0b0b0d;
-    border-radius: ${RADIUS_OUTER}px;
-    padding: ${BEZEL}px;
+    width: ${phoneOuterW}px;
+    height: ${phoneOuterH}px;
+    background: #0a0a0c;
+    border-radius: ${radiusOuter}px;
+    padding: ${bezel}px;
     position: relative;
   }
   .screen {
-    width: ${innerW}px;
-    height: ${innerH}px;
-    border-radius: ${RADIUS_INNER}px;
+    width: ${displayW}px;
+    height: ${displayH}px;
+    border-radius: ${radiusInner}px;
     overflow: hidden;
-    background: #f0f2e8;
     position: relative;
+    background: ${APP_BG};
   }
   .screen img {
     width: 100%;
     height: 100%;
     display: block;
-    object-fit: fill;
   }
-  /* Dynamic Island */
   .island {
     position: absolute;
-    top: ${BEZEL + 14}px;
+    top: ${islandTop}px;
     left: 50%;
     transform: translateX(-50%);
-    width: 126px;
-    height: 36px;
-    background: #0b0b0d;
-    border-radius: 20px;
-    z-index: 5;
+    width: ${islandW}px;
+    height: ${islandH}px;
+    background: #0a0a0c;
+    border-radius: ${Math.round(islandH / 2)}px;
+    z-index: 3;
   }
 </style>
 </head>
 <body>
-  <div class="card">
+  <div class="frame">
     <div class="headline">${headlineHtml}</div>
     <div class="phone-wrap">
       <div class="phone">
         <div class="screen">
           <img alt="" src="data:image/png;base64,${screenB64}"/>
-          <div class="island"></div>
         </div>
+        <div class="island" aria-hidden="true"></div>
       </div>
     </div>
   </div>
@@ -216,11 +233,12 @@ async function composeAppleBooksStyle({ browser, rawPath, outPath, headlineHtml 
   await page.evaluate(async () => {
     await document.fonts.ready;
   });
-  await page.waitForTimeout(200);
-
-  const h = await page.evaluate(() => document.body.scrollHeight);
-  await page.setViewportSize({ width: W, height: h });
-  await page.screenshot({ path: outPath, fullPage: true, type: "png" });
+  await page.waitForTimeout(150);
+  await page.screenshot({
+    path: outPath,
+    type: "png",
+    clip: { x: 0, y: 0, width: CANVAS_W, height: CANVAS_H },
+  });
   await context.close();
 }
 
@@ -340,11 +358,6 @@ async function captureIfNeeded(browser) {
     });
     await page.screenshot({ path: join(RAW_DIR, `${shot.id}.png`), fullPage: false, type: "png" });
   }
-
-  await page.goto(`${APP}/home`, { waitUntil: "networkidle" });
-  await hideChromeNoise(page);
-  await page.waitForTimeout(600);
-  await page.screenshot({ path: join(RAW_DIR, "00-home.png"), fullPage: false });
   await context.close();
 }
 
@@ -370,7 +383,8 @@ async function main() {
       outPath,
       headlineHtml: shot.headlineHtml,
     });
-    console.log("  wrote", outPath);
+    const meta = await sharp(outPath).metadata();
+    console.log("  wrote", outPath, `${meta.width}x${meta.height}`);
   }
 
   await browser.close();
@@ -379,12 +393,16 @@ async function main() {
     join(OUT_DIR, "README.md"),
     `# App Store screenshots
 
-Apple Books–style frames (light gray card + iPhone) with **live Pine UI** inside.
-Headline highlights use brand green \`#3d5248\` (not orange).
+Apple Books layout at **device aspect** (1290×2796):
+
+- Full-bleed light gray panel (not a wide card on white)
+- Large iPhone with Dynamic Island in a status band (does not cover UI)
+- Headline accent in brand forest green \`#3d5248\` (not orange)
+- Live Pine screenshots inside
 
 \`\`\`bash
 node scripts/appstore-screenshots.mjs
-FORCE_RECAPTURE=1 node scripts/appstore-screenshots.mjs   # refresh raws from production
+FORCE_RECAPTURE=1 node scripts/appstore-screenshots.mjs
 \`\`\`
 `,
   );
