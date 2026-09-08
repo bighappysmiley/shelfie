@@ -4,9 +4,11 @@ import { useAuth } from "@/lib/auth";
 import { APP_WORDMARK_PRIMARY } from "@/lib/brand";
 import {
   listMyNotifications,
+  purgeExpiredNotifications,
   subscribeToNotifications,
   type AppNotification,
 } from "@/lib/admin";
+import { getNotificationRetentionHours } from "@/lib/notification-prefs";
 
 type ToastItem = {
   id: string;
@@ -66,15 +68,18 @@ export function NotificationToaster() {
 
     let cancelled = false;
 
-    void listMyNotifications()
-      .then((notes) => {
+    void (async () => {
+      await purgeExpiredNotifications(getNotificationRetentionHours()).catch(() => 0);
+      if (cancelled) return;
+      try {
+        const notes = await listMyNotifications();
         if (cancelled) return;
         for (const n of notes) seenIds.current.add(n.id);
-        bootstrapped.current = true;
-      })
-      .catch(() => {
-        bootstrapped.current = true;
-      });
+      } catch {
+        /* ignore */
+      }
+      bootstrapped.current = true;
+    })();
 
     const unsubscribe = subscribeToNotifications(user.id, (note) => {
       if (!bootstrapped.current) {

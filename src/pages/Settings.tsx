@@ -8,11 +8,18 @@ import {
   SegmentedControl,
 } from "@/components/layout";
 import { Button } from "@/components/Button";
-import { TextField } from "@/components/form";
+import { TextField, SelectField } from "@/components/form";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useLibrary } from "@/lib/library";
 import type { LibraryInvite, LibraryMember } from "@/lib/library-types";
+import { purgeExpiredNotifications } from "@/lib/admin";
+import {
+  getNotificationRetentionHours,
+  NOTIFICATION_RETENTION_OPTIONS,
+  setNotificationRetentionHours,
+  type NotificationRetentionHours,
+} from "@/lib/notification-prefs";
 
 export function SettingsPage() {
   const { user } = useAuth();
@@ -38,6 +45,9 @@ export function SettingsPage() {
 
   const [members, setMembers] = useState<LibraryMember[]>([]);
   const [sentInvites, setSentInvites] = useState<LibraryInvite[]>([]);
+  const [retentionHours, setRetentionHours] = useState<NotificationRetentionHours>(() =>
+    getNotificationRetentionHours(),
+  );
 
   useEffect(() => {
     if (activeLibrary) setLibraryName(activeLibrary.name);
@@ -354,6 +364,36 @@ export function SettingsPage() {
             </div>
           </section>
         )}
+
+        <section>
+          <GroupHeader>Notifications</GroupHeader>
+          <Group>
+            <div className="px-4 py-3">
+              <SelectField
+                label="Auto-delete messages after"
+                value={retentionHours == null ? "never" : String(retentionHours)}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  const next: NotificationRetentionHours =
+                    raw === "never" ? null : (Number(raw) as 12 | 24 | 72 | 168);
+                  setRetentionHours(next);
+                  setNotificationRetentionHours(next);
+                  void purgeExpiredNotifications(next).catch(() => 0);
+                }}
+              >
+                {NOTIFICATION_RETENTION_OPTIONS.map((o) => (
+                  <option key={o.label} value={o.value == null ? "never" : String(o.value)}>
+                    {o.label}
+                  </option>
+                ))}
+              </SelectField>
+            </div>
+          </Group>
+          <GroupFooter>
+            Support and in-app messages older than this are removed automatically. Default is 24
+            hours. You can also swipe left on a message to delete it.
+          </GroupFooter>
+        </section>
 
         <section>
           <GroupHeader>Data</GroupHeader>

@@ -10,14 +10,18 @@ import {
 } from "@/components/layout";
 import { Button } from "@/components/Button";
 import { PageLoading } from "@/components/LoadingTree";
+import { SwipeToDelete } from "@/components/SwipeToDelete";
 import { api } from "@/lib/api";
 import { useLibrary } from "@/lib/library";
 import type { LoanWithDetails } from "@/lib/types";
 import {
+  deleteNotification,
   listMyNotifications,
   markNotificationRead,
+  purgeExpiredNotifications,
   type AppNotification,
 } from "@/lib/admin";
+import { getNotificationRetentionHours } from "@/lib/notification-prefs";
 
 export function NotificationsPage() {
   const { pendingInvites, acceptInvite } = useLibrary();
@@ -26,15 +30,25 @@ export function NotificationsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
-      api.loans.list(true).catch(() => [] as LoanWithDetails[]),
-      listMyNotifications().catch(() => [] as AppNotification[]),
-    ])
-      .then(([loanList, notes]) => {
-        setLoans(loanList);
-        setAppNotes(notes);
-      })
-      .finally(() => setLoading(false));
+    let cancelled = false;
+    (async () => {
+      try {
+        await purgeExpiredNotifications(getNotificationRetentionHours()).catch(() => 0);
+        const [loanList, notes] = await Promise.all([
+          api.loans.list(true).catch(() => [] as LoanWithDetails[]),
+          listMyNotifications().catch(() => [] as AppNotification[]),
+        ]);
+        if (!cancelled) {
+          setLoans(loanList);
+          setAppNotes(notes);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const today = new Date().toISOString().slice(0, 10);
@@ -52,6 +66,11 @@ export function NotificationsPage() {
 
   const handleAcceptInvite = async (inviteId: string) => {
     await acceptInvite(inviteId);
+  };
+
+  const handleDeleteNote = async (id: string) => {
+    await deleteNotification(id);
+    setAppNotes((prev) => prev.filter((n) => n.id !== id));
   };
 
   const hasAny =
@@ -86,46 +105,48 @@ export function NotificationsPage() {
             <GroupHeader>Messages</GroupHeader>
             <Group>
               {appNotes.map((note) => (
-                <div
-                  key={note.id}
-                  className={`px-4 py-3 hairline-b last:border-b-0 ${
-                    note.readAt ? "" : "bg-fill/40"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="font-medium">{note.title}</p>
-                      <p className="mt-1 whitespace-pre-wrap text-[0.9375rem] text-muted">
-                        {note.body}
-                      </p>
-                      {note.kind === "library_access_code" && note.payload?.code ? (
-                        <p className="mt-2 font-mono text-[1.0625rem] font-semibold tracking-wide">
-                          {String(note.payload.code)}
+                <SwipeToDelete key={note.id} onDelete={() => handleDeleteNote(note.id)}>
+                  <div
+                    className={`px-4 py-3 hairline-b last:border-b-0 ${
+                      note.readAt ? "" : "bg-fill/40"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-medium">{note.title}</p>
+                        <p className="mt-1 whitespace-pre-wrap text-[0.9375rem] text-muted">
+                          {note.body}
                         </p>
-                      ) : null}
+                        {note.kind === "library_access_code" && note.payload?.code ? (
+                          <p className="mt-2 font-mono text-[1.0625rem] font-semibold tracking-wide">
+                            {String(note.payload.code)}
+                          </p>
+                        ) : null}
+                      </div>
+                      {!note.readAt && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={async () => {
+                            await markNotificationRead(note.id);
+                            setAppNotes((prev) =>
+                              prev.map((n) =>
+                                n.id === note.id
+                                  ? { ...n, readAt: new Date().toISOString() }
+                                  : n,
+                              ),
+                            );
+                          }}
+                        >
+                          Mark read
+                        </Button>
+                      )}
                     </div>
-                    {!note.readAt && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={async () => {
-                          await markNotificationRead(note.id);
-                          setAppNotes((prev) =>
-                            prev.map((n) =>
-                              n.id === note.id
-                                ? { ...n, readAt: new Date().toISOString() }
-                                : n,
-                            ),
-                          );
-                        }}
-                      >
-                        Mark read
-                      </Button>
-                    )}
                   </div>
-                </div>
+                </SwipeToDelete>
               ))}
             </Group>
+            <GroupFooter>Swipe left on a message to delete it.</GroupFooter>
           </section>
         )}
 

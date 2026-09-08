@@ -187,6 +187,27 @@ export async function markNotificationRead(id: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function deleteNotification(id: string): Promise<void> {
+  const { error } = await supabase.from("app_notifications").delete().eq("id", id);
+  if (error) throw error;
+}
+
+/** Delete the current user's notifications older than `hours`. No-op when hours is null. */
+export async function purgeExpiredNotifications(hours: number | null): Promise<number> {
+  if (hours == null || hours <= 0) return 0;
+  const cutoff = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from("app_notifications")
+    .delete()
+    .lt("created_at", cutoff)
+    .select("id");
+  if (error) {
+    if (error.code === "42P01") return 0;
+    throw error;
+  }
+  return data?.length ?? 0;
+}
+
 /** Live updates for in-app notification toasts. Returns an unsubscribe fn. */
 export function subscribeToNotifications(
   userId: string,
