@@ -22,9 +22,50 @@ type LibraryContextValue = {
   refreshLibraries: (opts?: { silent?: boolean }) => Promise<void>;
   createLibrary: (name: string) => Promise<Library>;
   renameLibrary: (id: string, name: string) => Promise<void>;
+  acceptInvite: (inviteId: string) => Promise<string>;
 };
 
 const LibraryContext = createContext<LibraryContextValue | null>(null);
+
+function pickPreferredLibraryId(
+  list: Library[],
+  preferredLibraryId: string | null,
+  stored: string | null,
+): string | null {
+  if (list.length === 0) return null;
+
+  const fromApi =
+    preferredLibraryId && list.some((l) => l.id === preferredLibraryId)
+      ? preferredLibraryId
+      : null;
+
+  // Prefer libraries the user was invited into (member role) over personal defaults.
+  const asMember = list.find((l) => l.role === "member");
+  const notDefault = list.find((l) => l.name !== "My Library");
+  const preferred =
+    fromApi ??
+    asMember?.id ??
+    notDefault?.id ??
+    list.find((l) => l.role === "owner")?.id ??
+    list[0]?.id ??
+    null;
+
+  if (stored && list.some((l) => l.id === stored)) {
+    const storedLib = list.find((l) => l.id === stored);
+    // If stored points at a setup-loop "My Library" and a better option exists, switch.
+    if (
+      storedLib?.name === "My Library" &&
+      preferred &&
+      preferred !== stored &&
+      list.some((l) => l.id === preferred && (l.name !== "My Library" || l.role === "member"))
+    ) {
+      return preferred;
+    }
+    return stored;
+  }
+
+  return preferred;
+}
 
 export function LibraryProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -57,8 +98,12 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
           const { libraryId } = await api.libraries.acceptInvite(pendingInviteId);
           clearPendingInvite();
           setActiveLibraryId(libraryId);
-        } catch {
-          clearPendingInvite();
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "";
+          // Only drop the invite token when it's truly gone or not for this account.
+          if (/not found|no longer pending|does not match|already/i.test(msg)) {
+            clearPendingInvite();
+          }
         }
       }
 
@@ -70,23 +115,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       setPendingInvites(invites);
 
       const stored = getActiveLibraryId();
-      const preferred =
-        (preferredLibraryId && list.some((l) => l.id === preferredLibraryId)
-          ? preferredLibraryId
-          : null) ??
-        list.find((l) => l.name !== "My Library")?.id ??
-        list[0]?.id ??
-        null;
-      const nextId =
-        stored && list.some((l) => l.id === stored)
-          ? // If stored points at a setup-loop "My Library" duplicate, prefer the real one.
-            list.find((l) => l.id === stored)?.name === "My Library" &&
-            preferred &&
-            preferred !== stored &&
-            list.some((l) => l.id === preferred && l.name !== "My Library")
-            ? preferred
-            : stored
-          : preferred;
+      const nextId = pickPreferredLibraryId(list, preferredLibraryId, stored);
 
       setActiveId(nextId);
       setActiveLibraryId(nextId);
@@ -137,6 +166,18 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     [refreshLibraries],
   );
 
+  const acceptInvite = useCallback(
+    async (inviteId: string) => {
+      const { libraryId } = await api.libraries.acceptInvite(inviteId);
+      setActiveLibrary(libraryId);
+      setActiveLibraryId(libraryId);
+      if (getPendingInvite() === inviteId) clearPendingInvite();
+      await refreshLibraries({ silent: true });
+      return libraryId;
+    },
+    [refreshLibraries, setActiveLibrary],
+  );
+
   const activeLibrary = useMemo(
     () => libraries.find((l) => l.id === activeId) ?? null,
     [libraries, activeId],
@@ -152,6 +193,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       refreshLibraries,
       createLibrary,
       renameLibrary,
+      acceptInvite,
     }),
     [
       libraries,
@@ -162,6 +204,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       refreshLibraries,
       createLibrary,
       renameLibrary,
+      acceptInvite,
     ],
   );
 

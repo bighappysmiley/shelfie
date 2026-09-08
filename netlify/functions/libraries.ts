@@ -17,64 +17,95 @@ function normalizePhone(raw: string): string {
   return raw.trim();
 }
 
+async function hasPendingInvitesForUser(
+  accessToken: string,
+): Promise<boolean> {
+  const supabase = supabaseForToken(accessToken);
+  const { count, error: countErr } = await supabase
+    .from("library_invites")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "pending");
+
+  if (countErr) {
+    console.error("pending invite check failed:", countErr);
+    return false;
+  }
+  return (count ?? 0) > 0;
+}
+
 async function ensureDefaultLibrary(
   accessToken: string,
   userId: string,
+  opts?: { skipCreate?: boolean },
 ): Promise<string | null> {
   const supabase = supabaseForToken(accessToken);
+  const skipCreate = opts?.skipCreate ?? false;
 
-  const { error: rpcErr } = await supabase.rpc("ensure_default_library");
-  if (rpcErr) {
-    // Fallback to direct inserts if RPC unavailable
-    const { data: memberships } = await supabase
-      .from("library_members")
-      .select("library_id")
-      .eq("user_id", userId)
-      .limit(1);
+  if (!skipCreate) {
+    const { error: rpcErr } = await supabase.rpc("ensure_default_library");
+    if (rpcErr) {
+      // Fallback to direct inserts if RPC unavailable
+      const { data: existing } = await supabase
+        .from("library_members")
+        .select("library_id")
+        .eq("user_id", userId)
+        .limit(1);
 
-    if (!memberships || memberships.length === 0) {
-      const { data: library, error: libErr } = await supabase
-        .from("libraries")
-        .insert({ name: "My Library", owner_id: userId })
-        .select("id")
-        .single();
+      if (!existing || existing.length === 0) {
+        const pending = await hasPendingInvitesForUser(accessToken);
+        if (!pending) {
+          const { data: library, error: libErr } = await supabase
+            .from("libraries")
+            .insert({ name: "My Library", owner_id: userId })
+            .select("id")
+            .single();
 
-      if (libErr || !library) {
-        throw new Error(libErr?.message || "Could not create default library");
-      }
+          if (libErr || !library) {
+            throw new Error(libErr?.message || "Could not create default library");
+          }
 
-      const { error: memberErr } = await supabase.from("library_members").insert({
-        library_id: library.id,
-        user_id: userId,
-        role: "owner",
-      });
+          const { error: memberErr } = await supabase.from("library_members").insert({
+            library_id: library.id,
+            user_id: userId,
+            role: "owner",
+          });
 
-      if (memberErr) {
-        throw new Error(memberErr.message);
+          if (memberErr) {
+            throw new Error(memberErr.message);
+          }
+        }
       }
     }
   }
 
-  // Prefer the oldest membership as the primary catalog (survives setup-loop duplicates).
   const { data: memberships } = await supabase
     .from("library_members")
-    .select("library_id, joined_at, libraries(id, name, owner_id)")
+    .select("library_id, joined_at, role, libraries(id, name, owner_id)")
     .eq("user_id", userId)
     .order("joined_at", { ascending: true });
 
   if (!memberships || memberships.length === 0) return null;
 
+  type LibRow = { id?: string; name?: string; owner_id?: string } | null;
   const owned = memberships.filter((m) => {
-    const lib = m.libraries as { owner_id?: string } | null;
+    const lib = m.libraries as LibRow;
     return lib?.owner_id === userId;
   });
-  const primary =
-    owned.find((m) => {
-      const lib = m.libraries as { name?: string } | null;
-      return lib?.name && lib.name !== "My Library";
-    }) ??
-    owned[0] ??
-    memberships[0];
+
+  // Prefer invited/shared libraries over a forced personal "My Library".
+  const shared = memberships.find((m) => {
+    const lib = m.libraries as LibRow;
+    return lib?.owner_id && lib.owner_id !== userId;
+  });
+  const namedOwned = owned.find((m) => {
+    const lib = m.libraries as LibRow;
+    return lib?.name && lib.name !== "My Library";
+  });
+  const namedAny = memberships.find((m) => {
+    const lib = m.libraries as LibRow;
+    return lib?.name && lib.name !== "My Library";
+  });
+  const primary = shared ?? namedOwned ?? namedAny ?? owned[0] ?? memberships[0];
 
   const primaryId = primary.library_id as string;
   const candidateIds = memberships.map((m) => m.library_id as string);
@@ -89,14 +120,12 @@ async function ensureDefaultLibrary(
     console.error("Library data recovery failed:", err);
   }
 
-  // Remove empty duplicate "My Library" rows created by the setup loop.
+  // Remove empty duplicate "My Library" rows created by the setup loop,
+  // including when the user later joined a team library.
   try {
     const duplicates = owned.filter((m) => {
-      const lib = m.libraries as { id?: string; name?: string } | null;
-      return (
-        m.library_id !== primaryId &&
-        lib?.name === "My Library"
-      );
+      const lib = m.libraries as LibRow;
+      return m.library_id !== primaryId && lib?.name === "My Library";
     });
 
     for (const dup of duplicates) {
@@ -131,7 +160,21 @@ export default withAuth(async (request, user) => {
   if (request.method === "GET" && !action) {
     let preferredId: string | null = null;
     try {
-      preferredId = await ensureDefaultLibrary(accessToken, user.id);
+      const { data: existing } = await supabase
+        .from("library_members")
+        .select("library_id")
+        .eq("user_id", user.id)
+        .limit(1);
+
+      const hasMembership = (existing?.length ?? 0) > 0;
+      const pendingInvites = hasMembership
+        ? false
+        : await hasPendingInvitesForUser(accessToken);
+
+      // Invitees with no membership yet should join — don't force "My Library".
+      preferredId = await ensureDefaultLibrary(accessToken, user.id, {
+        skipCreate: pendingInvites,
+      });
     } catch (err) {
       console.error("ensureDefaultLibrary failed:", err);
     }
@@ -407,6 +450,23 @@ export default withAuth(async (request, user) => {
     const body = await parseBody<{ inviteId: string }>(request);
     if (!body.inviteId) return error("inviteId required");
 
+    const { data: joinedId, error: acceptErr } = await supabase.rpc(
+      "accept_library_invite",
+      { p_invite_id: body.inviteId },
+    );
+
+    if (!acceptErr && joinedId) {
+      return json({ ok: true, libraryId: joinedId as string });
+    }
+
+    // Fallback if RPC is unavailable: previous select + insert path.
+    if (acceptErr && !/function|schema cache|could not find/i.test(acceptErr.message)) {
+      const msg = acceptErr.message || "Could not accept invite";
+      if (/not found/i.test(msg)) return error("Invite not found", 404);
+      if (/no longer pending|does not match/i.test(msg)) return error(msg, 403);
+      return error(msg, 400);
+    }
+
     const { data: invite, error: inviteErr } = await supabase
       .from("library_invites")
       .select("id, library_id, status")
@@ -422,7 +482,16 @@ export default withAuth(async (request, user) => {
       role: "member",
     });
 
-    if (memberErr) return error(memberErr.message, 500);
+    if (memberErr) {
+      if (/duplicate|unique/i.test(memberErr.message)) {
+        await supabase
+          .from("library_invites")
+          .update({ status: "accepted" })
+          .eq("id", invite.id);
+        return json({ ok: true, libraryId: invite.library_id });
+      }
+      return error(memberErr.message, 500);
+    }
 
     await supabase
       .from("library_invites")

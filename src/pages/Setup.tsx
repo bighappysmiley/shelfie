@@ -8,6 +8,7 @@ import { Container, Group, GroupFooter } from "@/components/layout";
 import { useLibrary } from "@/lib/library";
 import { useAuth } from "@/lib/auth";
 import { APP_TAGLINE } from "@/lib/brand";
+import { getPendingInvite } from "@/lib/pending-invite";
 
 /** Setup is complete when the account has a display name and at least one library. */
 export function needsSetup(opts: {
@@ -20,12 +21,29 @@ export function needsSetup(opts: {
 export function SetupPage() {
   const navigate = useNavigate();
   const { user, userProfile, updateProfile } = useAuth();
-  const { libraries, activeLibrary, loading, createLibrary, renameLibrary, pendingInvites } =
-    useLibrary();
+  const {
+    libraries,
+    activeLibrary,
+    loading,
+    createLibrary,
+    renameLibrary,
+    pendingInvites,
+    acceptInvite,
+    refreshLibraries,
+  } = useLibrary();
   const [yourName, setYourName] = useState("");
   const [libraryName, setLibraryName] = useState("My Library");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  const sessionInviteId = getPendingInvite();
+  const joiningTeam =
+    pendingInvites.length > 0 || Boolean(sessionInviteId);
+  const mustCreateLibrary = libraries.length === 0 && !joiningTeam;
+  const canRenameOwned =
+    !joiningTeam &&
+    libraries.length > 0 &&
+    activeLibrary?.role === "owner";
 
   useEffect(() => {
     if (userProfile?.displayName) {
@@ -34,10 +52,10 @@ export function SetupPage() {
   }, [userProfile?.displayName]);
 
   useEffect(() => {
-    if (activeLibrary?.name) {
+    if (activeLibrary?.name && !joiningTeam) {
       setLibraryName(activeLibrary.name);
     }
-  }, [activeLibrary?.name]);
+  }, [activeLibrary?.name, joiningTeam]);
 
   const setupNeeded = needsSetup({
     displayName: userProfile?.displayName,
@@ -62,15 +80,44 @@ export function SetupPage() {
     try {
       await updateProfile({ displayName: name });
 
+      if (joiningTeam) {
+        const inviteIds = [
+          ...pendingInvites.map((inv) => inv.id),
+          ...(sessionInviteId && !pendingInvites.some((i) => i.id === sessionInviteId)
+            ? [sessionInviteId]
+            : []),
+        ];
+
+        let joinedId: string | null = null;
+        let lastErr: Error | null = null;
+        for (const inviteId of inviteIds) {
+          try {
+            joinedId = await acceptInvite(inviteId);
+          } catch (err) {
+            lastErr = err instanceof Error ? err : new Error("Could not accept invite");
+          }
+        }
+
+        await refreshLibraries({ silent: true });
+
+        if (!joinedId) {
+          throw (
+            lastErr ??
+            new Error("Could not join the shared library. Check the invite and try again.")
+          );
+        }
+
+        navigate("/home", { replace: true });
+        return;
+      }
+
       const libTrimmed = libraryName.trim() || "My Library";
-      if (libraries.length === 0) {
+      if (mustCreateLibrary || libraries.length === 0) {
         await createLibrary(libTrimmed);
-      } else if (activeLibrary) {
+      } else if (canRenameOwned && activeLibrary) {
         if (activeLibrary.name !== libTrimmed) {
           await renameLibrary(activeLibrary.id, libTrimmed);
         }
-      } else {
-        await createLibrary(libTrimmed);
       }
 
       navigate("/home", { replace: true });
@@ -85,6 +132,13 @@ export function SetupPage() {
     return <FullPageLoading />;
   }
 
+  const inviteLabel =
+    pendingInvites.length === 1
+      ? pendingInvites[0].libraryName ?? "a shared library"
+      : pendingInvites.length > 1
+        ? `${pendingInvites.length} shared libraries`
+        : "a shared library";
+
   return (
     <div className="min-h-dvh bg-background safe-top safe-bottom">
       <Container size="form">
@@ -95,15 +149,10 @@ export function SetupPage() {
 
           <h1 className="mt-10 text-[2.125rem] font-bold tracking-tight">Welcome</h1>
           <p className="mt-2 max-w-sm text-[1.0625rem] leading-relaxed text-muted">
-            {APP_TAGLINE}
+            {joiningTeam
+              ? `You've been invited to ${inviteLabel}. Add your name to join — no personal library required.`
+              : APP_TAGLINE}
           </p>
-
-          {pendingInvites.length > 0 && (
-            <p className="mt-4 text-[0.9375rem] text-muted">
-              You have {pendingInvites.length} library invitation
-              {pendingInvites.length === 1 ? "" : "s"} — accept them from the menu after setup.
-            </p>
-          )}
 
           <div className="mt-8">
             <Group>
@@ -118,25 +167,35 @@ export function SetupPage() {
                   value={yourName}
                   onChange={(e) => setYourName(e.target.value)}
                 />
-                <TextField
-                  label="Library Name"
-                  grouped
-                  required
-                  placeholder="e.g. Home Books, Office Shelf"
-                  hint="You can rename this later or create more libraries in Settings"
-                  value={libraryName}
-                  onChange={(e) => setLibraryName(e.target.value)}
-                />
+                {(mustCreateLibrary || canRenameOwned) && (
+                  <TextField
+                    label="Library Name"
+                    grouped
+                    required
+                    placeholder="e.g. Home Books, Office Shelf"
+                    hint="You can rename this later or create more libraries in Settings"
+                    value={libraryName}
+                    onChange={(e) => setLibraryName(e.target.value)}
+                  />
+                )}
                 <div className="px-4 py-4">
                   {error && <FormError message={error} />}
                   <Button type="submit" className="w-full" disabled={busy}>
-                    {busy ? "Setting Up…" : "Continue"}
+                    {busy
+                      ? joiningTeam
+                        ? "Joining…"
+                        : "Setting Up…"
+                      : joiningTeam
+                        ? "Join Library"
+                        : "Continue"}
                   </Button>
                 </div>
               </form>
             </Group>
             <GroupFooter>
-              Your name helps library owners and members know who has access.
+              {joiningTeam
+                ? "You can create your own library later from Settings if you want one."
+                : "Your name helps library owners and members know who has access."}
             </GroupFooter>
           </div>
         </div>

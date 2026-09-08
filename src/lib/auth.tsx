@@ -146,6 +146,24 @@ async function fetchUserProfile(userId: string): Promise<UserProfile | null> {
   };
 }
 
+async function ensurePhoneOnProfile(userId: string, phone: string | undefined | null) {
+  if (!phone) return null;
+  const normalized = normalizePhone(phone);
+  const existing = await fetchUserProfile(userId);
+  if (existing?.phone === normalized) return existing;
+
+  const { error } = await supabase.from("user_profiles").upsert({
+    user_id: userId,
+    phone: normalized,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) {
+    console.error("Failed to sync phone to profile:", error);
+    return existing;
+  }
+  return fetchUserProfile(userId);
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -174,7 +192,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const profile = await loadStaffProfile(next.email);
     setStaffProfile(profile);
 
-    const up = await fetchUserProfile(next.id);
+    let up = await fetchUserProfile(next.id);
+    if (next.phone && up?.phone !== normalizePhone(next.phone)) {
+      up = (await ensurePhoneOnProfile(next.id, next.phone)) ?? up;
+    }
     setUserProfile(up);
   }, []);
 
@@ -382,7 +403,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     if (error) throw error;
     if (data.user) {
-      const profile = await fetchUserProfile(data.user.id);
+      const synced = await ensurePhoneOnProfile(data.user.id, normalized);
+      const profile = synced ?? (await fetchUserProfile(data.user.id));
       setUserProfile(profile);
       await maybeRequireSecondFactor(data.user, profile);
     }

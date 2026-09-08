@@ -20,7 +20,7 @@ import {
 } from "@/lib/admin";
 
 export function NotificationsPage() {
-  const { pendingInvites, refreshLibraries } = useLibrary();
+  const { pendingInvites, acceptInvite } = useLibrary();
   const [loans, setLoans] = useState<LoanWithDetails[]>([]);
   const [appNotes, setAppNotes] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,9 +50,8 @@ export function NotificationsPage() {
       l.loan.dueDate <= soonStr,
   );
 
-  const acceptInvite = async (inviteId: string) => {
-    await api.libraries.acceptInvite(inviteId);
-    await refreshLibraries();
+  const handleAcceptInvite = async (inviteId: string) => {
+    await acceptInvite(inviteId);
   };
 
   const hasAny =
@@ -147,7 +146,7 @@ export function NotificationsPage() {
                       {inv.email ?? inv.phone ?? "Team invitation"}
                     </p>
                   </div>
-                  <Button size="sm" onClick={() => void acceptInvite(inv.id)}>
+                  <Button size="sm" onClick={() => void handleAcceptInvite(inv.id)}>
                     Accept
                   </Button>
                 </div>
