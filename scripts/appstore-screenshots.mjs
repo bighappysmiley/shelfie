@@ -1,10 +1,12 @@
 /**
- * Capture real Pine Bookkeeping screens and compose App Store mockups.
+ * Capture real Pine Bookkeeping screens (pixel-accurate) and compose
+ * App Store frames WITHOUT cropping/distorting the UI.
+ *
  * Usage: node scripts/appstore-screenshots.mjs
  */
 import { chromium } from "playwright-core";
 import sharp from "sharp";
-import { readFileSync, mkdirSync, writeFileSync } from "fs";
+import { readFileSync, mkdirSync, writeFileSync, unlinkSync, existsSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { createClient } from "@supabase/supabase-js";
@@ -20,8 +22,23 @@ const ANON =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhkc25vcWNrb29sd2F0Z3d0eWZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgxMzMzODksImV4cCI6MjEwMzcwOTM4OX0.3Nx7Aq40Tj10-Woc_5gcPUNU23qJWWI8X7kdwKvHXgg";
 
 const BG = "#f0f2e8";
-const INK = "#3d5248";
-const MUTED = "#6b7a70";
+const INK = "#1a2426";
+const ACCENT = "#3d5248";
+const MUTED = "#5c6864";
+
+/** Logical CSS viewport — matches real iPhone width the app was designed for. */
+const VIEW_W = 390;
+const VIEW_H = 844;
+const DPR = 3;
+
+const FONT_BOLD = join(
+  ROOT,
+  "node_modules/@fontsource/open-sauce-sans/files/open-sauce-sans-latin-700-normal.woff2",
+);
+const FONT_MED = join(
+  ROOT,
+  "node_modules/@fontsource/open-sauce-sans/files/open-sauce-sans-latin-500-normal.woff2",
+);
 
 const SHOTS = [
   {
@@ -29,7 +46,8 @@ const SHOTS = [
     path: "/library",
     headline: "Your library, finally organized",
     sub: "Catalog every book you own",
-    wait: 'text=The Night Circus',
+    wait: "text=Circe",
+    prepare: "grid",
   },
   {
     id: "02-loans",
@@ -50,15 +68,15 @@ const SHOTS = [
     path: "/settings",
     headline: "Share one catalog with your household",
     sub: "Invite family to a team library",
-    wait: "text=Team",
+    wait: "text=Team Members",
+    prepare: "team",
   },
   {
     id: "05-add",
     path: "/add?mode=cover",
     headline: "Add books in a snap",
-    sub: "Scan a cover or search by title",
-    wait: "text=Cover",
-    prepare: "add-cover",
+    sub: "Photograph a cover to start",
+    wait: "text=Photograph",
   },
 ];
 
@@ -70,100 +88,132 @@ function escapeXml(s) {
     .replaceAll('"', "&quot;");
 }
 
-function wrapLines(text, maxChars) {
-  const words = text.split(/\s+/);
-  const lines = [];
-  let cur = "";
-  for (const w of words) {
-    const next = cur ? `${cur} ${w}` : w;
-    if (next.length > maxChars && cur) {
-      lines.push(cur);
-      cur = w;
-    } else {
-      cur = next;
-    }
+/**
+ * App Store frame: brand copy ABOVE an untouched full screenshot.
+ * Rendered in Chromium with Open Sauce Sans (same as the app) — no SVG text glitches.
+ */
+async function composeMockup({ browser, rawPath, outPath, headline, sub }) {
+  const W = 1290;
+  const screenH = Math.round(W * (VIEW_H / VIEW_W));
+  const bold = readFileSync(FONT_BOLD).toString("base64");
+  const med = readFileSync(FONT_MED).toString("base64");
+  const img = readFileSync(rawPath).toString("base64");
+
+  const context = await browser.newContext({
+    viewport: { width: W, height: 100 },
+    deviceScaleFactor: 1,
+  });
+  const page = await context.newPage();
+  await page.setContent(
+    `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+  @font-face {
+    font-family: "Open Sauce Sans";
+    font-weight: 700;
+    src: url("data:font/woff2;base64,${bold}") format("woff2");
   }
-  if (cur) lines.push(cur);
-  return lines;
+  @font-face {
+    font-family: "Open Sauce Sans";
+    font-weight: 500;
+    src: url("data:font/woff2;base64,${med}") format("woff2");
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    width: ${W}px;
+    background: ${BG};
+    color: ${INK};
+    font-family: "Open Sauce Sans", system-ui, sans-serif;
+  }
+  .band {
+    padding: 64px 56px 48px;
+    text-align: center;
+    background: ${BG};
+  }
+  .mark {
+    width: 36px;
+    height: 36px;
+    margin: 0 auto 28px;
+    display: block;
+  }
+  h1 {
+    font-size: 60px;
+    font-weight: 700;
+    line-height: 1.12;
+    letter-spacing: -0.02em;
+    color: ${ACCENT};
+    max-width: 20ch;
+    margin: 0 auto;
+  }
+  p {
+    margin-top: 16px;
+    font-size: 30px;
+    font-weight: 500;
+    line-height: 1.35;
+    color: ${MUTED};
+  }
+  img.screen {
+    display: block;
+    width: ${W}px;
+    height: ${screenH}px;
+  }
+</style>
+</head>
+<body>
+  <div class="band">
+    <svg class="mark" viewBox="0 0 48 48" aria-hidden="true">
+      <path fill="#8fa898" d="M24 8 40 34a2 2 0 0 1-1.8 2H9.8A2 2 0 0 1 8 34L24 8Z"/>
+      <path fill="#7a5c44" d="M21.25 36.5h5.5v6.25a1.5 1.5 0 0 1-1.5 1.5h-2.5a1.5 1.5 0 0 1-1.5-1.5V36.5Z"/>
+    </svg>
+    <h1>${escapeXml(headline)}</h1>
+    <p>${escapeXml(sub)}</p>
+  </div>
+  <img class="screen" alt="" src="data:image/png;base64,${img}"/>
+</body>
+</html>`,
+    { waitUntil: "load" },
+  );
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+  });
+  // Size viewport to full document
+  const h = await page.evaluate(() => document.body.scrollHeight);
+  await page.setViewportSize({ width: W, height: h });
+  await page.screenshot({ path: outPath, fullPage: true, type: "png" });
+  await context.close();
 }
 
-async function composeMockup({ rawPath, outPath, headline, sub }) {
-  const W = 1242;
-  const H = 2688;
-  const phoneW = 980;
-  const phoneH = 1960;
-  const phoneX = Math.round((W - phoneW) / 2);
-  const phoneY = 620;
-  const radius = 72;
-  const bezel = 14;
-
-  const headLines = wrapLines(headline, 22);
-  const subLines = wrapLines(sub, 34);
-
-  let y = 200;
-  const headSvg = headLines
-    .map((line, i) => {
-      return `<text x="${W / 2}" y="${y + i * 86}" text-anchor="middle" font-family="'Open Sauce Sans', system-ui, -apple-system, sans-serif" font-size="72" font-weight="700" fill="${INK}">${escapeXml(line)}</text>`;
-    })
-    .join("\n");
-  y += headLines.length * 86 + 24;
-  const subSvg = subLines
-    .map((line, i) => {
-      return `<text x="${W / 2}" y="${y + i * 46}" text-anchor="middle" font-family="'Open Sauce Sans', system-ui, -apple-system, sans-serif" font-size="34" font-weight="500" fill="${MUTED}">${escapeXml(line)}</text>`;
-    })
-    .join("\n");
-
-  const frameSvg = `
-<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#f0f2e8"/>
-      <stop offset="100%" stop-color="#e4e9dc"/>
-    </linearGradient>
-  </defs>
-  <rect width="${W}" height="${H}" fill="url(#bg)"/>
-  ${headSvg}
-  ${subSvg}
-  <rect x="${phoneX - bezel}" y="${phoneY - bezel}" width="${phoneW + bezel * 2}" height="${phoneH + bezel * 2}" rx="${radius}" fill="#1a2426"/>
-  <rect x="${phoneX}" y="${phoneY}" width="${phoneW}" height="${phoneH}" rx="${radius - 8}" fill="#000"/>
-</svg>`;
-
-  const screen = await sharp(rawPath)
-    .resize(phoneW, phoneH, { fit: "cover", position: "top" })
-    .png()
-    .toBuffer();
-
-  const mask = Buffer.from(
-    `<svg width="${phoneW}" height="${phoneH}"><rect width="${phoneW}" height="${phoneH}" rx="${radius - 10}" fill="#fff"/></svg>`,
-  );
-  const roundedScreen = await sharp(screen)
-    .composite([{ input: await sharp(mask).png().toBuffer(), blend: "dest-in" }])
-    .png()
-    .toBuffer();
-
-  await sharp(Buffer.from(frameSvg))
-    .composite([{ input: roundedScreen, left: phoneX, top: phoneY }])
-    .png()
-    .toFile(outPath);
+async function hideChromeNoise(page) {
+  await page.evaluate(() => {
+    for (const el of document.querySelectorAll("body *")) {
+      if (!(el instanceof HTMLElement)) continue;
+      const t = (el.textContent || "").replace(/\s+/g, " ").trim();
+      if (/^Powered by Netlify$/i.test(t) && t.length < 40) {
+        (el.closest("a,div,span,button") || el).style.setProperty("display", "none", "important");
+      }
+    }
+  });
 }
 
 async function preparePage(page, shot) {
-  if (shot.id === "04-team") {
+  if (shot.prepare === "grid") {
+    const gridBtn = page.getByRole("button", { name: /cover grid/i });
+    if (await gridBtn.count()) {
+      await gridBtn.first().click();
+      await page.waitForTimeout(600);
+    }
+  }
+
+  if (shot.prepare === "team") {
     await page.evaluate(() => {
       const el = [...document.querySelectorAll("h2,h3,div,p,span,label")].find((n) =>
-        /team members|invite member/i.test(n.textContent || ""),
+        /team members/i.test(n.textContent || ""),
       );
       el?.scrollIntoView({ block: "start" });
     });
     await page.waitForTimeout(400);
-  }
-  if (shot.prepare === "add-cover") {
-    // Prefer Cover tab and leave the capture UI visible
-    const coverTab = page.getByRole("button", { name: /^cover$/i }).or(page.getByText(/^Cover$/));
-    if (await coverTab.count()) {
-      await coverTab.first().click();
-      await page.waitForTimeout(500);
-    }
   }
 }
 
@@ -171,23 +221,21 @@ async function main() {
   mkdirSync(RAW_DIR, { recursive: true });
   mkdirSync(OUT_DIR, { recursive: true });
 
-  let sessionMeta;
-  try {
-    sessionMeta = JSON.parse(readFileSync("/tmp/appstore-demo-session.json", "utf8"));
-  } catch {
-    sessionMeta = null;
+  // Remove obsolete AI/scan asset if still present
+  for (const stale of ["appstore-05-scan.png"]) {
+    const p = join(OUT_DIR, stale);
+    if (existsSync(p)) unlinkSync(p);
   }
 
+  const sessionMeta = JSON.parse(readFileSync("/tmp/appstore-demo-session.json", "utf8"));
   const supabase = createClient(SUPABASE_URL, ANON);
-  const email = sessionMeta?.email || process.env.DEMO_EMAIL;
-  const password = sessionMeta?.password || process.env.DEMO_PASSWORD;
-  if (!email || !password) throw new Error("Missing demo credentials");
-
-  const { data: auth, error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data: auth, error } = await supabase.auth.signInWithPassword({
+    email: sessionMeta.email,
+    password: sessionMeta.password,
+  });
   if (error) throw error;
 
-  const libraryId = sessionMeta?.libraryId;
-  const storageKey = `sb-xdsnoqckoolwatgwtyfy-auth-token`;
+  const storageKey = "sb-xdsnoqckoolwatgwtyfy-auth-token";
   const sessionPayload = {
     access_token: auth.session.access_token,
     refresh_token: auth.session.refresh_token,
@@ -198,122 +246,110 @@ async function main() {
   };
 
   const browser = await chromium.launch({
-    executablePath: process.env.CHROME_PATH || "/usr/bin/google-chrome-stable",
+    executablePath: "/usr/bin/google-chrome-stable",
     headless: true,
-    args: ["--no-sandbox", "--disable-dev-shm-usage"],
+    args: ["--no-sandbox", "--disable-dev-shm-usage", "--font-render-hinting=none"],
   });
 
   const context = await browser.newContext({
-    viewport: { width: 390, height: 844 },
-    deviceScaleFactor: 3,
+    viewport: { width: VIEW_W, height: VIEW_H },
+    deviceScaleFactor: DPR,
     userAgent:
-      "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1",
     isMobile: true,
     hasTouch: true,
+    colorScheme: "light",
   });
 
   await context.addInitScript(
     ({ storageKey, sessionPayload, libraryId }) => {
       localStorage.setItem(storageKey, JSON.stringify(sessionPayload));
-      if (libraryId) localStorage.setItem("pine-bookkeeping-library-id", libraryId);
+      localStorage.setItem("pine-bookkeeping-library-id", libraryId);
     },
-    { storageKey, sessionPayload, libraryId },
+    { storageKey, sessionPayload, libraryId: sessionMeta.libraryId },
   );
 
-  const page = await context.newPage();
-  await page.addInitScript(() => {
-    const style = document.createElement("style");
-    style.textContent = `
-      a[href*="netlify"], [id*="netlify"], [class*="nf-"], 
-      body > a[target="_blank"] { } 
-    `;
+  await context.addInitScript(() => {
     const hide = () => {
       for (const el of document.querySelectorAll("body *")) {
         if (!(el instanceof HTMLElement)) continue;
         const t = (el.textContent || "").replace(/\s+/g, " ").trim();
-        if (/^Powered by Netlify$/i.test(t)) {
-          const box = el.closest("a,div,span,button") || el;
-          box.style.setProperty("display", "none", "important");
+        if (/^Powered by Netlify$/i.test(t) && t.length < 40) {
+          (el.closest("a,div,span,button") || el).style.setProperty("display", "none", "important");
         }
       }
     };
-    document.addEventListener("DOMContentLoaded", hide);
-    setInterval(hide, 500);
+    setInterval(hide, 400);
   });
 
+  const page = await context.newPage();
   await page.goto(`${APP}/home`, { waitUntil: "networkidle", timeout: 60000 });
-  await page.waitForTimeout(1500);
-  const url = page.url();
-  if (url.includes("/login") || url.includes("/signup")) {
-    throw new Error(`Auth injection failed, landed on ${url}`);
+  await page.waitForTimeout(1200);
+  if (/\/login|\/signup/.test(page.url())) {
+    throw new Error(`Auth failed, at ${page.url()}`);
   }
-  if (url.includes("/setup")) {
-    const name = page.locator("input").first();
-    if (await name.count()) {
-      await name.fill("Alex Morgan");
-      const continueBtn = page.getByRole("button", { name: /continue|join/i });
-      if (await continueBtn.count()) await continueBtn.click();
-      await page.waitForTimeout(2000);
-    }
-  }
-
-  // Hide Netlify badge via DOM if present
-  await page.evaluate(() => {
-    for (const el of document.querySelectorAll("body *")) {
-      const t = (el.textContent || "").trim();
-      if (t === "Powered by Netlify" || /^Powered by\s*Netlify$/i.test(t)) {
-        (el.closest("a,div,span,button") || el).style.display = "none";
-      }
-    }
-  });
 
   for (const shot of SHOTS) {
     console.log("capturing", shot.id, shot.path);
     await page.goto(`${APP}${shot.path}`, { waitUntil: "networkidle", timeout: 60000 });
     try {
-      await page.waitForSelector(shot.wait, { timeout: 15000 });
+      await page.waitForSelector(shot.wait, { timeout: 20000 });
     } catch {
-      console.warn("wait selector missed for", shot.id, "— continuing");
+      console.warn("selector miss", shot.id);
     }
-    await page.evaluate(() => {
-      for (const el of document.querySelectorAll("body *")) {
-        const t = (el.textContent || "").trim();
-        if (/Powered by\s*Netlify/i.test(t) && t.length < 40) {
-          const target = el.closest("a,div,span,button") || el;
-          target.style.setProperty("display", "none", "important");
-        }
-      }
-    });
+    await hideChromeNoise(page);
     await preparePage(page, shot);
-    await page.waitForTimeout(800);
+    // Wait for cover images
+    await page.waitForTimeout(1500);
+    await page.evaluate(async () => {
+      const imgs = [...document.images];
+      await Promise.all(
+        imgs.map(
+          (img) =>
+            img.complete ||
+            new Promise((res) => {
+              img.onload = res;
+              img.onerror = res;
+            }),
+        ),
+      );
+    });
+
     const rawPath = join(RAW_DIR, `${shot.id}.png`);
-    await page.screenshot({ path: rawPath, fullPage: false });
+    await page.screenshot({ path: rawPath, fullPage: false, type: "png" });
+
+    // Sanity: raw must match viewport*dpr
+    const meta = await sharp(rawPath).metadata();
+    console.log("  raw", meta.width, "x", meta.height, "expected", VIEW_W * DPR, "x", VIEW_H * DPR);
 
     const outPath = join(OUT_DIR, `appstore-${shot.id}.png`);
     await composeMockup({
+      browser,
       rawPath,
       outPath,
       headline: shot.headline,
       sub: shot.sub,
     });
-    console.log("wrote", outPath);
+    console.log("  wrote", outPath);
   }
 
   await page.goto(`${APP}/home`, { waitUntil: "networkidle" });
+  await hideChromeNoise(page);
   await page.waitForTimeout(800);
   await page.screenshot({ path: join(RAW_DIR, "00-home.png"), fullPage: false });
 
   await browser.close();
+
   writeFileSync(
     join(OUT_DIR, "README.md"),
     `# App Store screenshots
 
-Generated from the **live app** (\`${APP}\`) — real UI captures, not AI mock UIs.
+Pixel-accurate captures from the live Pine Bookkeeping UI (\`${APP}\`),
+composed with marketing copy. Screenshots are **not cropped** — phone slot
+matches the capture aspect ratio exactly.
 
-- \`appstore-*.png\` — store frames with marketing copy around a phone bezel
-- \`raw/\` — unmodified screenshots from the running product
-
-Regenerate after seeding a demo account:
+- \`appstore-*.png\` — store frames (Open Sauce Sans + brand palette)
+- \`raw/\` — unmodified device screenshots (1170×2532)
 
 \`\`\`bash
 node scripts/appstore-screenshots.mjs
