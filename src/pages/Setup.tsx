@@ -9,6 +9,7 @@ import { useLibrary } from "@/lib/library";
 import { useAuth } from "@/lib/auth";
 import { APP_TAGLINE } from "@/lib/brand";
 import { getPendingInvite } from "@/lib/pending-invite";
+import { pickSynkDisplayName } from "@/lib/synk-name";
 
 /** Setup is complete when the account has a display name and at least one library. */
 export function needsSetup(opts: {
@@ -31,25 +32,48 @@ export function SetupPage() {
     acceptInvite,
     refreshLibraries,
   } = useLibrary();
+  const metaName = pickSynkDisplayName(
+    typeof user?.user_metadata?.full_name === "string" ? user.user_metadata.full_name : null,
+    typeof user?.user_metadata?.name === "string" ? user.user_metadata.name : null,
+  );
   const [yourName, setYourName] = useState("");
   const [libraryName, setLibraryName] = useState("My Library");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [nameReady, setNameReady] = useState(false);
 
   const sessionInviteId = getPendingInvite();
-  const joiningTeam =
-    pendingInvites.length > 0 || Boolean(sessionInviteId);
+  const joiningTeam = pendingInvites.length > 0 || Boolean(sessionInviteId);
   const mustCreateLibrary = libraries.length === 0 && !joiningTeam;
   const canRenameOwned =
-    !joiningTeam &&
-    libraries.length > 0 &&
-    activeLibrary?.role === "owner";
+    !joiningTeam && libraries.length > 0 && activeLibrary?.role === "owner";
 
   useEffect(() => {
-    if (userProfile?.displayName) {
-      setYourName(userProfile.displayName);
+    const seed = pickSynkDisplayName(userProfile?.displayName, metaName);
+    if (seed) setYourName(seed);
+  }, [userProfile?.displayName, metaName]);
+
+  // Persist Synk metadata into user_profiles so setup doesn't keep asking for a name.
+  useEffect(() => {
+    if (!user || loading) return;
+    if (userProfile?.displayName?.trim()) {
+      setNameReady(true);
+      return;
     }
-  }, [userProfile?.displayName]);
+    if (!metaName) {
+      setNameReady(true);
+      return;
+    }
+    let cancelled = false;
+    void updateProfile({ displayName: metaName })
+      .catch((err) => console.warn("Could not apply Synk name during setup:", err))
+      .finally(() => {
+        if (!cancelled) setNameReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, loading, userProfile?.displayName, metaName, updateProfile]);
 
   useEffect(() => {
     if (activeLibrary?.name && !joiningTeam) {
@@ -57,12 +81,14 @@ export function SetupPage() {
     }
   }, [activeLibrary?.name, joiningTeam]);
 
+  const resolvedDisplayName = pickSynkDisplayName(userProfile?.displayName, yourName, metaName);
+  const nameFromSynk = Boolean(resolvedDisplayName);
   const setupNeeded = needsSetup({
-    displayName: userProfile?.displayName,
+    displayName: resolvedDisplayName,
     libraryCount: libraries.length,
   });
 
-  if (!loading && user && !setupNeeded) {
+  if (!loading && nameReady && user && !setupNeeded) {
     return <Navigate to="/home" replace />;
   }
 
@@ -70,7 +96,7 @@ export function SetupPage() {
     e.preventDefault();
     setError("");
 
-    const name = yourName.trim();
+    const name = (yourName.trim() || resolvedDisplayName || "").trim();
     if (!name) {
       setError("Please enter your name so teammates can recognize you.");
       return;
@@ -78,7 +104,9 @@ export function SetupPage() {
 
     setBusy(true);
     try {
-      await updateProfile({ displayName: name });
+      if (userProfile?.displayName?.trim() !== name) {
+        await updateProfile({ displayName: name });
+      }
 
       if (joiningTeam) {
         const inviteIds = [
@@ -128,7 +156,7 @@ export function SetupPage() {
     }
   };
 
-  if (loading) {
+  if (loading || !nameReady) {
     return <FullPageLoading />;
   }
 
@@ -150,28 +178,41 @@ export function SetupPage() {
           <h1 className="mt-10 text-[2.125rem] font-bold tracking-tight">Welcome</h1>
           <p className="mt-2 max-w-sm text-[1.0625rem] leading-relaxed text-muted">
             {joiningTeam
-              ? `You've been invited to ${inviteLabel}. Add your name to join — no personal library required.`
-              : APP_TAGLINE}
+              ? nameFromSynk
+                ? `You've been invited to ${inviteLabel}. Confirm below to join.`
+                : `You've been invited to ${inviteLabel}. Add your name to join — no personal library required.`
+              : nameFromSynk
+                ? "Your Synk name is ready. Name your library to finish setup."
+                : APP_TAGLINE}
           </p>
 
           <div className="mt-8">
             <Group>
               <form onSubmit={onSubmit}>
-                <TextField
-                  label="Your Name"
-                  grouped
-                  required
-                  autoFocus
-                  placeholder="e.g. Alex Morgan"
-                  hint="Shown to teammates when you share a library"
-                  value={yourName}
-                  onChange={(e) => setYourName(e.target.value)}
-                />
+                {nameFromSynk ? (
+                  <div className="border-b border-black/[0.06] px-4 py-3 dark:border-white/[0.08]">
+                    <p className="text-[0.75rem] font-medium text-muted">Your name</p>
+                    <p className="mt-0.5 text-[1.0625rem] font-medium">{resolvedDisplayName}</p>
+                    <p className="mt-1 text-[0.8125rem] text-muted">From your Synk ID</p>
+                  </div>
+                ) : (
+                  <TextField
+                    label="Your Name"
+                    grouped
+                    required
+                    autoFocus
+                    placeholder="e.g. Alex Morgan"
+                    hint="Shown to teammates when you share a library"
+                    value={yourName}
+                    onChange={(e) => setYourName(e.target.value)}
+                  />
+                )}
                 {(mustCreateLibrary || canRenameOwned) && (
                   <TextField
                     label="Library Name"
                     grouped
                     required
+                    autoFocus={nameFromSynk}
                     placeholder="e.g. Home Books, Office Shelf"
                     hint="You can rename this later or create more libraries in Settings"
                     value={libraryName}
@@ -195,7 +236,9 @@ export function SetupPage() {
             <GroupFooter>
               {joiningTeam
                 ? "You can create your own library later from Settings if you want one."
-                : "Your name helps library owners and members know who has access."}
+                : nameFromSynk
+                  ? "You can change your display name later in Account settings."
+                  : "Your name helps library owners and members know who has access."}
             </GroupFooter>
           </div>
         </div>

@@ -5,9 +5,11 @@ import { Button } from "@/components/Button";
 import { TextField, FormError } from "@/components/form";
 import { SegmentedControl } from "@/components/layout";
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import { captureDualDescriptors, getKioskFace } from "@/lib/synk-face";
 import type { SynkIdentityStatus } from "@/lib/synk";
+import { pickSynkDisplayName } from "@/lib/synk-name";
 
 type Mode = "signin" | "link";
 type Tab = "face" | "code";
@@ -45,6 +47,7 @@ export function SynkVerifyModal({
   onLinked?: (status: SynkIdentityStatus) => void;
 }) {
   const navigate = useNavigate();
+  const { updateProfile } = useAuth();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [tab, setTab] = useState<Tab>("face");
   const [status, setStatus] = useState("Ready");
@@ -136,6 +139,7 @@ export function SynkVerifyModal({
     const data = (await res.json().catch(() => ({}))) as {
       error?: string;
       token_hash?: string;
+      profile?: { name?: string | null };
     };
     if (!res.ok || !data.token_hash) {
       throw new Error(data.error || "Synk sign-in failed");
@@ -145,6 +149,17 @@ export function SynkVerifyModal({
       type: "email",
     });
     if (otpError) throw otpError;
+
+    // Apply Synk's name so setup doesn't ask for it again.
+    const synkName = pickSynkDisplayName(data.profile?.name);
+    if (synkName) {
+      try {
+        await updateProfile({ displayName: synkName });
+      } catch (err) {
+        console.warn("Could not save Synk display name:", err);
+      }
+    }
+
     onClose();
     navigate("/setup", { replace: true });
   };

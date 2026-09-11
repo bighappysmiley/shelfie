@@ -148,6 +148,22 @@ export default async (req: Request) => {
         },
       });
 
+      // Fill empty profile display names from Synk (don't overwrite a custom name).
+      if (profile.name?.trim()) {
+        const { data: existing } = await client
+          .from("user_profiles")
+          .select("display_name")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (!existing?.display_name?.trim()) {
+          await client.from("user_profiles").upsert({
+            user_id: user.id,
+            display_name: profile.name.trim(),
+            updated_at: new Date().toISOString(),
+          });
+        }
+      }
+
       return json({
         ok: true,
         linked: true,

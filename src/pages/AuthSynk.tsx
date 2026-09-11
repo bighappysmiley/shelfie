@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { FullPageLoading } from "@/components/LoadingTree";
 import { ButtonLink } from "@/components/Button";
 import { Container } from "@/components/layout";
 import { readSynkPassFromUrl } from "@/lib/synk";
+import { pickSynkDisplayName } from "@/lib/synk-name";
 
 /**
  * Completes Synk ID sign-in or linking when a pass is present in the URL
@@ -13,6 +15,7 @@ import { readSynkPassFromUrl } from "@/lib/synk";
  */
 export function AuthSynkPage() {
   const navigate = useNavigate();
+  const { updateProfile } = useAuth();
   const [error, setError] = useState("");
   const [label, setLabel] = useState("Signing in with Synk ID");
 
@@ -54,6 +57,7 @@ export function AuthSynkPage() {
         const data = (await res.json().catch(() => ({}))) as {
           error?: string;
           token_hash?: string;
+          profile?: { name?: string | null };
         };
         if (!res.ok || !data.token_hash) {
           throw new Error(data.error || "Synk sign-in failed");
@@ -64,6 +68,15 @@ export function AuthSynkPage() {
           type: "email",
         });
         if (otpError) throw otpError;
+
+        const synkName = pickSynkDisplayName(data.profile?.name);
+        if (synkName) {
+          try {
+            await updateProfile({ displayName: synkName });
+          } catch (err) {
+            console.warn("Could not save Synk display name:", err);
+          }
+        }
 
         if (cancelled) return;
         navigate("/setup", { replace: true });
@@ -77,7 +90,7 @@ export function AuthSynkPage() {
     return () => {
       cancelled = true;
     };
-  }, [navigate]);
+  }, [navigate, updateProfile]);
 
   if (error) {
     return (
