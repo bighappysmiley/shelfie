@@ -125,6 +125,7 @@ import {
 } from "@/lib/community-mentions";
 import { getChannelDraft, setChannelDraft, draftPreview, getAllChannelDrafts } from "@/lib/community-drafts";
 import { loadResolvedChannelPermissions, batchLoadResolvedChannelPermissions, type ResolvedChannelPermissions } from "@/lib/community-permissions";
+import { isBotAuthorName, isSuggestionsChannel } from "@/lib/community-pine-hall";
 import { getVoicePrefs, toggleVoiceDeafened, toggleVoiceMuted } from "@/lib/community-voice-prefs";
 import { useCommunityHotkeys } from "@/hooks/useCommunityHotkeys";
 import { useVoiceRtc } from "@/hooks/useVoiceRtc";
@@ -1637,7 +1638,7 @@ function ChannelRoom({
         serverId,
         userId,
         body: draft,
-        kind: "chat",
+        kind: isSuggestionsChannel(group.name) ? "suggestion" : "chat",
         authorName: authorLabel,
         replyToId: isForum
           ? forumThreadId
@@ -1662,7 +1663,7 @@ function ChannelRoom({
       serverId,
       userId,
       body,
-      kind: "chat",
+      kind: isSuggestionsChannel(group.name) ? "suggestion" : "chat",
       authorName: authorLabel,
       replyToId: null,
       forumTitle: title,
@@ -2294,7 +2295,8 @@ const MessageRow = forwardRef(function MessageRow(
     return <li ref={ref} className="text-center text-[0.75rem] text-muted">{message.body}</li>;
   }
   const isSuggestion = message.kind === "suggestion";
-  const nameStyle = roleColor ? roleColorTextStyle(roleColor) : undefined;
+  const isBot = !message.authorId && isBotAuthorName(message.authorName);
+  const nameStyle = roleColor && !isBot ? roleColorTextStyle(roleColor) : undefined;
 
   return (
     <li
@@ -2354,9 +2356,10 @@ const MessageRow = forwardRef(function MessageRow(
               {isMine ? "You" : message.authorName || "Member"}
             </button>
             <ChatAuthorBadge
+              isBot={isBot}
               isAppOwner={isAppOwnerAuthor}
-              roleIconUrl={roleIconUrl}
-              badges={authorBadges}
+              roleIconUrl={isBot ? null : roleIconUrl}
+              badges={isBot ? [] : authorBadges}
             />
             <MessageTimestamp iso={message.createdAt} />
             {isSuggestion && message.suggestionStatus && (

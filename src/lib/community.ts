@@ -713,20 +713,24 @@ export async function syncServerRulesToChannel(serverId: string): Promise<void> 
   const server = await getServer(serverId);
   if (!server?.rulesChannelId || !server.rules?.trim()) return;
 
-  const rulesBody = `**Server Rules**\n\n${server.rules.trim()}`;
+  const rulesBody = `**Pine Hall Rules** <!--pine-bot:rules-->\n\n${server.rules.trim()}`;
   const { data: existing } = await supabase
     .from("community_messages")
     .select("id")
     .eq("group_id", server.rulesChannelId)
-    .eq("kind", "system")
-    .ilike("body", "%Server Rules%")
+    .or("body.ilike.%Server Rules%,body.ilike.%pine-bot:rules%")
     .limit(1)
     .maybeSingle();
 
   if (existing?.id) {
     await supabase
       .from("community_messages")
-      .update({ body: rulesBody, edited_at: new Date().toISOString() })
+      .update({
+        body: rulesBody,
+        author_name: "Pine",
+        kind: "chat",
+        edited_at: new Date().toISOString(),
+      })
       .eq("id", existing.id as string);
     return;
   }
@@ -735,8 +739,8 @@ export async function syncServerRulesToChannel(serverId: string): Promise<void> 
     group_id: server.rulesChannelId,
     author_id: null,
     body: rulesBody,
-    kind: "system",
-    author_name: "Server",
+    kind: "chat",
+    author_name: "Pine",
   });
 }
 
