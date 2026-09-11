@@ -9,7 +9,7 @@ import { Button, ButtonLink } from "@/components/Button";
 import { TextField, FormError } from "@/components/form";
 import { Container, Group, SegmentedControl } from "@/components/layout";
 import { storePendingInvite } from "@/lib/pending-invite";
-import { startSynkSignIn } from "@/lib/synk";
+import { SynkVerifyModal } from "@/components/SynkVerifyModal";
 
 function useInviteParams() {
   const [searchParams] = useSearchParams();
@@ -130,6 +130,7 @@ export function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [needsConfirm, setNeedsConfirm] = useState(false);
   const [resendBusy, setResendBusy] = useState(false);
+  const [synkOpen, setSynkOpen] = useState(false);
 
   if (redirect) return redirect;
 
@@ -310,14 +311,13 @@ export function LoginPage() {
           variant="tinted"
           className="w-full"
           disabled={busy}
-          onClick={() => startSynkSignIn()}
+          onClick={() => setSynkOpen(true)}
         >
           Sign in with Synk ID
         </Button>
-        <p className="mt-2 text-center text-[0.8125rem] text-muted">
-          Face or Synk code — no password
-        </p>
       </div>
+
+      <SynkVerifyModal open={synkOpen} onClose={() => setSynkOpen(false)} mode="signin" />
 
       <p className="mt-6 text-center text-[0.9375rem] text-muted">
         Do not have an account?{" "}
@@ -345,6 +345,7 @@ export function SignupPage() {
   const [busy, setBusy] = useState(false);
   const [awaitingConfirm, setAwaitingConfirm] = useState(false);
   const [resendBusy, setResendBusy] = useState(false);
+  const [synkOpen, setSynkOpen] = useState(false);
 
   if (redirect) return redirect;
 
@@ -518,14 +519,13 @@ export function SignupPage() {
           variant="tinted"
           className="w-full"
           disabled={busy}
-          onClick={() => startSynkSignIn()}
+          onClick={() => setSynkOpen(true)}
         >
           Continue with Synk ID
         </Button>
-        <p className="mt-2 text-center text-[0.8125rem] text-muted">
-          Create an account with face or Synk code
-        </p>
       </div>
+
+      <SynkVerifyModal open={synkOpen} onClose={() => setSynkOpen(false)} mode="signin" />
 
       <p className="mt-6 text-center text-[0.9375rem] text-muted">
         Already registered?{" "}

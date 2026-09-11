@@ -8,7 +8,8 @@ import { Container } from "@/components/layout";
 import { readSynkPassFromUrl } from "@/lib/synk";
 
 /**
- * Completes Synk ID sign-in or account linking after redirect from synkid.netlify.app/verify.
+ * Completes Synk ID sign-in or linking when a pass is present in the URL
+ * (legacy deep-link / external return). Primary flow is in-app via SynkVerifyModal.
  */
 export function AuthSynkPage() {
   const navigate = useNavigate();

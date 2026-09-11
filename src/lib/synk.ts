@@ -1,10 +1,4 @@
-/** Client helpers for Synk ID (face / Synk code) sign-in. */
-
-const VERIFY_ORIGIN = (
-  import.meta.env.VITE_SYNK_VERIFY_ORIGIN || "https://synkid.netlify.app"
-).replace(/\/$/, "");
-
-const APP_SLUG = (import.meta.env.VITE_SYNK_APP_SLUG || "synk").trim() || "synk";
+/** Client helpers for in-app Synk ID (face / Synk code) sign-in. */
 
 export type SynkIdentityStatus = {
   linked: boolean;
@@ -17,26 +11,7 @@ export type SynkIdentityStatus = {
   } | null;
 };
 
-export function buildSynkVerifyUrl(returnUrl: string): string {
-  const url = new URL("/verify", VERIFY_ORIGIN);
-  url.searchParams.set("app", APP_SLUG);
-  url.searchParams.set("intent", "identity");
-  url.searchParams.set("return", returnUrl);
-  return url.toString();
-}
-
-/** Redirect browser to Synk ID verify, then back to /auth/synk. */
-export function startSynkSignIn(): void {
-  const returnUrl = `${window.location.origin}/auth/synk`;
-  window.location.assign(buildSynkVerifyUrl(returnUrl));
-}
-
-/** Redirect to Synk ID verify for linking an existing signed-in account. */
-export function startSynkLink(): void {
-  const returnUrl = `${window.location.origin}/auth/synk?mode=link`;
-  window.location.assign(buildSynkVerifyUrl(returnUrl));
-}
-
+/** Kept for deep-link callbacks that still land on /auth/synk with a pass. */
 export function readSynkPassFromUrl(href = window.location.href): {
   pass: string | null;
   assertion: string | null;

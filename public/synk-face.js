@@ -1,0 +1,529 @@
+/* Shared face detection helpers for admin enroll + kiosk/Synk match.
+   Uses @vladmandic/face-api from CDN (browser face match — not Apple Face ID). */
+
+(function (global) {
+  const MODEL_URL = "https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.14/model";
+  const SCRIPT_URL = "https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.14/dist/face-api.js";
+  const LOAD_TIMEOUT_MS = 20000;
+  const DETECT_TIMEOUT_MS = 10000;
+  const DETECT_MAX_SIDE = 416;
+
+  let loading = null;
+  let ready = false;
+  // Preferred physical camera edge on a landscape-mounted iPad.
+  // Portrait auto-uses center (camera is usually top-center).
+  let cameraSide = "left";
+  let activePreviewVideo = null;
+  let orientationHooked = false;
+
+  function yieldToEventLoop() {
+    return new Promise((resolve) => setTimeout(resolve, 0));
+  }
+
+  function withTimeout(promise, ms, message) {
+    let timer = null;
+    return Promise.race([
+      Promise.resolve(promise).finally(() => {
+        if (timer) clearTimeout(timer);
+      }),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(message)), ms);
+      }),
+    ]);
+  }
+
+  function isAppleTouchDevice() {
+    try {
+      const ua = String(navigator.userAgent || "");
+      if (/iPad|iPhone|iPod/i.test(ua)) return true;
+      // iPadOS desktop UA
+      if (navigator.platform === "MacIntel" && Number(navigator.maxTouchPoints || 0) > 1) {
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  function isIPhone() {
+    try {
+      return /iPhone|iPod/i.test(String(navigator.userAgent || ""));
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function detectMaxSide() {
+    // iPhone Safari WebGL face inference is much heavier than iPad; keep tensors small.
+    return isIPhone() ? 320 : DETECT_MAX_SIDE;
+  }
+
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      if (global.faceapi) {
+        resolve();
+        return;
+      }
+
+      const existing = document.querySelector('script[data-face-api="1"]');
+      if (existing) {
+        // Already finished: the load event will never fire again.
+        if (existing.dataset.loaded === "1") {
+          if (global.faceapi) resolve();
+          else reject(new Error("Face library failed to initialize. Refresh and try again."));
+          return;
+        }
+        const onLoad = () => {
+          existing.dataset.loaded = "1";
+          resolve();
+        };
+        const onError = () => reject(new Error("Could not load face library"));
+        existing.addEventListener("load", onLoad, { once: true });
+        existing.addEventListener("error", onError, { once: true });
+        // Script may have finished between query and listener attach.
+        if (global.faceapi) {
+          existing.dataset.loaded = "1";
+          resolve();
+        }
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = src;
+      script.async = true;
+      script.dataset.faceApi = "1";
+      script.onload = () => {
+        script.dataset.loaded = "1";
+        resolve();
+      };
+      script.onerror = () => reject(new Error("Could not load face library"));
+      document.head.appendChild(script);
+    });
+  }
+
+  async function setTfBackend(tf, backend) {
+    const ok = await withTimeout(
+      tf.setBackend(backend),
+      5000,
+      `Face backend ${backend} timed out`
+    );
+    if (ok === false) throw new Error(`Face backend ${backend} rejected`);
+    if (typeof tf.ready === "function") {
+      await withTimeout(tf.ready(), 5000, `Face backend ${backend} not ready`);
+    }
+  }
+
+  async function preferIPhoneCpuBackend() {
+    // Re-assert CPU before every detect. Some iPhone Safari sessions flip back to
+    // WebGL after model load, and WebGL detect can freeze the Scanning… UI forever.
+    if (!isIPhone() || !global.faceapi) return;
+    const tf = global.faceapi.tf || global.tf;
+    if (!tf || typeof tf.setBackend !== "function") return;
+    try {
+      if (typeof tf.getBackend === "function" && tf.getBackend() === "cpu") return;
+      await setTfBackend(tf, "cpu");
+    } catch (_) {
+      /* keep whatever backend we have */
+    }
+  }
+
+  async function pickTfBackend(faceapi) {
+    const tf = faceapi.tf || global.tf;
+    if (!tf || typeof tf.setBackend !== "function") return;
+
+    // Avoid wasm: on iOS Safari it often hangs or fails without explicit wasm paths,
+    // and a hung setBackend blocks the UI while the camera preview still looks "fine".
+    // iPhone: prefer CPU. WebGL setBackend can succeed then hang forever on detect,
+    // which freezes "Scanning…" because the main thread never yields to timeouts.
+    // iPad WebGL is usually fine and much faster, so keep it first there.
+    const backends = isIPhone()
+      ? ["cpu", "webgl"]
+      : isAppleTouchDevice()
+        ? ["webgl", "cpu"]
+        : ["webgl", "cpu"];
+
+    for (const backend of backends) {
+      try {
+        await yieldToEventLoop();
+        await setTfBackend(tf, backend);
+        await yieldToEventLoop();
+        return backend;
+      } catch (_) {
+        /* try next */
+      }
+    }
+    return null;
+  }
+
+  async function ensureFaceApi() {
+    if (ready && global.faceapi) return global.faceapi;
+    if (loading) return loading;
+
+    loading = (async () => {
+      await withTimeout(
+        loadScript(SCRIPT_URL),
+        LOAD_TIMEOUT_MS,
+        "Face library is taking too long to load. Check your connection and try again."
+      );
+      await yieldToEventLoop();
+
+      const faceapi = global.faceapi;
+      if (!faceapi) throw new Error("Face library unavailable");
+
+      await pickTfBackend(faceapi);
+      await yieldToEventLoop();
+
+      // Load models one-by-one so timeouts can fire between each network/parse step.
+      await withTimeout(
+        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+        LOAD_TIMEOUT_MS,
+        "Face detector is taking too long to load. Check your connection and try again."
+      );
+      await yieldToEventLoop();
+      await withTimeout(
+        faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
+        LOAD_TIMEOUT_MS,
+        "Face landmarks are taking too long to load. Check your connection and try again."
+      );
+      await yieldToEventLoop();
+      await withTimeout(
+        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+        LOAD_TIMEOUT_MS,
+        "Face recognition is taking too long to load. Check your connection and try again."
+      );
+
+      ready = true;
+      return faceapi;
+    })();
+
+    try {
+      return await loading;
+    } catch (err) {
+      loading = null;
+      ready = false;
+      throw err;
+    }
+  }
+
+  function detectorOptions() {
+    // Smaller input on iPhone keeps recognition from locking Safari's UI thread.
+    return new global.faceapi.TinyFaceDetectorOptions({
+      inputSize: isIPhone() ? 224 : 320,
+      scoreThreshold: isIPhone() ? 0.35 : 0.4,
+    });
+  }
+
+  function downscaleForDetection(input) {
+    const width = input.width || input.videoWidth || input.naturalWidth || 0;
+    const height = input.height || input.videoHeight || input.naturalHeight || 0;
+    if (!width || !height) return input;
+
+    const maxSide = Math.max(width, height);
+    const limit = detectMaxSide();
+    if (maxSide <= limit) return input;
+
+    const scale = limit / maxSide;
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(width * scale));
+    canvas.height = Math.max(1, Math.round(height * scale));
+    const ctx = canvas.getContext("2d", { alpha: false, willReadFrequently: true });
+    ctx.drawImage(input, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  }
+
+  function normalizeCameraSide(value) {
+    const v = String(value || "").toLowerCase();
+    if (v === "right" || v === "center" || v === "left") return v;
+    if (v === "270" || v === "180") return "right";
+    if (v === "90") return "left";
+    if (v === "0") return "center";
+    return "left";
+  }
+
+  function setCameraSide(value) {
+    cameraSide = normalizeCameraSide(value);
+    return cameraSide;
+  }
+
+  function getCameraSide() {
+    return cameraSide;
+  }
+
+  function setCameraRotation(value) {
+    return setCameraSide(value);
+  }
+
+  function getCameraRotation() {
+    return 0;
+  }
+
+  function normalizeRotation() {
+    return 0;
+  }
+
+  function isPortraitOrientation() {
+    try {
+      if (typeof window.matchMedia === "function") {
+        if (window.matchMedia("(orientation: portrait)").matches) return true;
+        if (window.matchMedia("(orientation: landscape)").matches) return false;
+      }
+    } catch (_) {}
+    return Boolean(window.innerHeight > window.innerWidth);
+  }
+
+  function effectiveCameraSide(side = cameraSide) {
+    const resolved = normalizeCameraSide(side);
+    if (resolved === "center") return "center";
+    if (isPortraitOrientation()) return "center";
+    return resolved;
+  }
+
+  function reframeParams(side = cameraSide) {
+    const resolved = effectiveCameraSide(side);
+    // Landscape iPads put the FaceTime camera on a short edge. Zoom + pan so a
+    // person standing at the screen center lands in the preview/capture center.
+    // Keep |pan| under (zoom-1)/2 so we never open black bars in the crop.
+    if (resolved === "left") return { zoom: 1.5, panRawX: 0.18 };
+    if (resolved === "right") return { zoom: 1.5, panRawX: -0.18 };
+    return { zoom: 1.08, panRawX: 0 };
+  }
+
+  function applyPreviewTransform(videoEl) {
+    if (!videoEl) return;
+    const side = effectiveCameraSide(cameraSide);
+    const { zoom, panRawX } = reframeParams(cameraSide);
+    videoEl.dataset.cameraSide = side;
+    videoEl.dataset.cameraRotation = "0";
+    // Transform is applied right-to-left: mirror, then zoom, then pan in screen
+    // space. Positive panRawX (camera on left) moves the mirrored subject toward
+    // center. Translate must come after scale or the pan gets amplified and
+    // reveals the black letterbox (what the kiosk photos showed).
+    const panCss = (panRawX * 100).toFixed(2);
+    videoEl.style.transformOrigin = "center center";
+    videoEl.style.transform = `translateX(${panCss}%) scale(${zoom}) scaleX(-1)`;
+  }
+
+  function applyPreviewRotation(videoEl) {
+    applyPreviewTransform(videoEl);
+  }
+
+  function applyCameraGuide(rootEl, side = cameraSide) {
+    const target = rootEl || document;
+    const resolved = effectiveCameraSide(side);
+    target.querySelectorAll(".synk-pod-frame, .face-video-wrap, .pod-frame").forEach((el) => {
+      el.dataset.cameraSide = resolved;
+    });
+    target.querySelectorAll(".synk-pod-ring, .face-guide-ring, .pod-ring").forEach((el) => {
+      el.dataset.cameraSide = "center";
+    });
+  }
+
+  function refreshActivePreview() {
+    if (activePreviewVideo && activePreviewVideo.srcObject) {
+      applyPreviewTransform(activePreviewVideo);
+      applyCameraGuide(
+        activePreviewVideo.closest(
+          ".synk-pod-frame, .face-video-wrap, .face-modal-card, .synk-modal-card, body"
+        ) || document
+      );
+    }
+  }
+
+  function ensureOrientationHook() {
+    if (orientationHooked || typeof window === "undefined") return;
+    orientationHooked = true;
+    const onChange = () => refreshActivePreview();
+    window.addEventListener("orientationchange", onChange);
+    window.addEventListener("resize", onChange);
+    try {
+      if (typeof window.matchMedia === "function") {
+        const mq = window.matchMedia("(orientation: portrait)");
+        if (mq && mq.addEventListener) mq.addEventListener("change", onChange);
+        else if (mq && mq.addListener) mq.addListener(onChange);
+      }
+    } catch (_) {}
+  }
+
+  async function descriptorFromImage(input) {
+    const faceapi = await ensureFaceApi();
+    await preferIPhoneCpuBackend();
+    await yieldToEventLoop();
+    const sized = downscaleForDetection(input);
+    // iPhone CPU path is slower; allow more time so a real timeout can surface
+    // instead of leaving the UI stuck on Scanning… forever.
+    const timeoutMs = isIPhone() ? 16000 : DETECT_TIMEOUT_MS;
+    const detection = await withTimeout(
+      faceapi.detectSingleFace(sized, detectorOptions()).withFaceLandmarks(true).withFaceDescriptor(),
+      timeoutMs,
+      "Face check timed out. Move into better light and try again."
+    );
+    if (!detection || !detection.descriptor) {
+      throw new Error("No clear face found. Keep looking at the screen and stay in the ring.");
+    }
+    return Array.from(detection.descriptor);
+  }
+
+  function waitForPaintedFrame() {
+    // iOS Safari can report videoWidth/readyState before a real frame is painted.
+    // Capturing too early yields a black frame or can stall inference.
+    return new Promise((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => resolve());
+      });
+    });
+  }
+
+  function waitForVideoDimensions(videoEl, timeoutMs = 8000) {
+    if (!videoEl) return Promise.reject(new Error("Camera is not available"));
+    if (videoEl.videoWidth > 0 && videoEl.readyState >= 2) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const finish = (err) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        videoEl.removeEventListener("loadeddata", onReady);
+        videoEl.removeEventListener("loadedmetadata", onReady);
+        videoEl.removeEventListener("playing", onReady);
+        if (err) reject(err);
+        else resolve();
+      };
+      const onReady = () => {
+        if (videoEl.videoWidth > 0) finish();
+      };
+      const timer = setTimeout(() => {
+        finish(new Error("Camera is taking too long to start. Try again."));
+      }, timeoutMs);
+      videoEl.addEventListener("loadeddata", onReady);
+      videoEl.addEventListener("loadedmetadata", onReady);
+      videoEl.addEventListener("playing", onReady);
+      onReady();
+    });
+  }
+
+  async function requestUserMedia(facingMode = "user") {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error("Camera is not available in this browser");
+    }
+    const attempts = [
+      {
+        audio: false,
+        video: {
+          facingMode: { ideal: facingMode },
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+        },
+      },
+      { audio: false, video: { facingMode } },
+      { audio: false, video: true },
+    ];
+    let lastErr = null;
+    for (const constraints of attempts) {
+      try {
+        return await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+    const name = lastErr && lastErr.name;
+    if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+      throw new Error("Camera permission is blocked. Allow camera access for Synk and try again.");
+    }
+    if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+      throw new Error("No camera was found on this device.");
+    }
+    if (name === "NotReadableError" || name === "TrackStartError") {
+      throw new Error("Camera is busy in another app. Close it and try again.");
+    }
+    throw new Error((lastErr && lastErr.message) || "Could not open camera");
+  }
+
+  async function startCamera(videoEl, { facingMode = "user", side, rotation } = {}) {
+    if (side != null) setCameraSide(side);
+    else if (rotation != null) setCameraSide(rotation);
+    ensureOrientationHook();
+    // Open camera immediately (must stay inside the user-gesture window on iOS).
+    const stream = await requestUserMedia(facingMode);
+    videoEl.srcObject = stream;
+    videoEl.setAttribute("playsinline", "true");
+    videoEl.muted = true;
+    activePreviewVideo = videoEl;
+    applyPreviewTransform(videoEl);
+    applyCameraGuide(
+      videoEl.closest(
+        ".synk-pod-frame, .face-video-wrap, .face-modal-card, .synk-modal-card, .pod-frame, body"
+      ) || document
+    );
+    try {
+      await videoEl.play();
+    } catch (_) {
+      await waitForVideoDimensions(videoEl).catch(() => {});
+      try {
+        await videoEl.play();
+      } catch (playErr) {
+        stopCamera(videoEl);
+        throw new Error(
+          (playErr && playErr.message) || "Could not start the camera preview. Try again."
+        );
+      }
+    }
+    await waitForVideoDimensions(videoEl);
+    return stream;
+  }
+
+  function stopCamera(videoEl) {
+    const stream = videoEl && videoEl.srcObject;
+    if (stream && stream.getTracks) {
+      stream.getTracks().forEach((track) => track.stop());
+    }
+    if (videoEl) videoEl.srcObject = null;
+    if (activePreviewVideo === videoEl) activePreviewVideo = null;
+  }
+
+  function captureVideoFrame(videoEl) {
+    const width = videoEl.videoWidth || 640;
+    const height = videoEl.videoHeight || 480;
+    const { zoom, panRawX } = reframeParams(cameraSide);
+    const cropW = Math.max(1, width / zoom);
+    const cropH = Math.max(1, height / zoom);
+    const cx = width * (0.5 + panRawX);
+    const cy = height * 0.5;
+    const sx = Math.max(0, Math.min(width - cropW, cx - cropW / 2));
+    const sy = Math.max(0, Math.min(height - cropH, cy - cropH / 2));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(cropW);
+    canvas.height = Math.round(cropH);
+    const ctx = canvas.getContext("2d", { alpha: false });
+    ctx.drawImage(videoEl, sx, sy, cropW, cropH, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  }
+
+  async function descriptorFromVideo(videoEl) {
+    await waitForVideoDimensions(videoEl);
+    await waitForPaintedFrame();
+    await preferIPhoneCpuBackend();
+    await yieldToEventLoop();
+    return descriptorFromImage(captureVideoFrame(videoEl));
+  }
+
+  global.KioskFace = {
+    ensureFaceApi,
+    descriptorFromImage,
+    descriptorFromVideo,
+    startCamera,
+    stopCamera,
+    captureVideoFrame,
+    waitForVideoDimensions,
+    setCameraSide,
+    getCameraSide,
+    effectiveCameraSide,
+    applyCameraGuide,
+    applyPreviewTransform,
+    refreshActivePreview,
+    reframeParams,
+    setCameraRotation,
+    getCameraRotation,
+    applyPreviewRotation,
+    normalizeRotation,
+    normalizeCameraSide,
+  };
+})(window);

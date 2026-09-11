@@ -25,7 +25,8 @@ import { isProEnabled, PRO_PERKS, PROFILE_RINGS, type ProfileRingId } from "@/li
 import { AdminAccountSwitcher } from "@/components/AdminAccountSwitcher";
 import { getReadingAchievements } from "@/lib/reading-achievements";
 import { api } from "@/lib/api";
-import { startSynkLink, type SynkIdentityStatus } from "@/lib/synk";
+import type { SynkIdentityStatus } from "@/lib/synk";
+import { SynkVerifyModal } from "@/components/SynkVerifyModal";
 
 export function AccountPage() {
   const { user, signOut, userProfile, updateProfile, isStaff, isAdmin, isOwner } = useAuth();
@@ -43,6 +44,7 @@ export function AccountPage() {
   const [synkStatus, setSynkStatus] = useState<SynkIdentityStatus | null>(null);
   const [synkBusy, setSynkBusy] = useState(false);
   const [synkMsg, setSynkMsg] = useState("");
+  const [synkLinkOpen, setSynkLinkOpen] = useState(false);
 
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -525,7 +527,10 @@ export function AccountPage() {
                   className="w-full"
                   variant="tinted"
                   disabled={synkBusy}
-                  onClick={() => startSynkLink()}
+                  onClick={() => {
+                    setSynkMsg("");
+                    setSynkLinkOpen(true);
+                  }}
                 >
                   Link Synk ID
                 </Button>
@@ -533,9 +538,19 @@ export function AccountPage() {
             </div>
           </Group>
           <GroupFooter>
-            Sign in with face or Synk code. Linking connects this library account to your Synk ID.
+            Linking connects this library account to your Synk ID for face or code sign-in.
           </GroupFooter>
         </section>
+
+        <SynkVerifyModal
+          open={synkLinkOpen}
+          onClose={() => setSynkLinkOpen(false)}
+          mode="link"
+          onLinked={(status) => {
+            setSynkStatus(status);
+            setSynkMsg("Synk ID linked.");
+          }}
+        />
 
         {isStaff && (
           <section>
