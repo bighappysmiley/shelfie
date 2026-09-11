@@ -20,6 +20,7 @@ export function AdminBadgesPanel({ onError }: { onError: (msg: string) => void }
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState("");
   const iconInput = useRef<HTMLInputElement>(null);
 
   const selected = badges.find((b) => b.id === selectedId) ?? null;
@@ -27,14 +28,18 @@ export function AdminBadgesPanel({ onError }: { onError: (msg: string) => void }
   const [editColor, setEditColor] = useState("#5865F2");
   const [editIcon, setEditIcon] = useState<string | null>(null);
 
-  const refresh = async () => {
+  const refresh = async (preferId?: string | null) => {
     const next = await listProfileBadges();
     setBadges(next);
-    if (selectedId && !next.some((b) => b.id === selectedId)) {
+    const keep = preferId && next.some((b) => b.id === preferId) ? preferId : null;
+    if (keep) {
+      setSelectedId(keep);
+    } else if (selectedId && next.some((b) => b.id === selectedId)) {
+      /* keep current */
+    } else {
       setSelectedId(next[0]?.id ?? null);
-    } else if (!selectedId && next[0]) {
-      setSelectedId(next[0].id);
     }
+    return next;
   };
 
   useEffect(() => {
@@ -51,12 +56,30 @@ export function AdminBadgesPanel({ onError }: { onError: (msg: string) => void }
     setEditIcon(selected.iconUrl);
   }, [selected]);
 
+  const createBadge = async () => {
+    const name = newName.trim();
+    if (!name || busy) return;
+    setBusy(true);
+    onError("");
+    setStatus("");
+    try {
+      const badge = await createProfileBadge({ name });
+      setNewName("");
+      await refresh(badge.id);
+      setStatus(`Created “${badge.name}”. Upload an icon or assign it on Users.`);
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Could not create badge");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="grid gap-4 lg:grid-cols-[14rem_minmax(0,1fr)]">
       <div className="space-y-1 rounded-[var(--radius-group)] bg-surface p-2 shadow-sm ring-1 ring-black/[0.04] dark:ring-white/[0.06]">
         <p className="px-2 pb-1 text-[0.75rem] text-muted">
-          Global profile badges (with optional icons). Assign them on the Users tab — they appear on
-          profiles only, not beside chat names. Server roles stay separate.
+          Global profile badges (optional icons). Assign on Users — shown on profiles only, never
+          beside chat names.
         </p>
         {badges.map((b) => (
           <button
@@ -77,36 +100,29 @@ export function AdminBadgesPanel({ onError }: { onError: (msg: string) => void }
           <p className="px-2 py-3 text-[0.8125rem] text-muted">No badges yet — try “Owner”.</p>
         )}
         <div className="border-t border-black/[0.06] pt-2 dark:border-white/[0.08]">
-          <div className="flex gap-1">
+          <form
+            className="flex gap-1"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void createBadge();
+            }}
+          >
             <input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="New badge"
               className="min-w-0 flex-1 rounded-[var(--radius-control)] bg-fill px-2 py-1.5 text-[0.8125rem]"
+              disabled={busy}
             />
             <button
-              type="button"
-              className="rounded-lg p-1.5 text-accent hover:bg-fill"
+              type="submit"
+              className="rounded-lg p-1.5 text-accent hover:bg-fill disabled:opacity-40"
               title="Add badge"
               disabled={!newName.trim() || busy}
-              onClick={async () => {
-                setBusy(true);
-                onError("");
-                try {
-                  const badge = await createProfileBadge({ name: newName.trim() });
-                  setNewName("");
-                  await refresh();
-                  setSelectedId(badge.id);
-                } catch (err) {
-                  onError(err instanceof Error ? err.message : "Could not create badge");
-                } finally {
-                  setBusy(false);
-                }
-              }}
             >
               <IconPlus size={16} />
             </button>
-          </div>
+          </form>
         </div>
       </div>
 
@@ -117,13 +133,15 @@ export function AdminBadgesPanel({ onError }: { onError: (msg: string) => void }
             e.preventDefault();
             setBusy(true);
             onError("");
+            setStatus("");
             try {
-              await updateProfileBadge(selected.id, {
+              const updated = await updateProfileBadge(selected.id, {
                 name: editName,
                 color: editColor,
                 iconUrl: editIcon,
               });
-              await refresh();
+              await refresh(updated.id);
+              setStatus(`Saved “${updated.name}”.`);
             } catch (err) {
               onError(err instanceof Error ? err.message : "Could not save badge");
             } finally {
@@ -145,7 +163,7 @@ export function AdminBadgesPanel({ onError }: { onError: (msg: string) => void }
 
           <div>
             <p className="mb-2 text-[0.8125rem] font-medium text-muted">Badge icon</p>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <BadgeIcon
                 badge={{ ...selected, color: editColor, iconUrl: editIcon }}
                 size="lg"
@@ -158,11 +176,21 @@ export function AdminBadgesPanel({ onError }: { onError: (msg: string) => void }
                 onChange={async (e) => {
                   const file = e.target.files?.[0];
                   e.target.value = "";
-                  if (!file) return;
+                  if (!file || !selected) return;
                   setBusy(true);
                   onError("");
+                  setStatus("");
                   try {
-                    setEditIcon(await uploadCommunityImage(file));
+                    const url = await uploadCommunityImage(file);
+                    setEditIcon(url);
+                    // Persist immediately so icon upload “just works”.
+                    const updated = await updateProfileBadge(selected.id, {
+                      name: editName.trim() || selected.name,
+                      color: editColor,
+                      iconUrl: url,
+                    });
+                    await refresh(updated.id);
+                    setStatus(`Icon saved on “${updated.name}”.`);
                   } catch (err) {
                     onError(err instanceof Error ? err.message : "Upload failed");
                   } finally {
@@ -174,17 +202,45 @@ export function AdminBadgesPanel({ onError }: { onError: (msg: string) => void }
                 type="button"
                 size="sm"
                 variant="secondary"
+                disabled={busy}
                 onClick={() => iconInput.current?.click()}
               >
                 Upload icon
               </Button>
               {editIcon && (
-                <Button type="button" size="sm" variant="ghost" onClick={() => setEditIcon(null)}>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={async () => {
+                    if (!selected) return;
+                    setBusy(true);
+                    onError("");
+                    setStatus("");
+                    try {
+                      setEditIcon(null);
+                      const updated = await updateProfileBadge(selected.id, {
+                        name: editName.trim() || selected.name,
+                        color: editColor,
+                        iconUrl: null,
+                      });
+                      await refresh(updated.id);
+                      setStatus(`Removed icon from “${updated.name}”.`);
+                    } catch (err) {
+                      onError(err instanceof Error ? err.message : "Could not remove icon");
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                >
                   Remove
                 </Button>
               )}
             </div>
           </div>
+
+          {status && <p className="text-[0.8125rem] text-muted">{status}</p>}
 
           <div className="flex flex-wrap gap-2 pt-2">
             <Button type="submit" disabled={busy || !editName.trim()}>
@@ -198,10 +254,12 @@ export function AdminBadgesPanel({ onError }: { onError: (msg: string) => void }
                 if (!confirm(`Delete badge “${selected.name}”?`)) return;
                 setBusy(true);
                 onError("");
+                setStatus("");
                 try {
                   await deleteProfileBadge(selected.id);
                   setSelectedId(null);
                   await refresh();
+                  setStatus(`Deleted “${selected.name}”.`);
                 } catch (err) {
                   onError(err instanceof Error ? err.message : "Could not delete");
                 } finally {
