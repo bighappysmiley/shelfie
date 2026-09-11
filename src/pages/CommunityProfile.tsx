@@ -5,9 +5,11 @@ import { CommunityDiscordShell, CommunityScrollBody } from "@/components/Communi
 import { AddServerModal } from "@/components/AddServerModal";
 import { CommunityAvatar, ProBadge } from "@/components/community/CommunityAvatar";
 import { AuthedImage } from "@/components/AuthedImage";
+import { ProfileBadgeChips } from "@/components/community/ProfileBadges";
 import { getCommunityProfileByUsername, communityProfileLabel } from "@/lib/community-profile";
+import { listUserProfileBadges } from "@/lib/community-badges";
 import { openDmThread } from "@/lib/community-dms";
-import type { CommunityProfile } from "@/lib/community-types";
+import type { CommunityProfile, ProfileBadge } from "@/lib/community-types";
 import { useAuth } from "@/lib/auth";
 
 export function CommunityProfilePage() {
@@ -15,6 +17,7 @@ export function CommunityProfilePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [profile, setProfile] = useState<CommunityProfile | null>(null);
+  const [badges, setBadges] = useState<ProfileBadge[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [messaging, setMessaging] = useState(false);
@@ -25,8 +28,15 @@ export function CommunityProfilePage() {
     let cancelled = false;
     setLoading(true);
     void getCommunityProfileByUsername(username)
-      .then((p) => {
-        if (!cancelled) setProfile(p);
+      .then(async (p) => {
+        if (cancelled) return;
+        setProfile(p);
+        if (p) {
+          const next = await listUserProfileBadges(p.userId).catch(() => []);
+          if (!cancelled) setBadges(next);
+        } else {
+          setBadges([]);
+        }
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : "Could not load profile");
@@ -72,6 +82,11 @@ export function CommunityProfilePage() {
               </h1>
               {profile.communityUsername && (
                 <p className="text-[0.9375rem] text-muted">@{profile.communityUsername}</p>
+              )}
+              {badges.length > 0 && (
+                <div className="mt-2">
+                  <ProfileBadgeChips badges={badges} />
+                </div>
               )}
               {(profile.statusEmoji || profile.statusText) && (
                 <p className="mt-2 text-[0.9375rem]">

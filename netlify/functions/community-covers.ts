@@ -29,8 +29,10 @@ export default async (request: Request) => {
 
     if (request.method === "GET") {
       if (!id) return error("Cover id required");
+      // Allow reading shared assets (badge/role icons) uploaded by another user.
+      const ownerId = url.searchParams.get("userId") || user.id;
       const store = coversStore();
-      const key = communityCoverKey(user.id, id);
+      const key = communityCoverKey(ownerId, id);
       const meta = await store.getMetadata(key);
       if (!meta) return error("Cover not found", 404);
       const bytes = await store.get(key, { type: "arrayBuffer" });
@@ -60,7 +62,13 @@ export default async (request: Request) => {
       await coversStore().set(communityCoverKey(user.id, coverId), buffer, {
         metadata: { contentType: mediaType, userId: user.id },
       });
-      return json({ id: coverId, url: `/api/community/covers?id=${coverId}` }, 201);
+      return json(
+        {
+          id: coverId,
+          url: `/api/community/covers?id=${coverId}&userId=${encodeURIComponent(user.id)}`,
+        },
+        201,
+      );
     }
 
     return error("Method not allowed", 405);

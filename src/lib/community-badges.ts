@@ -19,7 +19,12 @@ export async function listProfileBadges(): Promise<ProfileBadge[]> {
     .order("position")
     .order("name");
   if (error) {
-    if (error.code === "42P01") return [];
+    // Missing relation — surface a clear admin hint instead of a blank catalog.
+    if (error.code === "42P01") {
+      throw new Error(
+        "Profile badges are not set up yet (missing profile_badges table). Apply the global profile badges migration.",
+      );
+    }
     throw error;
   }
   return (data ?? []).map((r) => mapBadge(r as Record<string, unknown>));

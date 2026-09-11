@@ -55,8 +55,8 @@ export function AdminBadgesPanel({ onError }: { onError: (msg: string) => void }
     <div className="grid gap-4 lg:grid-cols-[14rem_minmax(0,1fr)]">
       <div className="space-y-1 rounded-[var(--radius-group)] bg-surface p-2 shadow-sm ring-1 ring-black/[0.04] dark:ring-white/[0.06]">
         <p className="px-2 pb-1 text-[0.75rem] text-muted">
-          Global profile badges. Assign them on the Users tab. Server roles (with role icons) stay
-          separate.
+          Global profile badges (with optional icons). Assign them on the Users tab — they appear on
+          profiles only, not beside chat names. Server roles stay separate.
         </p>
         {badges.map((b) => (
           <button
@@ -216,7 +216,7 @@ export function AdminBadgesPanel({ onError }: { onError: (msg: string) => void }
       ) : (
         <EmptyState
           title="Create a badge"
-          description="Owner, Staff, Bookworm — shown on profiles and next to names in chat."
+          description="Owner, Staff, Bookworm — shown on member profiles (not next to chat names)."
         />
       )}
     </div>
