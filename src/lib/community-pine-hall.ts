@@ -8,7 +8,6 @@ import {
   updateServer,
 } from "./community";
 import { bumpCommunityRail } from "./community-events";
-import { createServerTag, listServerTags, setMemberTags } from "./community-tags";
 import type { CommunityGroupKind, CommunityServer } from "./community-types";
 
 export const PINE_HALL_NAME = "Pine Hall";
@@ -132,13 +131,6 @@ const PINE_HALL_LAYOUT: CategorySeed[] = [
       },
     ],
   },
-];
-
-const STARTER_TAGS: { name: string; color: string }[] = [
-  { name: "Owner", color: "gradient:#F59E0B,#EF4444,#8B5CF6" },
-  { name: "Staff", color: "#3B82F6" },
-  { name: "Bookworm", color: "#10B981" },
-  { name: "Early Reader", color: "#F472B6" },
 ];
 
 function makeInviteCode(): string {
@@ -277,34 +269,6 @@ export async function seedPineHallLayout(serverId: string, userId: string): Prom
         userId,
       });
       groupByName.set(ch.name.toLowerCase(), group);
-    }
-  }
-
-  const tags = await listServerTags(serverId).catch(() => []);
-  const tagNames = new Set(tags.map((t) => t.name.toLowerCase()));
-  for (const tag of STARTER_TAGS) {
-    if (tagNames.has(tag.name.toLowerCase())) continue;
-    try {
-      await createServerTag(serverId, { name: tag.name, color: tag.color });
-    } catch {
-      /* tags table may not exist yet */
-    }
-  }
-
-  const refreshed = await listServerTags(serverId).catch(() => []);
-  const ownerTag = refreshed.find((t) => t.name.toLowerCase() === "owner");
-  if (ownerTag) {
-    try {
-      const { data: assigned } = await supabase
-        .from("community_member_tags")
-        .select("tag_id")
-        .eq("server_id", serverId)
-        .eq("user_id", userId);
-      const next = new Set((assigned ?? []).map((r) => r.tag_id as string));
-      next.add(ownerTag.id);
-      await setMemberTags(serverId, userId, [...next]);
-    } catch {
-      /* ignore */
     }
   }
 }

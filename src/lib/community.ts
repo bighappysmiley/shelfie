@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 import { compressCover } from "./cover-upload";
-import { listMemberTagsByServer } from "./community-tags";
+import { listBadgesByUserIds } from "./community-badges";
 import type {
   CommunityCategory,
   CommunityGroup,
@@ -1629,7 +1629,7 @@ export async function listServerMembers(serverId: string): Promise<CommunityServ
     }
   }
 
-  const tagMap = await listMemberTagsByServer(serverId).catch(() => new Map());
+  const badgeMap = await listBadgesByUserIds(userIds).catch(() => new Map());
 
   return (data ?? [])
     .map((m) => {
@@ -1650,7 +1650,7 @@ export async function listServerMembers(serverId: string): Promise<CommunityServ
         displayName: profile?.displayName ?? null,
         communityUsername: profile?.username ?? null,
         joinedAt: m.joined_at as string,
-        tags: tagMap.get(userId) ?? [],
+        badges: badgeMap.get(userId) ?? [],
       };
     })
     .sort(

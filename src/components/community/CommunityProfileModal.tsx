@@ -4,12 +4,12 @@ import { ButtonLink } from "@/components/Button";
 import { CommunityDrawer } from "@/components/CommunityDrawer";
 import { CommunityAvatar, ProBadge } from "@/components/community/CommunityAvatar";
 import { AuthedImage } from "@/components/AuthedImage";
+import { ProfileBadgeChips } from "@/components/community/ProfileBadges";
 import { getCommunityProfile, getCommunityProfileByUsername, communityProfileLabel } from "@/lib/community-profile";
-import { listUserTagsOnServer } from "@/lib/community-tags";
+import { listUserProfileBadges } from "@/lib/community-badges";
 import { getReadingAchievements } from "@/lib/reading-achievements";
-import { ProfileTagChips } from "@/components/community-settings/TagsPanel";
 import { openDmThread } from "@/lib/community-dms";
-import type { CommunityProfile, CommunityServerTag } from "@/lib/community-types";
+import type { CommunityProfile, ProfileBadge } from "@/lib/community-types";
 import { Button } from "@/components/Button";
 
 export function CommunityProfileModal({
@@ -18,19 +18,16 @@ export function CommunityProfileModal({
   userId,
   username,
   isSelf,
-  serverId,
 }: {
   open: boolean;
   onClose: () => void;
   userId?: string | null;
   username?: string | null;
   isSelf?: boolean;
-  /** When opened from a server, show that server’s tags on the profile. */
-  serverId?: string | null;
 }) {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<CommunityProfile | null>(null);
-  const [tags, setTags] = useState<CommunityServerTag[]>([]);
+  const [badges, setBadges] = useState<ProfileBadge[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -48,13 +45,12 @@ export function CommunityProfileModal({
         } else if (username) {
           p = await getCommunityProfileByUsername(username);
         }
-        let nextTags: CommunityServerTag[] = [];
-        if (p && serverId) {
-          nextTags = await listUserTagsOnServer(serverId, p.userId).catch(() => []);
-        }
+        const nextBadges = p
+          ? await listUserProfileBadges(p.userId).catch(() => [])
+          : [];
         if (!cancelled) {
           setProfile(p);
-          setTags(nextTags);
+          setBadges(nextBadges);
         }
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Could not load profile");
@@ -67,7 +63,7 @@ export function CommunityProfileModal({
     return () => {
       cancelled = true;
     };
-  }, [open, userId, username, serverId]);
+  }, [open, userId, username]);
 
   const label = profile ? communityProfileLabel(profile) : "Member";
   const handle = profile?.communityUsername ? `@${profile.communityUsername}` : null;
@@ -95,9 +91,9 @@ export function CommunityProfileModal({
                   {(profile.proEnabled ?? profile.nitroEnabled) && <ProBadge />}
                 </h2>
                 {handle && <p className="text-[0.8125rem] text-muted">{handle}</p>}
-                {tags.length > 0 && (
+                {badges.length > 0 && (
                   <div className="mt-2">
-                    <ProfileTagChips tags={tags} />
+                    <ProfileBadgeChips badges={badges} />
                   </div>
                 )}
                 {(profile.statusEmoji || profile.statusText) && (

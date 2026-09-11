@@ -4,7 +4,7 @@ import {
   addStaffLinkedAccount,
   listStaffLinkedAccounts,
   removeStaffLinkedAccount,
-} from "@/lib/community-tags";
+} from "@/lib/community-account-switcher";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/Button";
 import { Group, GroupFooter, GroupHeader } from "@/components/layout";

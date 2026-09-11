@@ -1,17 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   assignServerMemberRole,
   banServerMember,
   kickServerMember,
 } from "@/lib/community";
-import { listServerTags, setMemberTags } from "@/lib/community-tags";
 import type {
   CommunityServerMember,
   CommunityServerRole,
-  CommunityServerTag,
 } from "@/lib/community-types";
 import { roleColorStyle, roleColorTextStyle } from "@/lib/role-color";
-import { TagIcon } from "@/components/community-settings/TagsPanel";
 import { Button } from "@/components/Button";
 import { EmptyState } from "@/components/layout";
 
@@ -38,8 +35,6 @@ export function MembersTab({
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [tags, setTags] = useState<CommunityServerTag[]>([]);
-  const [tagDraft, setTagDraft] = useState<Record<string, string[]>>({});
 
   const canKick = Boolean(
     canManageServer ||
@@ -56,21 +51,6 @@ export function MembersTab({
   const canAssignRoles = Boolean(
     canManageServer || actorRole?.canManageServer || actorRole?.canModerate,
   );
-  const canAssignTags = canAssignRoles;
-
-  useEffect(() => {
-    void listServerTags(serverId)
-      .then(setTags)
-      .catch(() => setTags([]));
-  }, [serverId]);
-
-  useEffect(() => {
-    const next: Record<string, string[]> = {};
-    for (const m of members) {
-      next[m.userId] = (m.tags ?? []).map((t) => t.id);
-    }
-    setTagDraft(next);
-  }, [members]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -90,7 +70,7 @@ export function MembersTab({
   return (
     <div className="max-w-2xl space-y-4">
       <p className="text-[0.875rem] text-muted">
-        {members.length} member{members.length === 1 ? "" : "s"} · roles, tags, kick, or ban.
+        {members.length} member{members.length === 1 ? "" : "s"} · roles, kick, or ban.
       </p>
 
       <div className="flex flex-col gap-2 sm:flex-row">
@@ -118,7 +98,6 @@ export function MembersTab({
         {filtered.map((m) => {
           const label = m.displayName || m.communityUsername || "Member";
           const isSelf = m.userId === currentUserId;
-          const selectedTagIds = tagDraft[m.userId] ?? [];
 
           return (
             <li
@@ -222,66 +201,6 @@ export function MembersTab({
                   </div>
                 )}
               </div>
-
-              {canAssignTags && tags.length > 0 && (
-                <div className="border-t border-black/[0.06] pt-2 dark:border-white/[0.08]">
-                  <p className="mb-1.5 text-[0.75rem] font-medium text-muted">Profile tags</p>
-                  <div className="flex flex-wrap gap-2">
-                    {tags.map((tag) => {
-                      const checked = selectedTagIds.includes(tag.id);
-                      return (
-                        <label
-                          key={tag.id}
-                          className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1 text-[0.75rem] ring-1 transition ${
-                            checked
-                              ? "bg-accent/10 font-medium ring-accent"
-                              : "ring-black/10 hover:bg-fill dark:ring-white/15"
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            className="sr-only"
-                            checked={checked}
-                            disabled={busyId === m.userId}
-                            onChange={() => {
-                              setTagDraft((prev) => {
-                                const cur = prev[m.userId] ?? [];
-                                return {
-                                  ...prev,
-                                  [m.userId]: checked
-                                    ? cur.filter((id) => id !== tag.id)
-                                    : [...cur, tag.id],
-                                };
-                              });
-                            }}
-                          />
-                          <TagIcon tag={tag} />
-                          <span style={roleColorTextStyle(tag.color)}>{tag.name}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                  <Button
-                    size="sm"
-                    className="mt-2"
-                    disabled={busyId === m.userId}
-                    onClick={async () => {
-                      setBusyId(m.userId);
-                      onError("");
-                      try {
-                        await setMemberTags(serverId, m.userId, tagDraft[m.userId] ?? []);
-                        await onChanged();
-                      } catch (err) {
-                        onError(err instanceof Error ? err.message : "Could not update tags");
-                      } finally {
-                        setBusyId(null);
-                      }
-                    }}
-                  >
-                    Save tags
-                  </Button>
-                </div>
-              )}
             </li>
           );
         })}

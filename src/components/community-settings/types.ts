@@ -2,7 +2,6 @@ export type SettingsTab =
   | "overview"
   | "members"
   | "roles"
-  | "tags"
   | "invites"
   | "requests"
   | "channels"
@@ -27,7 +26,6 @@ export const SETTINGS_TAB_LABELS: Record<SettingsTab, string> = {
   overview: "Overview",
   members: "Members",
   roles: "Roles",
-  tags: "Tags",
   invites: "Invites",
   requests: "Join requests",
   channels: "Channels",
@@ -48,5 +46,7 @@ export function parseSettingsTab(value: string | null): SettingsTab {
   const tabs = Object.keys(SETTINGS_TAB_LABELS) as SettingsTab[];
   // Legacy ?tab=boost → overview (boost UI removed)
   if (value === "boost") return "overview";
+  // Legacy ?tab=tags → members (tags replaced by global profile badges)
+  if (value === "tags") return "members";
   return tabs.includes(value as SettingsTab) ? (value as SettingsTab) : "overview";
 }

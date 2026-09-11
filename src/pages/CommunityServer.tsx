@@ -837,7 +837,6 @@ export function CommunityServerPage() {
         userId={profileTarget?.userId}
         username={profileTarget?.username}
         isSelf={Boolean(profileTarget?.userId && user && profileTarget.userId === user.id)}
-        serverId={serverId}
       />
 
       <AddServerModal open={addOpen} onClose={() => setAddOpen(false)} onDone={() => void refresh()} />
@@ -1970,7 +1969,7 @@ function ChannelRoom({
                   isAppOwnerAuthor={isAppOwnerUser(m.authorId, appOwnerUserIds)}
                   roleColor={member?.roleColor}
                   roleIconUrl={chatRoleIconUrl}
-                  authorTags={member?.tags ?? []}
+                  authorBadges={member?.badges ?? []}
                   isMine={m.authorId === userId}
                   canModerate={moderate}
                   canPin={moderate || manage}
@@ -2202,7 +2201,7 @@ const MessageRow = forwardRef(function MessageRow(
     isAppOwnerAuthor = false,
     roleColor,
     roleIconUrl,
-    authorTags = [],
+    authorBadges = [],
     isMine,
     canModerate: canMod,
     canPin = false,
@@ -2234,7 +2233,7 @@ const MessageRow = forwardRef(function MessageRow(
     isAppOwnerAuthor?: boolean;
     roleColor?: string;
     roleIconUrl?: string | null;
-    authorTags?: import("@/lib/community-types").CommunityServerTag[];
+    authorBadges?: import("@/lib/community-types").ProfileBadge[];
     isMine: boolean;
     canModerate: boolean;
     canPin?: boolean;
@@ -2357,7 +2356,7 @@ const MessageRow = forwardRef(function MessageRow(
             <ChatAuthorBadge
               isAppOwner={isAppOwnerAuthor}
               roleIconUrl={roleIconUrl}
-              tags={authorTags}
+              badges={authorBadges}
             />
             <MessageTimestamp iso={message.createdAt} />
             {isSuggestion && message.suggestionStatus && (

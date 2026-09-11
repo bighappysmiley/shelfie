@@ -198,14 +198,13 @@ export interface CommunityServerMember {
   displayName: string | null;
   communityUsername: string | null;
   joinedAt: string;
-  /** Decorative profile tags (badges), separate from permission roles. */
-  tags?: CommunityServerTag[];
+  /** Global profile badges (admin-managed), separate from server permission roles. */
+  badges?: ProfileBadge[];
 }
 
-/** Owner-created decorative badge (name + color/gradient + optional icon). */
-export interface CommunityServerTag {
+/** Admin-managed decorative profile badge (name + color/gradient + optional icon). */
+export interface ProfileBadge {
   id: string;
-  serverId: string;
   name: string;
   color: string;
   iconUrl: string | null;

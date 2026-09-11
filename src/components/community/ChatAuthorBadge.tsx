@@ -1,22 +1,22 @@
 import { AuthedImage } from "@/components/AuthedImage";
-import type { CommunityServerTag } from "@/lib/community-types";
-import { TagIcon } from "@/components/community-settings/TagsPanel";
+import type { ProfileBadge } from "@/lib/community-types";
+import { BadgeIcon } from "@/components/community/ProfileBadges";
 
 /**
- * Badges beside chat usernames (Discord-style):
+ * Badges beside chat usernames:
  * - App owners → OWNER pill
- * - Profile tags (decorative badges)
- * - Otherwise → server role icon when the member's assigned role has `icon_url`
+ * - Global profile badges (admin-managed)
+ * - Server role icon when the member's assigned role has `icon_url`
  */
 export function ChatAuthorBadge({
   isAppOwner = false,
   roleIconUrl,
-  tags = [],
+  badges = [],
 }: {
   isAppOwner?: boolean;
   /** From the member's server role only — not Nitro, not profile. */
   roleIconUrl?: string | null;
-  tags?: CommunityServerTag[];
+  badges?: ProfileBadge[];
 }) {
   return (
     <span className="inline-flex shrink-0 items-center gap-1">
@@ -28,17 +28,19 @@ export function ChatAuthorBadge({
           Owner
         </span>
       )}
-      {tags.slice(0, 3).map((tag) => (
-        <span key={tag.id} title={tag.name} className="inline-flex">
-          <TagIcon tag={tag} />
+      {badges.slice(0, 3).map((badge) => (
+        <span key={badge.id} title={badge.name} className="inline-flex">
+          <BadgeIcon badge={badge} />
         </span>
       ))}
-      {!isAppOwner && tags.length === 0 && roleIconUrl ? (
-        <AuthedImage
-          src={roleIconUrl}
-          alt=""
-          className="h-4 w-4 shrink-0 rounded-full object-cover"
-        />
+      {roleIconUrl ? (
+        <span title="Server role" className="inline-flex">
+          <AuthedImage
+            src={roleIconUrl}
+            alt=""
+            className="h-4 w-4 shrink-0 rounded-full object-cover"
+          />
+        </span>
       ) : null}
     </span>
   );

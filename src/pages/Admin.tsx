@@ -23,12 +23,22 @@ import {
 } from "@/lib/admin";
 import { APP_WORDMARK_PRIMARY } from "@/lib/brand";
 import { TIER_LIMITS, TIER_ORDER, type SubscriptionTier, getTierLimits } from "@/lib/tiers";
+import {
+  listProfileBadges,
+  listUserProfileBadges,
+  setUserProfileBadges,
+} from "@/lib/community-badges";
+import type { ProfileBadge } from "@/lib/community-types";
+import { BadgeIcon } from "@/components/community/ProfileBadges";
+import { AdminBadgesPanel } from "@/components/admin/AdminBadgesPanel";
+import { roleColorTextStyle } from "@/lib/role-color";
 
-type AdminTab = "support" | "users" | "libraries" | "enterprise" | "pricing";
+type AdminTab = "support" | "users" | "badges" | "libraries" | "enterprise" | "pricing";
 
 function parseTab(raw: string | null): AdminTab {
   if (
     raw === "users" ||
+    raw === "badges" ||
     raw === "libraries" ||
     raw === "enterprise" ||
     raw === "pricing" ||
@@ -61,6 +71,7 @@ export function AdminPage() {
           [
             ["support", "Support Inbox"],
             ["users", "Users"],
+            ["badges", "Badges"],
             ["libraries", "Libraries"],
             ["enterprise", "Enterprise"],
             ["pricing", "Plans"],
@@ -81,6 +92,7 @@ export function AdminPage() {
 
       {tab === "support" && <SupportInboxTab />}
       {tab === "users" && <UsersTab />}
+      {tab === "badges" && <BadgesAdminTab />}
       {tab === "libraries" && <LibrariesTab />}
       {tab === "enterprise" && <EnterpriseTab />}
       {tab === "pricing" && <PricingAdminTab />}
@@ -141,6 +153,16 @@ function SupportInboxTab() {
           ))}
         </Group>
       )}
+    </div>
+  );
+}
+
+function BadgesAdminTab() {
+  const [error, setError] = useState("");
+  return (
+    <div className="space-y-3">
+      {error && <FormError message={error} />}
+      <AdminBadgesPanel onError={setError} />
     </div>
   );
 }
@@ -244,6 +266,8 @@ function UserModPanel({
   const [banReason, setBanReason] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [allBadges, setAllBadges] = useState<ProfileBadge[]>([]);
+  const [selectedBadgeIds, setSelectedBadgeIds] = useState<string[]>([]);
   const limits = useMemo(
     () =>
       getTierLimits(tier, {
@@ -258,6 +282,28 @@ function UserModPanel({
     setBookOverride(user.bookLimitOverride != null ? String(user.bookLimitOverride) : "");
     setScanOverride(user.shelfScanLimitOverride != null ? String(user.shelfScanLimitOverride) : "");
   }, [user]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [catalog, assigned] = await Promise.all([
+          listProfileBadges(),
+          listUserProfileBadges(user.userId),
+        ]);
+        if (cancelled) return;
+        setAllBadges(catalog);
+        setSelectedBadgeIds(assigned.map((b) => b.id));
+      } catch (err) {
+        if (!cancelled) {
+          onError(err instanceof Error ? err.message : "Could not load badges");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user.userId, onError]);
 
   return (
     <div className="space-y-4 rounded-[var(--radius-group)] border border-[var(--border)] bg-surface p-4">
@@ -333,6 +379,61 @@ function UserModPanel({
       >
         Save Pro / limits
       </Button>
+
+      <div className="space-y-2 border-t border-[var(--border)] pt-4">
+        <p className="text-[0.8125rem] font-medium">Profile badges</p>
+        {allBadges.length === 0 ? (
+          <p className="text-[0.8125rem] text-muted">
+            No badges yet — create some on the Badges tab.
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {allBadges.map((badge) => {
+              const checked = selectedBadgeIds.includes(badge.id);
+              return (
+                <label
+                  key={badge.id}
+                  className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1 text-[0.75rem] ring-1 transition ${
+                    checked
+                      ? "bg-accent/10 font-medium ring-accent"
+                      : "ring-black/10 hover:bg-fill dark:ring-white/15"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={checked}
+                    onChange={() => {
+                      setSelectedBadgeIds((prev) =>
+                        checked ? prev.filter((id) => id !== badge.id) : [...prev, badge.id],
+                      );
+                    }}
+                  />
+                  <BadgeIcon badge={badge} />
+                  <span style={roleColorTextStyle(badge.color)}>{badge.name}</span>
+                </label>
+              );
+            })}
+          </div>
+        )}
+        <Button
+          size="sm"
+          disabled={busy || allBadges.length === 0}
+          onClick={async () => {
+            setBusy(true);
+            onError("");
+            try {
+              await setUserProfileBadges(user.userId, selectedBadgeIds);
+            } catch (err) {
+              onError(err instanceof Error ? err.message : "Could not save badges");
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          Save badges
+        </Button>
+      </div>
 
       <div className="space-y-2 border-t border-[var(--border)] pt-4">
         <TextField
