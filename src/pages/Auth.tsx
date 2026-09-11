@@ -9,6 +9,7 @@ import { Button, ButtonLink } from "@/components/Button";
 import { TextField, FormError } from "@/components/form";
 import { Container, Group, SegmentedControl } from "@/components/layout";
 import { storePendingInvite } from "@/lib/pending-invite";
+import { startSynkSignIn } from "@/lib/synk";
 
 function useInviteParams() {
   const [searchParams] = useSearchParams();
@@ -302,6 +303,22 @@ export function LoginPage() {
           </form>
         )}
       </Group>
+
+      <div className="mt-5">
+        <Button
+          type="button"
+          variant="tinted"
+          className="w-full"
+          disabled={busy}
+          onClick={() => startSynkSignIn()}
+        >
+          Sign in with Synk ID
+        </Button>
+        <p className="mt-2 text-center text-[0.8125rem] text-muted">
+          Face or Synk code — no password
+        </p>
+      </div>
+
       <p className="mt-6 text-center text-[0.9375rem] text-muted">
         Do not have an account?{" "}
         <Link to="/signup" className="text-link">
@@ -494,6 +511,22 @@ export function SignupPage() {
           </form>
         )}
       </Group>
+
+      <div className="mt-5">
+        <Button
+          type="button"
+          variant="tinted"
+          className="w-full"
+          disabled={busy}
+          onClick={() => startSynkSignIn()}
+        >
+          Continue with Synk ID
+        </Button>
+        <p className="mt-2 text-center text-[0.8125rem] text-muted">
+          Create an account with face or Synk code
+        </p>
+      </div>
+
       <p className="mt-6 text-center text-[0.9375rem] text-muted">
         Already registered?{" "}
         <Link to="/login" className="text-link">
