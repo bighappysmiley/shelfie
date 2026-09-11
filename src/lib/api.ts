@@ -52,6 +52,16 @@ export async function fetchAuthed(path: string): Promise<Response> {
 }
 
 export const api = {
+  synk: {
+    status: () => request<import("./synk").SynkIdentityStatus>("/synk-auth"),
+    unlink: () =>
+      request<{ ok: boolean; linked: boolean }>("/synk-auth", { method: "DELETE" }),
+    link: (synk_pass: string | null, synk_assertion?: string | null) =>
+      request<{ ok: boolean; linked: boolean }>("/synk-auth", {
+        method: "POST",
+        body: JSON.stringify({ action: "link", synk_pass, synk_assertion }),
+      }),
+  },
   books: {
     list: (params?: Record<string, string>) => {
       const qs = params ? "?" + new URLSearchParams(params).toString() : "";

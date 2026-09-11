@@ -24,6 +24,8 @@ import {
 import { isProEnabled, PRO_PERKS, PROFILE_RINGS, type ProfileRingId } from "@/lib/pro";
 import { AdminAccountSwitcher } from "@/components/AdminAccountSwitcher";
 import { getReadingAchievements } from "@/lib/reading-achievements";
+import { api } from "@/lib/api";
+import { startSynkLink, type SynkIdentityStatus } from "@/lib/synk";
 
 export function AccountPage() {
   const { user, signOut, userProfile, updateProfile, isStaff, isAdmin, isOwner } = useAuth();
@@ -38,6 +40,9 @@ export function AccountPage() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileMsg, setProfileMsg] = useState("");
   const [signingOut, setSigningOut] = useState(false);
+  const [synkStatus, setSynkStatus] = useState<SynkIdentityStatus | null>(null);
+  const [synkBusy, setSynkBusy] = useState(false);
+  const [synkMsg, setSynkMsg] = useState("");
 
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -84,6 +89,28 @@ export function AccountPage() {
       })
       .catch(() => {});
   }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    void api.synk
+      .status()
+      .then(setSynkStatus)
+      .catch(() => setSynkStatus({ linked: false, identity: null }));
+  }, [user]);
+
+  const unlinkSynk = async () => {
+    setSynkBusy(true);
+    setSynkMsg("");
+    try {
+      await api.synk.unlink();
+      setSynkStatus({ linked: false, identity: null });
+      setSynkMsg("Synk ID unlinked");
+    } catch (err) {
+      setSynkMsg(err instanceof Error ? err.message : "Could not unlink Synk ID");
+    } finally {
+      setSynkBusy(false);
+    }
+  };
 
   const saveProfile = async () => {
     if (!user) return;
@@ -458,6 +485,55 @@ export function AccountPage() {
           </Group>
           <GroupFooter>
             Phone sign-in sends a verification code by SMS when enabled in Supabase.
+          </GroupFooter>
+        </section>
+
+        <section>
+          <GroupHeader>Synk ID</GroupHeader>
+          <Group>
+            <ListRow
+              title="Connection"
+              trailing={
+                synkStatus?.linked
+                  ? synkStatus.identity?.synkCode
+                    ? `Code ${synkStatus.identity.synkCode}`
+                    : "Linked"
+                  : "Not linked"
+              }
+            />
+            {synkMsg ? (
+              <p
+                className={`px-4 pt-3 text-[0.9375rem] ${
+                  (synkMsg.toLowerCase().includes("unlink") || synkMsg.toLowerCase().includes("linked")) ? "text-success" : "text-destructive"
+                }`}
+              >
+                {synkMsg}
+              </p>
+            ) : null}
+            <div className="px-4 py-3">
+              {synkStatus?.linked ? (
+                <Button
+                  className="w-full"
+                  variant="secondary"
+                  disabled={synkBusy}
+                  onClick={() => void unlinkSynk()}
+                >
+                  {synkBusy ? "Unlinking…" : "Unlink Synk ID"}
+                </Button>
+              ) : (
+                <Button
+                  className="w-full"
+                  variant="tinted"
+                  disabled={synkBusy}
+                  onClick={() => startSynkLink()}
+                >
+                  Link Synk ID
+                </Button>
+              )}
+            </div>
+          </Group>
+          <GroupFooter>
+            Sign in with face or Synk code. Linking connects this library account to your Synk ID.
           </GroupFooter>
         </section>
 
