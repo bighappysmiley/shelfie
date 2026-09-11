@@ -2,6 +2,7 @@ export type SettingsTab =
   | "overview"
   | "members"
   | "roles"
+  | "tags"
   | "invites"
   | "requests"
   | "channels"
@@ -26,6 +27,7 @@ export const SETTINGS_TAB_LABELS: Record<SettingsTab, string> = {
   overview: "Overview",
   members: "Members",
   roles: "Roles",
+  tags: "Tags",
   invites: "Invites",
   requests: "Join requests",
   channels: "Channels",

@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import { compressCover } from "./cover-upload";
+import { listMemberTagsByServer } from "./community-tags";
 import type {
   CommunityCategory,
   CommunityGroup,
@@ -1628,6 +1629,8 @@ export async function listServerMembers(serverId: string): Promise<CommunityServ
     }
   }
 
+  const tagMap = await listMemberTagsByServer(serverId).catch(() => new Map());
+
   return (data ?? [])
     .map((m) => {
       const role = m.community_server_roles as
@@ -1636,8 +1639,9 @@ export async function listServerMembers(serverId: string): Promise<CommunityServ
         | null;
       const roleObj = Array.isArray(role) ? role[0] : role;
       const profile = profileByUser.get(m.user_id as string);
+      const userId = m.user_id as string;
       return {
-        userId: m.user_id as string,
+        userId,
         roleId: (m.role_id as string | null) ?? null,
         roleName: roleObj?.name ?? "Member",
         roleColor: roleObj?.color ?? "#6B7280",
@@ -1646,6 +1650,7 @@ export async function listServerMembers(serverId: string): Promise<CommunityServ
         displayName: profile?.displayName ?? null,
         communityUsername: profile?.username ?? null,
         joinedAt: m.joined_at as string,
+        tags: tagMap.get(userId) ?? [],
       };
     })
     .sort(

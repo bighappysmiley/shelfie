@@ -5,8 +5,11 @@ import { CommunityDrawer } from "@/components/CommunityDrawer";
 import { CommunityAvatar, ProBadge } from "@/components/community/CommunityAvatar";
 import { AuthedImage } from "@/components/AuthedImage";
 import { getCommunityProfile, getCommunityProfileByUsername, communityProfileLabel } from "@/lib/community-profile";
+import { listUserTagsOnServer } from "@/lib/community-tags";
+import { getReadingAchievements } from "@/lib/reading-achievements";
+import { ProfileTagChips } from "@/components/community-settings/TagsPanel";
 import { openDmThread } from "@/lib/community-dms";
-import type { CommunityProfile } from "@/lib/community-types";
+import type { CommunityProfile, CommunityServerTag } from "@/lib/community-types";
 import { Button } from "@/components/Button";
 
 export function CommunityProfileModal({
@@ -15,15 +18,19 @@ export function CommunityProfileModal({
   userId,
   username,
   isSelf,
+  serverId,
 }: {
   open: boolean;
   onClose: () => void;
   userId?: string | null;
   username?: string | null;
   isSelf?: boolean;
+  /** When opened from a server, show that server’s tags on the profile. */
+  serverId?: string | null;
 }) {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<CommunityProfile | null>(null);
+  const [tags, setTags] = useState<CommunityServerTag[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -41,7 +48,14 @@ export function CommunityProfileModal({
         } else if (username) {
           p = await getCommunityProfileByUsername(username);
         }
-        if (!cancelled) setProfile(p);
+        let nextTags: CommunityServerTag[] = [];
+        if (p && serverId) {
+          nextTags = await listUserTagsOnServer(serverId, p.userId).catch(() => []);
+        }
+        if (!cancelled) {
+          setProfile(p);
+          setTags(nextTags);
+        }
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Could not load profile");
       } finally {
@@ -53,10 +67,11 @@ export function CommunityProfileModal({
     return () => {
       cancelled = true;
     };
-  }, [open, userId, username]);
+  }, [open, userId, username, serverId]);
 
   const label = profile ? communityProfileLabel(profile) : "Member";
   const handle = profile?.communityUsername ? `@${profile.communityUsername}` : null;
+  const achievements = getReadingAchievements(profile?.booksReadCount ?? 0).filter((a) => a.unlocked);
 
   return (
     <CommunityDrawer open={open} onClose={onClose} side="right" title="Profile" width="min(22rem,92vw)">
@@ -80,6 +95,11 @@ export function CommunityProfileModal({
                   {(profile.proEnabled ?? profile.nitroEnabled) && <ProBadge />}
                 </h2>
                 {handle && <p className="text-[0.8125rem] text-muted">{handle}</p>}
+                {tags.length > 0 && (
+                  <div className="mt-2">
+                    <ProfileTagChips tags={tags} />
+                  </div>
+                )}
                 {(profile.statusEmoji || profile.statusText) && (
                   <p className="mt-2 text-[0.875rem]">
                     {profile.statusEmoji && <span className="mr-1">{profile.statusEmoji}</span>}
@@ -96,7 +116,7 @@ export function CommunityProfileModal({
               </div>
             )}
 
-            {(profile.currentReadingTitle || profile.booksReadCount > 0) && (
+            {(profile.currentReadingTitle || profile.booksReadCount > 0 || achievements.length > 0) && (
               <div className="rounded-[var(--radius-group)] bg-fill/50 px-3 py-3">
                 <p className="text-[0.6875rem] font-bold uppercase tracking-wider text-muted">Reading</p>
                 {profile.currentReadingTitle && (
@@ -109,6 +129,19 @@ export function CommunityProfileModal({
                   <p className="mt-1 text-[0.8125rem] text-muted">
                     {profile.booksReadCount} book{profile.booksReadCount === 1 ? "" : "s"} read
                   </p>
+                )}
+                {achievements.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {achievements.map((a) => (
+                      <span
+                        key={a.id}
+                        title={a.description}
+                        className="rounded-full bg-accent/15 px-2 py-0.5 text-[0.6875rem] font-medium text-accent"
+                      >
+                        {a.label}
+                      </span>
+                    ))}
+                  </div>
                 )}
               </div>
             )}

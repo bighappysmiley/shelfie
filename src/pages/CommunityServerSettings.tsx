@@ -45,6 +45,7 @@ import { IntegrationsTab } from "@/components/community-settings/IntegrationsTab
 import { StickersTab } from "@/components/community-settings/StickersTab";
 import { InvitesTab } from "@/components/community-settings/InvitesTab";
 import { MembersTab } from "@/components/community-settings/MembersTab";
+import { TagsPanel } from "@/components/community-settings/TagsPanel";
 import { ModerationTab } from "@/components/community-settings/ModerationTab";
 import {
   NotificationsTab,
@@ -133,6 +134,7 @@ export function CommunityServerSettingsPage() {
         items: [
           { id: "members", label: "Members", badge: members.length },
           { id: "roles", label: "Roles" },
+          { id: "tags", label: "Tags" },
           { id: "invites", label: "Invites" },
           { id: "requests", label: "Join requests", badge: joinRequests.length },
         ],
@@ -555,6 +557,7 @@ export function CommunityServerSettingsPage() {
               roles={roles}
               currentUserId={user.id}
               actorRole={myRole}
+              canManageServer={canManage}
               onChanged={refresh}
               onError={setError}
             />
@@ -568,6 +571,10 @@ export function CommunityServerSettingsPage() {
               onChanged={refresh}
               onError={setError}
             />
+          )}
+
+          {tab === "tags" && (
+            <TagsPanel serverId={serverId} canUseHolo={canUseHolo} onError={setError} />
           )}
 
           {tab === "channels" && (

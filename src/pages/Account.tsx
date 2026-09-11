@@ -22,9 +22,11 @@ import {
   uploadCommunityProfileImage,
 } from "@/lib/community-profile";
 import { isProEnabled, PRO_PERKS, PROFILE_RINGS, type ProfileRingId } from "@/lib/pro";
+import { AdminAccountSwitcher } from "@/components/AdminAccountSwitcher";
+import { getReadingAchievements } from "@/lib/reading-achievements";
 
 export function AccountPage() {
-  const { user, signOut, userProfile, updateProfile, isStaff, isOwner } = useAuth();
+  const { user, signOut, userProfile, updateProfile, isStaff, isAdmin, isOwner } = useAuth();
   const navigate = useNavigate();
 
   const [displayName, setDisplayName] = useState("");
@@ -254,10 +256,34 @@ export function AccountPage() {
             />
           </Group>
           <GroupFooter>
-            Your community profile is visible to members on servers you share. The reading habit app
-            will sync books read and current book here.
+            Your community profile is visible to members on servers you share. Reading achievements
+            unlock as you log books read below.
           </GroupFooter>
+          {booksReadCount > 0 && (
+            <div className="mt-3">
+              <GroupHeader>Reading achievements</GroupHeader>
+              <Group>
+                <div className="flex flex-wrap gap-2 px-4 py-3">
+                  {getReadingAchievements(booksReadCount).map((a) => (
+                    <span
+                      key={a.id}
+                      title={a.description}
+                      className={`rounded-full px-2.5 py-1 text-[0.75rem] font-medium ${
+                        a.unlocked
+                          ? "bg-accent/15 text-accent"
+                          : "bg-fill text-muted line-through opacity-60"
+                      }`}
+                    >
+                      {a.label}
+                    </span>
+                  ))}
+                </div>
+              </Group>
+            </div>
+          )}
         </section>
+
+        {(isAdmin || isOwner) && <AdminAccountSwitcher />}
 
         <section>
           <GroupHeader>Plans &amp; Pro</GroupHeader>
