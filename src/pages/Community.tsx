@@ -14,6 +14,7 @@ import {
   reorderOfficialServers,
   requestJoinServer,
 } from "@/lib/community";
+import { ensureOfficialPineHall } from "@/lib/community-pine-hall";
 import type { CommunityServer } from "@/lib/community-types";
 import { Button } from "@/components/Button";
 import { FormError } from "@/components/form";
@@ -61,6 +62,10 @@ export function CommunityPage() {
     if (!user) return;
     setError("");
     try {
+      // App owner: ensure the official Pine Hall server exists with its channel layout.
+      if (isOwner) {
+        await ensureOfficialPineHall(user.id).catch(() => undefined);
+      }
       const [pub, official, mine] = await Promise.all([
         listPublicServers(user.id),
         listOfficialServers(user.id),
@@ -74,7 +79,7 @@ export function CommunityPage() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, isOwner]);
 
   useEffect(() => {
     void refresh();

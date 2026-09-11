@@ -472,10 +472,10 @@ export async function createLibraryServer(input: {
     role_id: ownerRole?.id ?? null,
   });
 
-  // Seed a starter text channel so new servers aren't an empty dead-end.
+  // Seed a starter lounge (avoid legacy "Text Channels" name — it's hidden in the UI).
   const category = await createCommunityCategory({
     serverId: server.id,
-    name: "Text Channels",
+    name: "Lounge",
     userId: input.userId,
   });
 
