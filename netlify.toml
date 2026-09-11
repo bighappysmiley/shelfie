@@ -4,6 +4,10 @@
   functions = "netlify/functions"
 
 [build.environment]
+  # Public Supabase project URL + anon key (safe for client). Omit from secrets
+  # scan so deploy-preview is not blocked when the same values are also set as
+  # Netlify env vars marked secret.
+  SECRETS_SCAN_OMIT_KEYS = "SUPABASE_URL,SUPABASE_ANON_KEY,VITE_SUPABASE_URL,VITE_SUPABASE_ANON_KEY"
   VITE_SUPABASE_URL = "https://xdsnoqckoolwatgwtyfy.supabase.co"
   VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhkc25vcWNrb29sd2F0Z3d0eWZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgxMzMzODksImV4cCI6MjEwMzcwOTM4OX0.3Nx7Aq40Tj10-Woc_5gcPUNU23qJWWI8X7kdwKvHXgg"
   SUPABASE_URL = "https://xdsnoqckoolwatgwtyfy.supabase.co"
