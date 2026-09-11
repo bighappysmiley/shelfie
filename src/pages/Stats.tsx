@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { useLibrary } from "@/lib/library";
 import { PageHeader, Group, GroupHeader, ListRow } from "@/components/layout";
 import { STATUS_LABELS } from "@/lib/types";
 
@@ -15,11 +16,23 @@ interface Stats {
 }
 
 export function StatsPage() {
+  const { activeLibrary } = useLibrary();
   const [stats, setStats] = useState<Stats | null>(null);
 
   useEffect(() => {
-    api.data.stats().then((s) => setStats(s as unknown as Stats));
-  }, []);
+    if (!activeLibrary?.id) {
+      setStats(null);
+      return;
+    }
+    let cancelled = false;
+    setStats(null);
+    api.data.stats().then((s) => {
+      if (!cancelled) setStats(s as unknown as Stats);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeLibrary?.id]);
 
   if (!stats) return <p className="px-1 text-muted">Loading…</p>;
 

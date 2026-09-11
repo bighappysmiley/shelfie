@@ -127,7 +127,11 @@ function AppShell() {
         {!isCommunity && <AppSidebar />}
         <main
           id="main"
-          className={isCommunity ? "h-dvh min-h-0 overflow-hidden" : "py-4 sm:py-5 lg:py-7"}
+          className={
+            isCommunity
+              ? "flex h-dvh min-h-0 flex-col overflow-hidden"
+              : "py-4 sm:py-5 lg:py-7"
+          }
         >
           {isCommunity ? (
             <Outlet />

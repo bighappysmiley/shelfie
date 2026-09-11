@@ -18,8 +18,15 @@ async function currentUserKey(): Promise<string> {
   return data.session?.user?.id ?? "anon";
 }
 
+/** Scope IndexedDB by user + library so catalogs never bleed across accounts/libraries. */
+async function scopeKey(): Promise<string> {
+  const userId = await currentUserKey();
+  const libraryId = getActiveLibraryId() ?? "none";
+  return `${userId}:${libraryId}`;
+}
+
 async function getDB() {
-  const key = await currentUserKey();
+  const key = await scopeKey();
   let promise = dbCache.get(key);
   if (!promise) {
     promise = openDB<ShelfieDB>(`shelfie-${key}`, 1, {
@@ -61,6 +68,30 @@ export async function getCachedBooks(): Promise<Book[]> {
     return db.getAll("books");
   } catch {
     return [];
+  }
+}
+
+export async function clearOfflineCache() {
+  dbCache.clear();
+  try {
+    if (typeof indexedDB?.databases === "function") {
+      const dbs = await indexedDB.databases();
+      await Promise.all(
+        dbs
+          .filter((d) => d.name?.startsWith("shelfie-"))
+          .map(
+            (d) =>
+              new Promise<void>((resolve) => {
+                const req = indexedDB.deleteDatabase(d.name!);
+                req.onsuccess = () => resolve();
+                req.onerror = () => resolve();
+                req.onblocked = () => resolve();
+              }),
+          ),
+      );
+    }
+  } catch {
+    /* ignore */
   }
 }
 

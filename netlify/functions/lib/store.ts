@@ -102,11 +102,12 @@ export async function loadData(
   const key = dataKey(libraryId);
   let raw = await store().get(key, { type: "json" });
 
+  // Only migrate this user's own legacy keys — never the shared "library" blob
+  // (that copied one account's catalog onto every empty library).
   if (!raw && legacyUserId && legacyUserId !== libraryId) {
     const legacy =
       (await store().get(dataKey(legacyUserId), { type: "json" })) ??
-      (await store().get(legacyUserId, { type: "json" })) ??
-      (await store().get("library", { type: "json" }));
+      (await store().get(legacyUserId, { type: "json" }));
     if (legacy) {
       await store().setJSON(key, legacy);
       raw = legacy;
@@ -136,7 +137,8 @@ export async function recoverLibraryData(opts: {
     if (data && score(data) > 0) candidates.push({ source: `library:${id}`, data });
   }
 
-  for (const key of [dataKey(opts.legacyUserId), opts.legacyUserId, "library"]) {
+  // Per-user legacy keys only — never the global "library" key.
+  for (const key of [dataKey(opts.legacyUserId), opts.legacyUserId]) {
     const data = await readKey(key);
     if (data && score(data) > 0) candidates.push({ source: key, data });
   }

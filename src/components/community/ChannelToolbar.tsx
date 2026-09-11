@@ -188,7 +188,7 @@ export function ChannelToolbar({
     // Mobile actions live in CommunityChatHeader — only render the search bar here.
     if (!searchOpen || !onSearchChange) return null;
     return (
-      <div className="shrink-0 border-b border-[var(--community-border)] md:hidden">
+      <div className="shrink-0 border-b border-[var(--community-border)] lg:hidden">
         <ChannelSearchBar
           group={group}
           searchQuery={searchQuery}
@@ -202,7 +202,7 @@ export function ChannelToolbar({
   }
 
   return (
-    <header className="hidden shrink-0 border-b border-[var(--community-border)] shadow-[0_1px_0_0_var(--community-border)] md:block">
+    <header className="hidden shrink-0 border-b border-[var(--community-border)] shadow-[0_1px_0_0_var(--community-border)] lg:block">
       <div className="flex h-12 items-center gap-1 px-4">
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
           <DiscordChannelIcon kind={group.kind} icon={group.icon} className="h-5 w-5" />

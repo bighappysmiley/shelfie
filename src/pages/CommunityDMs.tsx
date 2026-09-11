@@ -119,8 +119,8 @@ export function CommunityDMsPage() {
       <AddServerModal open={addOpen} onClose={() => setAddOpen(false)} onDone={() => setAddOpen(false)} />
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <aside
-          className={`flex shrink-0 flex-col border-r border-[var(--community-border)] bg-[var(--community-panel)] md:w-72 ${
-            threadId ? "hidden md:flex md:max-w-xs md:w-72" : "w-full max-w-none"
+          className={`flex shrink-0 flex-col border-r border-[var(--community-border)] bg-[var(--community-panel)] lg:w-72 ${
+            threadId ? "hidden lg:flex lg:max-w-xs lg:w-72" : "w-full max-w-none"
           }`}
         >
           <div className="border-b border-[var(--community-border)] px-4 py-3">
@@ -156,7 +156,7 @@ export function CommunityDMsPage() {
 
         <div
           className={`flex min-w-0 flex-1 flex-col bg-[var(--community-chat)] ${
-            !threadId ? "hidden md:flex" : ""
+            !threadId ? "hidden lg:flex" : ""
           }`}
         >
           {!threadId ? (
@@ -168,7 +168,7 @@ export function CommunityDMsPage() {
               <div className="flex items-center gap-2 border-b border-[var(--community-border)] px-4 py-3">
                 <Link
                   to="/community/dm"
-                  className="rounded p-1 text-muted hover:bg-[var(--community-hover)] md:hidden"
+                  className="rounded p-1 text-muted hover:bg-[var(--community-hover)] lg:hidden"
                   aria-label="Back to conversations"
                 >
                   <IconArrowLeft size={18} />

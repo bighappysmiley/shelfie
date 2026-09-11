@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
+import { useLibrary } from "@/lib/library";
 import type { Borrower, LoanWithDetails } from "@/lib/types";
 import { PageHeader, Group, EmptyState, Badge } from "@/components/layout";
 import { Button } from "@/components/Button";
 import { SearchInput, TextField } from "@/components/form";
 
 export function BorrowersPage() {
+  const { activeLibrary } = useLibrary();
   const [borrowers, setBorrowers] = useState<Borrower[]>([]);
   const [loans, setLoans] = useState<LoanWithDetails[]>([]);
   const [showAdd, setShowAdd] = useState(false);
@@ -16,14 +18,20 @@ export function BorrowersPage() {
   const [q, setQ] = useState("");
 
   const load = async () => {
+    if (!activeLibrary?.id) {
+      setBorrowers([]);
+      setLoans([]);
+      return;
+    }
     const [b, l] = await Promise.all([api.borrowers.list(), api.loans.list(true)]);
     setBorrowers(b);
     setLoans(l);
   };
 
   useEffect(() => {
-    load();
-  }, []);
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeLibrary?.id]);
 
   const activeByBorrower = loans.reduce<Record<string, number>>((acc, row) => {
     acc[row.borrower.id] = (acc[row.borrower.id] ?? 0) + 1;

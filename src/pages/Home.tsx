@@ -11,8 +11,10 @@ import {
   Banner,
 } from "@/components/layout";
 import type { Book, LoanWithDetails } from "@/lib/types";
+import { useLibrary } from "@/lib/library";
 
 export function HomePage() {
+  const { activeLibrary } = useLibrary();
   const [stats, setStats] = useState<{
     totalBooks?: number;
     activeLoans?: number;
@@ -25,13 +27,32 @@ export function HomePage() {
   const [recent, setRecent] = useState<Book[]>([]);
 
   useEffect(() => {
-    api.data.stats().then((s) => setStats(s as NonNullable<typeof stats>)).catch(() => {});
-    api.loans.list(true).then(setLoans).catch(() => {});
+    if (!activeLibrary?.id) {
+      setStats(null);
+      setLoans([]);
+      setRecent([]);
+      return;
+    }
+    let cancelled = false;
+    setStats(null);
+    setLoans([]);
+    setRecent([]);
+    api.data.stats().then((s) => {
+      if (!cancelled) setStats(s as NonNullable<typeof stats>);
+    }).catch(() => {});
+    api.loans.list(true).then((list) => {
+      if (!cancelled) setLoans(list);
+    }).catch(() => {});
     api.books
       .list({ sort: "added", order: "desc" })
-      .then((books) => setRecent(books.slice(0, 6)))
+      .then((books) => {
+        if (!cancelled) setRecent(books.slice(0, 6));
+      })
       .catch(() => {});
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [activeLibrary?.id]);
 
   const today = new Date().toISOString().slice(0, 10);
   const soon = new Date();

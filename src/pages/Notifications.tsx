@@ -24,7 +24,7 @@ import {
 import { getNotificationRetentionHours } from "@/lib/notification-prefs";
 
 export function NotificationsPage() {
-  const { pendingInvites, acceptInvite } = useLibrary();
+  const { activeLibrary, pendingInvites, acceptInvite } = useLibrary();
   const [loans, setLoans] = useState<LoanWithDetails[]>([]);
   const [appNotes, setAppNotes] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,10 +32,13 @@ export function NotificationsPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      setLoading(true);
       try {
         await purgeExpiredNotifications(getNotificationRetentionHours()).catch(() => 0);
         const [loanList, notes] = await Promise.all([
-          api.loans.list(true).catch(() => [] as LoanWithDetails[]),
+          activeLibrary?.id
+            ? api.loans.list(true).catch(() => [] as LoanWithDetails[])
+            : Promise.resolve([] as LoanWithDetails[]),
           listMyNotifications().catch(() => [] as AppNotification[]),
         ]);
         if (!cancelled) {
@@ -49,7 +52,7 @@ export function NotificationsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [activeLibrary?.id]);
 
   const today = new Date().toISOString().slice(0, 10);
   const soon = new Date();

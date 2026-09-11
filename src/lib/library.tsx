@@ -10,7 +10,7 @@ import {
 import { api } from "./api";
 import { useAuth } from "./auth";
 import type { Library, LibraryInvite } from "./library-types";
-import { getActiveLibraryId, setActiveLibraryId } from "./library-storage";
+import { getActiveLibraryId, setActiveLibraryId, bindLibraryStorageUser } from "./library-storage";
 import { captureInviteFromUrl, clearPendingInvite, getPendingInvite } from "./pending-invite";
 
 type LibraryContextValue = {
@@ -50,6 +50,10 @@ function pickPreferredLibraryId(
     list[0]?.id ??
     null;
 
+  // Prefer the server-side preferred library when set; otherwise keep the
+  // user-scoped stored choice if it still belongs to this account.
+  if (fromApi) return fromApi;
+
   if (stored && list.some((l) => l.id === stored)) {
     const storedLib = list.find((l) => l.id === stored);
     // If stored points at a setup-loop "My Library" and a better option exists, switch.
@@ -77,6 +81,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
   const refreshLibraries = useCallback(async (opts?: { silent?: boolean }) => {
     if (!user) {
+      bindLibraryStorageUser(null);
       setLibraries([]);
       setPendingInvites([]);
       setActiveId(null);
@@ -85,6 +90,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       setHasLoaded(false);
       return;
     }
+
+    bindLibraryStorageUser(user.id);
 
     const silent = opts?.silent ?? hasLoaded;
     if (!silent) setLoading(true);
@@ -135,7 +142,9 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   }, [user, hasLoaded]);
 
   useEffect(() => {
-    refreshLibraries({ silent: false });
+    bindLibraryStorageUser(user?.id ?? null);
+    setActiveId(user ? getActiveLibraryId() : null);
+    void refreshLibraries({ silent: false });
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps -- reload when user changes
 
   const setActiveLibrary = useCallback((id: string) => {

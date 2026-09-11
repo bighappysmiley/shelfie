@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { cacheBooks, getCachedBooks, isOnline } from "@/lib/offline";
+import { useLibrary } from "@/lib/library";
 import type { Book, BookFormat, LibraryStatus } from "@/lib/types";
 import { FORMAT_LABELS, STATUS_LABELS } from "@/lib/types";
 import { BookCard } from "@/components/BookCard";
@@ -21,6 +22,7 @@ function loadView(): ViewMode {
 }
 
 export function LibraryPage() {
+  const { activeLibrary } = useLibrary();
   const [searchParams, setSearchParams] = useSearchParams();
   const [books, setBooks] = useState<Book[]>([]);
   const [facetBooks, setFacetBooks] = useState<Book[]>([]);
@@ -43,13 +45,28 @@ export function LibraryPage() {
   const [bulkShelf, setBulkShelf] = useState("");
 
   useEffect(() => {
+    if (!activeLibrary?.id) {
+      setFacetBooks([]);
+      return;
+    }
+    let cancelled = false;
     api.books
       .list({ sort: "title" })
-      .then(setFacetBooks)
+      .then((list) => {
+        if (!cancelled) setFacetBooks(list);
+      })
       .catch(() => {});
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [activeLibrary?.id]);
 
   const load = async () => {
+    if (!activeLibrary?.id) {
+      setBooks([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       if (isOnline()) {
@@ -93,8 +110,12 @@ export function LibraryPage() {
   };
 
   useEffect(() => {
-    load();
-  }, [q, status, format, room, tag, sort]);
+    setBooks([]);
+    setSelected(new Set());
+    setBulkMode(false);
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload when library or filters change
+  }, [activeLibrary?.id, q, status, format, room, tag, sort]);
 
   useEffect(() => {
     const next = new URLSearchParams();

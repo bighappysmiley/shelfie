@@ -72,7 +72,7 @@ export function ThreadsPanel({
   }
 
   return (
-    <aside className="hidden w-60 shrink-0 flex-col border-l border-[var(--community-border)] bg-[var(--community-panel)] min-h-0 md:flex">
+    <aside className="hidden w-60 shrink-0 flex-col border-l border-[var(--community-border)] bg-[var(--community-panel)] min-h-0 lg:flex">
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-[var(--community-border)] px-3">
         <h3 className="text-sm font-semibold text-foreground">Threads</h3>
         <button

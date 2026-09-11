@@ -75,7 +75,7 @@ export function CommunityChatHeader({
 
   return (
     <>
-      <header className="safe-top flex h-12 shrink-0 items-center gap-1 border-b border-[var(--community-border)] px-2 shadow-[0_1px_0_0_var(--community-border)] md:hidden">
+      <header className="safe-top flex h-12 shrink-0 items-center gap-1 border-b border-[var(--community-border)] px-2 shadow-[0_1px_0_0_var(--community-border)] lg:hidden">
         <button
           type="button"
           onClick={onOpenChannels}

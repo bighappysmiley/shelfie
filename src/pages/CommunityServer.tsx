@@ -236,7 +236,7 @@ export function CommunityServerPage() {
   const [voicePrefs, setVoicePrefs] = useState(getVoicePrefs);
   const [joinRequestStatus, setJoinRequestStatus] = useState<string | null>(null);
   const [channelSearch, setChannelSearch] = useState("");
-  const [showMembers, setShowMembers] = useState(true);
+  const [showMembers, setShowMembers] = useState(false);
   const [serverMembers, setServerMembers] = useState<CommunityServerMember[]>([]);
   const [unreadCounts, setUnreadCounts] = useState<Map<string, number>>(new Map());
   const [profileTarget, setProfileTarget] = useState<{
@@ -538,7 +538,7 @@ export function CommunityServerPage() {
       onAdd={() => setAddOpen(true)}
     >
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        <aside className="hidden w-60 shrink-0 flex-col bg-[var(--community-panel)] min-h-0 md:flex">
+        <aside className="hidden w-60 shrink-0 flex-col bg-[var(--community-panel)] min-h-0 lg:flex">
           {server && (
             <ServerChannelHeader
               serverName={server.name}
@@ -2544,7 +2544,7 @@ function ServerMemberSidebar({
   onOpenProfile?: (target: { userId?: string; username?: string | null }) => void;
 }) {
   return (
-    <aside className="hidden w-60 shrink-0 flex-col bg-[var(--community-panel)] min-h-0 md:flex">
+    <aside className="hidden w-60 shrink-0 flex-col bg-[var(--community-panel)] min-h-0 lg:flex">
       <MemberListPanel
         members={members}
         memberProfiles={memberProfiles}

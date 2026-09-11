@@ -11,7 +11,8 @@ import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 import type { StaffMember } from "./support-types";
 import type { PreferredAuth, UserProfile } from "./library-types";
-import { normalizePhone } from "./library-storage";
+import { normalizePhone, clearLibraryContext } from "./library-storage";
+import { clearOfflineCache } from "./offline";
 import {
   isValidCommunityUsername,
   normalizeCommunityUsername,
@@ -525,6 +526,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUserProfile(null);
     setPending2fa(false);
     setSecondFactor(null);
+    clearLibraryContext();
+    void clearOfflineCache();
     try {
       sessionStorage.removeItem("pine-pending-2fa");
     } catch {

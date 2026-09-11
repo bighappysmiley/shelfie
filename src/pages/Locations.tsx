@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
+import { useLibrary } from "@/lib/library";
 import type { Book } from "@/lib/types";
 import { PageHeader, EmptyState, Group, GroupHeader } from "@/components/layout";
 import { ButtonLink } from "@/components/Button";
@@ -18,15 +19,31 @@ type RoomGroup = {
 };
 
 export function LocationsPage() {
+  const { activeLibrary } = useLibrary();
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!activeLibrary?.id) {
+      setBooks([]);
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setBooks([]);
     api.books
       .list({ sort: "title" })
-      .then(setBooks)
-      .finally(() => setLoading(false));
-  }, []);
+      .then((list) => {
+        if (!cancelled) setBooks(list);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeLibrary?.id]);
 
   const rooms = useMemo(() => {
     const map = new Map<string, Map<string, Book[]>>();

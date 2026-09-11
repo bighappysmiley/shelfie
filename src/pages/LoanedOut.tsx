@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
+import { useLibrary } from "@/lib/library";
 import type { LoanWithDetails } from "@/lib/types";
 import { CoverImage } from "@/components/CoverImage";
 import {
@@ -14,6 +15,7 @@ import { Button } from "@/components/Button";
 import { TextField } from "@/components/form";
 
 export function LoanedOutPage() {
+  const { activeLibrary } = useLibrary();
   const [loans, setLoans] = useState<LoanWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "overdue" | "due_soon">("all");
@@ -21,13 +23,19 @@ export function LoanedOutPage() {
   const [dueDate, setDueDate] = useState("");
 
   const load = () => {
+    if (!activeLibrary?.id) {
+      setLoans([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     api.loans.list(true).then(setLoans).finally(() => setLoading(false));
   };
 
   useEffect(() => {
     load();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeLibrary?.id]);
 
   const today = new Date().toISOString().slice(0, 10);
   const soon = new Date();

@@ -164,7 +164,7 @@ export function CommunityDiscordShell({
     <div className="community-discord-shell flex h-full min-h-0 flex-1 overflow-hidden bg-[var(--community-rail)] text-foreground">
       <nav
         aria-label="Servers"
-        className="community-scroll community-rail-nav hidden w-[4.5rem] shrink-0 flex-col overflow-y-auto bg-[var(--community-rail)] py-3 md:flex"
+        className="community-scroll community-rail-nav hidden w-[4.5rem] shrink-0 flex-col overflow-y-auto bg-[var(--community-rail)] py-3 lg:flex"
       >
         <RailButton label="Home" onClick={() => navigate("/home")}>
           <IconHome size={24} />
@@ -218,7 +218,7 @@ export function CommunityDiscordShell({
         {servers.length > 0 && !immersiveMobile && (
           <nav
             aria-label="Your servers"
-            className="community-scroll flex shrink-0 gap-1 overflow-x-auto border-b border-[var(--community-border)] px-2 py-2 md:hidden"
+            className="community-scroll flex shrink-0 gap-1 overflow-x-auto border-b border-[var(--community-border)] px-2 py-2 lg:hidden"
           >
             {servers.map((s) => (
               <button
@@ -248,7 +248,7 @@ export function CommunityDiscordShell({
         {!immersiveMobile && (
           <nav
             aria-label="Community navigation"
-            className="flex shrink-0 border-t border-[var(--community-border)] bg-[var(--community-panel)] pb-[env(safe-area-inset-bottom,0px)] md:hidden"
+            className="flex shrink-0 border-t border-[var(--community-border)] bg-[var(--community-panel)] pb-[env(safe-area-inset-bottom,0px)] lg:hidden"
           >
             <button
               type="button"
