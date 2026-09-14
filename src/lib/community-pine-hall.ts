@@ -15,22 +15,22 @@ import { upsertPermissionOverride } from "./community-permissions";
 import type { CommunityGroupKind, CommunityServer } from "./community-types";
 
 export const PINE_HALL_NAME = "Pine Hall";
-/** Hall bot — separate from a human “Pine” official account you can create yourself. */
+/** System bot for Pine Hall. Distinct from a human “Pine” official account. */
 export const PINE_BOT_NAME = "Pine Hall";
 export const SUGGESTIONS_BOT_NAME = "Suggestions";
 export const SUPPORT_BOT_NAME = "Support";
 
 const PINE_HALL_DESCRIPTION =
-  "The official Pine reading hall — currently reading, recommendations, reviews, and a cozy place to talk books.";
+  "Pine’s official community for readers — share what you’re reading, exchange recommendations, and discuss books with others.";
 
-const PINE_HALL_RULES = `1. Be kind — treat readers and their tastes with respect.
-2. Spoilers need a clear warning in the first line.
-3. Keep it bookish or friendly; spam and harassment get removed.
-4. No pirated books or illegal download links.
-5. Have fun — this hall is for discovering the next great read.`;
+const PINE_HALL_RULES = `1. Treat every member and their reading preferences with respect.
+2. Mark spoilers clearly in the first line of your message.
+3. Keep discussion constructive and on topic; spam and harassment are not allowed.
+4. Do not share pirated books or unauthorized download links.
+5. Help keep Pine Hall welcoming for readers of all kinds.`;
 
 const PINE_HALL_WELCOME =
-  "Welcome to Pine Hall! Start in #🌲 | Start Here, say hi in #👋 | Introductions, then share what you’re reading in #📖 | Currently Reading.";
+  "Welcome to Pine Hall. Begin in #🌲 | Start Here, introduce yourself in #👋 | Introductions, then share what you’re reading in #📖 | Currently Reading.";
 
 /** `emoji | Title Case` channel display name. */
 export function pineChannelLabel(emoji: string, title: string): string {
@@ -123,8 +123,8 @@ function channelDisplayName(ch: ChannelSeed): string {
 }
 
 /**
- * Official Pine Hall layout — clearer categories, stronger onboarding,
- * and reading-first channels that stay easy to browse.
+ * Official Pine Hall layout — clear categories, guided onboarding,
+ * and reading-first channels for members.
  */
 const PINE_HALL_LAYOUT: CategorySeed[] = [
   {
@@ -135,8 +135,8 @@ const PINE_HALL_LAYOUT: CategorySeed[] = [
         emoji: "📢",
         title: "Announcements",
         kind: "announcement",
-        topic: "Official Pine Hall updates and community news",
-        description: "Staff posts only — follow for hall news.",
+        topic: "Official updates and community news from Pine Hall",
+        description: "Staff posts only. Follow this channel for important updates.",
         staffWriteOnly: true,
         bot: {
           name: PINE_BOT_NAME,
@@ -145,9 +145,9 @@ const PINE_HALL_LAYOUT: CategorySeed[] = [
 
 This is the official announcements channel for Pine Hall.
 
-Staff post product updates, reading events, and community news here. You’ll get notified for important posts — settle in and enjoy the bookshelf.
+Staff publish product updates, reading events, and community news here. Members are notified of important posts.
 
-Looking for a human voice from the team? Create or follow the **Pine** official account — this bot stays as **Pine Hall**.`,
+For updates from the Pine team under a personal account, follow **Pine**. This channel is managed by the **Pine Hall** bot.`,
         },
       },
       {
@@ -155,17 +155,17 @@ Looking for a human voice from the team? Create or follow the **Pine** official 
         emoji: "📕",
         title: "Rules",
         kind: "text",
-        topic: "House rules for Pine Hall",
-        description: "Please read before chatting.",
+        topic: "Community guidelines for Pine Hall",
+        description: "Please review before participating.",
         staffWriteOnly: true,
         bot: {
           name: PINE_BOT_NAME,
           marker: "<!--pine-bot:rules-->",
-          body: `**Pine Hall Rules** <!--pine-bot:rules-->
+          body: `**Pine Hall Guidelines** <!--pine-bot:rules-->
 
 ${PINE_HALL_RULES}
 
-Thanks for helping keep this a cozy place to talk books.`,
+Thank you for helping maintain a respectful reading community.`,
         },
       },
       {
@@ -173,19 +173,19 @@ Thanks for helping keep this a cozy place to talk books.`,
         emoji: "🌲",
         title: "Start Here",
         kind: "text",
-        topic: "New to Pine Hall? Start with this short path",
+        topic: "Getting started in Pine Hall",
         bot: {
           name: PINE_BOT_NAME,
           marker: "<!--pine-bot:start-here-->",
-          body: `**Start here** <!--pine-bot:start-here-->
+          body: `**Getting started** <!--pine-bot:start-here-->
 
-1. Read **#📕 | Rules**
-2. Say hi in **#👋 | Introductions**
+1. Review **#📕 | Rules**
+2. Introduce yourself in **#👋 | Introductions**
 3. Share what you’re reading in **#📖 | Currently Reading**
-4. Want a rec? Post in **#✨ | Book Recs**
-5. Need help? **#🛟 | Support** · Have an idea? **#💡 | Suggestions**
+4. Request or offer recommendations in **#✨ | Book Recs**
+5. For help, visit **#🛟 | Support**. For product ideas, use **#💡 | Suggestions**
 
-Your **server role** controls what you can do in each channel — ask a mod if you need access.`,
+Channel access is based on your **server role**. Contact a moderator if you need additional permissions.`,
         },
       },
       {
@@ -193,17 +193,17 @@ Your **server role** controls what you can do in each channel — ask a mod if y
         emoji: "🗓️",
         title: "Events",
         kind: "text",
-        topic: "Read-alongs, buddy reads, and hall events",
-        description: "Staff and hosts post upcoming reading events.",
+        topic: "Read-alongs, group reads, and community events",
+        description: "Upcoming reading events posted by staff and hosts.",
         staffWriteOnly: true,
         bot: {
           name: PINE_BOT_NAME,
           marker: "<!--pine-bot:events-->",
-          body: `**Events board** <!--pine-bot:events-->
+          body: `**Community events** <!--pine-bot:events-->
 
-Buddy reads, seasonal challenges, and live book-club nights get posted here.
+Group reads, seasonal challenges, and book club sessions are posted in this channel.
 
-Want to host something? Ask a Moderator in **#💬 | Lounge** and we’ll help you get it on the calendar.`,
+To propose an event, message a Moderator in **#💬 | Lounge**.`,
         },
       },
     ],
@@ -216,18 +216,18 @@ Want to host something? Ask a Moderator in **#💬 | Lounge** and we’ll help y
         emoji: "👋",
         title: "Introductions",
         kind: "text",
-        topic: "New here? Tell us your name and a favorite book",
+        topic: "Introduce yourself to the community",
         bot: {
           name: PINE_BOT_NAME,
           marker: "<!--pine-bot:introductions-->",
-          body: `**Say hello!** <!--pine-bot:introductions-->
+          body: `**Introductions** <!--pine-bot:introductions-->
 
-New to Pine Hall? Introduce yourself with:
-• What you like to be called
-• A favorite book (or three)
-• What you’re reading right now
+New to Pine Hall? Share a brief introduction:
+• Preferred name
+• A favorite book
+• What you’re reading now
 
-We’re glad you’re here.`,
+Welcome to the community.`,
         },
       },
       {
@@ -235,21 +235,21 @@ We’re glad you’re here.`,
         emoji: "💬",
         title: "Lounge",
         kind: "text",
-        topic: "Everyday chat for Pine Hall",
+        topic: "General discussion for Pine Hall members",
       },
       {
         key: "off-topic",
         emoji: "🎲",
         title: "Off Topic",
         kind: "text",
-        topic: "Life beyond books — still keep it friendly",
+        topic: "Conversation outside of books — keep it respectful",
       },
       {
         key: "media",
         emoji: "🎬",
         title: "Media",
         kind: "text",
-        topic: "Bookish shows, podcasts, and adaptations",
+        topic: "Book adaptations, podcasts, and related media",
       },
     ],
   },
@@ -261,30 +261,30 @@ We’re glad you’re here.`,
         emoji: "📖",
         title: "Currently Reading",
         kind: "text",
-        topic: "What page are you on right now?",
+        topic: "Share what you’re reading",
       },
       {
         key: "book-recs",
         emoji: "✨",
         title: "Book Recs",
         kind: "forum",
-        topic: "Ask for recommendations or share a gem",
-        description: "One book or vibe per post works best.",
+        topic: "Request or share book recommendations",
+        description: "One book or recommendation request per post.",
       },
       {
         key: "reviews",
         emoji: "⭐",
         title: "Reviews",
         kind: "forum",
-        topic: "Spoilers welcome — mark them clearly",
-        description: "Short takes and full reviews.",
+        topic: "Book reviews — mark spoilers clearly",
+        description: "Brief reactions and full reviews are both welcome.",
       },
       {
         key: "shelves",
         emoji: "📚",
         title: "Shelves",
         kind: "text",
-        topic: "Show off a shelf, stack, or TBR pile",
+        topic: "Share shelves, stacks, and reading lists",
       },
       {
         key: "challenges",
@@ -303,18 +303,18 @@ We’re glad you’re here.`,
         emoji: "💡",
         title: "Suggestions",
         kind: "forum",
-        topic: "Feature ideas and hall improvements",
-        description: "One idea per post — Moderators review with roles.",
+        topic: "Product ideas and community improvements",
+        description: "One suggestion per post. Staff will review each submission.",
         bot: {
           name: SUGGESTIONS_BOT_NAME,
           marker: "<!--pine-bot:suggestions-->",
-          body: `**How to submit a suggestion** <!--pine-bot:suggestions-->
+          body: `**Submitting a suggestion** <!--pine-bot:suggestions-->
 
 1. Create a new post with a clear title.
-2. Describe the idea and why it helps readers.
-3. Staff will mark it Open → Accepted / Declined / Implemented.
+2. Describe the idea and how it would help readers.
+3. Staff will update the status: Open → Accepted, Declined, or Implemented.
 
-One idea per post. Moderators and Admins manage status via their **server roles**.`,
+Please submit one idea per post. Moderators and Admins manage status through their server roles.`,
         },
       },
       {
@@ -322,18 +322,18 @@ One idea per post. Moderators and Admins manage status via their **server roles*
         emoji: "🛟",
         title: "Support",
         kind: "text",
-        topic: "Get help with Pine — bugs, account, and access",
-        description: "Community help here; private issues go to in-app Support.",
+        topic: "Help with Pine — account, access, and technical issues",
+        description: "Community support in this channel. Private account matters should use in-app Support.",
         bot: {
           name: SUPPORT_BOT_NAME,
           marker: "<!--pine-bot:support-->",
-          body: `**Need help?** <!--pine-bot:support-->
+          body: `**Support** <!--pine-bot:support-->
 
-• **Account / billing / private issues** → open **Support** in the Pine app
-• **Hall questions** → ask here and a Moderator will help
-• **Bug reports** → include what you tried, device, and a screenshot if you can
+• **Account, billing, or private matters** — open **Support** in the Pine app
+• **Community questions** — post here for Moderator assistance
+• **Bug reports** — include steps to reproduce, device details, and a screenshot when possible
 
-Moderators and Admins watch this channel (role-synced permissions).`,
+Moderators and Admins monitor this channel.`,
         },
       },
     ],
@@ -346,7 +346,7 @@ Moderators and Admins watch this channel (role-synced permissions).`,
         emoji: "🎧",
         title: "Quiet Reading",
         kind: "voice",
-        topic: "Soft co-reading and quiet hangouts",
+        topic: "Shared quiet reading sessions",
       },
       {
         key: "book-club",
