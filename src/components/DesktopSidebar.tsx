@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { Logo } from "./Logo";
 import { LibrarySwitcher } from "./LibrarySwitcher";
 import { UserAvatar, userDisplayName } from "./UserAvatar";
+import { altLabel, displayAccountEmail } from "@/lib/community-account-switcher";
 import { SegmentedControl } from "./layout";
 import {
   IconApps,
@@ -96,8 +97,14 @@ export function DesktopSidebar() {
     };
   }, []);
 
-  const displayName = userDisplayName(userProfile?.displayName, user?.email, user?.phone);
-  const avatarLabel = userProfile?.displayName || user?.email || user?.phone || displayName;
+  const accountEmail = displayAccountEmail(user);
+  const displayName = userDisplayName(
+    userProfile?.displayName || altLabel(user),
+    accountEmail,
+    user?.phone,
+  );
+  const avatarLabel =
+    userProfile?.displayName || altLabel(user) || accountEmail || user?.phone || displayName;
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-[15.5rem] flex-col border-r border-hairline bg-surface lg:flex">
@@ -146,7 +153,7 @@ export function DesktopSidebar() {
           <div className="min-w-0 flex-1">
             <p className="truncate text-[0.9375rem] font-medium">{displayName}</p>
             <p className="truncate text-[0.75rem] text-muted">
-              {user?.email ?? user?.phone ?? "Account"}
+              {accountEmail ?? (altLabel(user) ? "Alt account" : user?.phone ?? "Account")}
             </p>
           </div>
         </NavLink>

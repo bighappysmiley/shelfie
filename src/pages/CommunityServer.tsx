@@ -67,6 +67,7 @@ import { FormError } from "@/components/form";
 import { EmptyState } from "@/components/layout";
 import { IconArrowLeft, IconChat, IconDots, IconList, IconPlus, IconReply, IconSearch, IconSettings, IconUserPlus } from "@/components/Icons";
 import { communityAuthorLabel, communityShortName } from "@/lib/community-identity";
+import { altLabel, displayAccountEmail } from "@/lib/community-account-switcher";
 import { isAppOwnerUser, listAppOwnerUserIds } from "@/lib/app-owner";
 import { getChatRoleIconUrl } from "@/lib/chat-badges";
 import { roleColorTextStyle } from "@/lib/role-color";
@@ -567,7 +568,7 @@ export function CommunityServerPage() {
           {user && (
             <CommunityUserPanel
               profile={myCommunityProfile}
-              fallbackName={communityShortName(userProfile, user.email)}
+              fallbackName={communityShortName(userProfile, displayAccountEmail(user) ?? altLabel(user))}
               muted={voicePrefs.muted}
               deafened={voicePrefs.deafened}
               onToggleMute={() => setVoicePrefs(toggleVoiceMuted())}
@@ -614,8 +615,14 @@ export function CommunityServerPage() {
               group={active}
               serverId={server.id}
               userId={user.id}
-              displayName={communityShortName(userProfile, user.email)}
-              authorLabel={communityAuthorLabel(userProfile, user.email)}
+              displayName={communityShortName(
+                userProfile,
+                displayAccountEmail(user) ?? altLabel(user),
+              )}
+              authorLabel={communityAuthorLabel(
+                userProfile,
+                displayAccountEmail(user) ?? altLabel(user),
+              )}
               isAppOwner={Boolean(isOwner)}
               canConfigure={canConfigure}
               isMember={isMember}

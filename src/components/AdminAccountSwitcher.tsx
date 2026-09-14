@@ -1,9 +1,15 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  addStaffLinkedAccount,
+  altLabel,
+  applyAltSession,
+  createAltAccount,
+  isAltUser,
   listStaffLinkedAccounts,
   removeStaffLinkedAccount,
+  returnToMainAccount,
+  switchToAltAccount,
+  type StaffLinkedAccount,
 } from "@/lib/community-account-switcher";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/Button";
@@ -11,25 +17,25 @@ import { Group, GroupFooter, GroupHeader } from "@/components/layout";
 import { TextField } from "@/components/form";
 
 /**
- * Admin-only account switcher for security / alt accounts.
- * Stores linked emails, then switches with email + password (no stored passwords).
+ * Admin alt accounts: label-only personas linked to your main profile.
+ * No email. Switching loads a fresh empty app session for that alt.
  */
 export function AdminAccountSwitcher() {
-  const { user, isAdmin, isOwner, signIn, signOut } = useAuth();
+  const { user, isAdmin, isOwner } = useAuth();
   const navigate = useNavigate();
-  const [accounts, setAccounts] = useState<
-    { id: string; email: string; label: string; linkedUserId: string | null }[]
-  >([]);
-  const [email, setEmail] = useState("");
+  const [accounts, setAccounts] = useState<StaffLinkedAccount[]>([]);
   const [label, setLabel] = useState("");
-  const [password, setPassword] = useState("");
-  const [switchingTo, setSwitchingTo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
 
-  const allowed = isAdmin || isOwner;
+  const onAlt = isAltUser(user);
+  const allowed = isAdmin || isOwner || onAlt;
 
   const refresh = async () => {
+    if (onAlt) {
+      setAccounts([]);
+      return;
+    }
     try {
       setAccounts(await listStaffLinkedAccounts());
     } catch {
@@ -40,17 +46,59 @@ export function AdminAccountSwitcher() {
   useEffect(() => {
     if (!allowed) return;
     void refresh();
-  }, [allowed, user?.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allowed, user?.id, onAlt]);
 
   if (!allowed) return null;
 
+  const runSwitch = async (fn: () => Promise<{ tokenHash: string }>, nextPath: string) => {
+    setBusy(true);
+    setMsg("");
+    try {
+      const { tokenHash } = await fn();
+      await applyAltSession(tokenHash);
+      navigate(nextPath, { replace: true });
+      window.location.assign(nextPath);
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : "Could not switch accounts");
+      setBusy(false);
+    }
+  };
+
+  if (onAlt) {
+    const name = altLabel(user) || "Alt";
+    return (
+      <section>
+        <GroupHeader>Alt account</GroupHeader>
+        <Group>
+          <p className="px-4 py-3 text-[0.875rem] text-muted">
+            You’re on <span className="font-medium text-foreground">{name}</span> — a fresh Pine
+            identity linked to your main profile. This account has no email.
+          </p>
+          <div className="px-4 py-3">
+            <Button
+              disabled={busy}
+              onClick={() => void runSwitch(() => returnToMainAccount(), "/account")}
+            >
+              {busy ? "Switching…" : "Back to main account"}
+            </Button>
+            {msg && <p className="mt-2 text-[0.875rem] text-destructive">{msg}</p>}
+          </div>
+        </Group>
+        <GroupFooter>
+          Returning restores your main libraries, community profile, and settings.
+        </GroupFooter>
+      </section>
+    );
+  }
+
   return (
     <section>
-      <GroupHeader>Account switcher</GroupHeader>
+      <GroupHeader>Alt accounts</GroupHeader>
       <Group>
         <p className="px-4 py-3 text-[0.875rem] text-muted">
-          Link security / alt accounts, then switch into them with their password. Only admins see
-          this.
+          Create alt personas linked to your profile (no email). Switching opens Pine as a brand-new
+          account while staying connected to you.
         </p>
 
         {accounts.map((acc) => (
@@ -60,75 +108,42 @@ export function AdminAccountSwitcher() {
           >
             <div className="min-w-0">
               <p className="font-medium">{acc.label}</p>
-              <p className="truncate text-[0.8125rem] text-muted">{acc.email}</p>
+              <p className="text-[0.8125rem] text-muted">
+                {acc.isAltPersona
+                  ? acc.linkedUserId === user?.id
+                    ? "Current alt"
+                    : "No email · linked to you"
+                  : "Legacy linked login"}
+              </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              {switchingTo === acc.email ? (
-                <form
-                  className="flex flex-wrap items-center gap-2"
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    setBusy(true);
-                    setMsg("");
-                    try {
-                      await signOut();
-                      await signIn(acc.email, password);
-                      setPassword("");
-                      setSwitchingTo(null);
-                      navigate("/home", { replace: true });
-                    } catch (err) {
-                      setMsg(err instanceof Error ? err.message : "Could not switch accounts");
-                    } finally {
-                      setBusy(false);
-                    }
-                  }}
-                >
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Password"
-                    required
-                    autoFocus
-                    className="rounded-[var(--radius-control)] bg-fill px-3 py-1.5 text-[0.875rem]"
-                  />
-                  <Button type="submit" size="sm" disabled={busy || !password}>
-                    {busy ? "…" : "Switch"}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      setSwitchingTo(null);
-                      setPassword("");
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                </form>
-              ) : (
-                <>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    disabled={acc.email === user?.email}
-                    onClick={() => setSwitchingTo(acc.email)}
-                  >
-                    {acc.email === user?.email ? "Current" : "Switch"}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={async () => {
-                      await removeStaffLinkedAccount(acc.id);
-                      await refresh();
-                    }}
-                  >
-                    Remove
-                  </Button>
-                </>
-              )}
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={busy || acc.linkedUserId === user?.id || !acc.linkedUserId}
+                onClick={() => void runSwitch(() => switchToAltAccount(acc.id), "/setup")}
+              >
+                {acc.linkedUserId === user?.id ? "Current" : "Switch"}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  setMsg("");
+                  try {
+                    await removeStaffLinkedAccount(acc.id);
+                    await refresh();
+                  } catch (err) {
+                    setMsg(err instanceof Error ? err.message : "Could not remove alt");
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                Remove
+              </Button>
             </div>
           </div>
         ))}
@@ -140,40 +155,31 @@ export function AdminAccountSwitcher() {
             setBusy(true);
             setMsg("");
             try {
-              await addStaffLinkedAccount(email, label || email);
-              setEmail("");
+              await createAltAccount(label.trim());
               setLabel("");
               await refresh();
             } catch (err) {
-              setMsg(err instanceof Error ? err.message : "Could not add account");
+              setMsg(err instanceof Error ? err.message : "Could not create alt");
             } finally {
               setBusy(false);
             }
           }}
         >
           <TextField
-            label="Alt account email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="security@example.com"
-            required
-          />
-          <TextField
-            label="Label"
+            label="Alt name"
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            placeholder="Security account"
+            placeholder="e.g. Security, Testing, Public"
+            required
           />
-          <Button type="submit" disabled={busy || !email.trim()}>
-            Add linked account
+          <Button type="submit" disabled={busy || !label.trim()}>
+            {busy ? "Creating…" : "Create alt"}
           </Button>
           {msg && <p className="text-[0.875rem] text-destructive">{msg}</p>}
         </form>
       </Group>
       <GroupFooter>
-        Switching signs you out of the current session and into the linked account. Keep passwords
-        only in a password manager — Pine never stores them.
+        Alts don’t use email or passwords — only you can switch into them from this account.
       </GroupFooter>
     </section>
   );

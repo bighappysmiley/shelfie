@@ -54,8 +54,10 @@ export function userDisplayName(
   phone?: string | null,
 ): string {
   if (displayName?.trim()) return displayName.trim();
-  if (email) {
-    const local = email.split("@")[0] ?? email;
+  const publicEmail =
+    email && !email.toLowerCase().endsWith("@pine.alt") ? email : null;
+  if (publicEmail) {
+    const local = publicEmail.split("@")[0] ?? publicEmail;
     return local.replace(/[._-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
   }
   if (phone) return phone;

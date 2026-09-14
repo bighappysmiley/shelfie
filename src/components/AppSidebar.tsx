@@ -12,6 +12,7 @@ import {
 import { Logo } from "@/components/Logo";
 import { LibrarySwitcher } from "@/components/LibrarySwitcher";
 import { UserAvatar, userDisplayName } from "@/components/UserAvatar";
+import { altLabel, displayAccountEmail } from "@/lib/community-account-switcher";
 import { SegmentedControl } from "@/components/layout";
 import {
   IconApps,
@@ -112,9 +113,15 @@ export function AppSidebar() {
     };
   }, []);
 
-  const displayName = userDisplayName(userProfile?.displayName, user?.email, user?.phone);
-  const avatarLabel = userProfile?.displayName || user?.email || user?.phone || displayName;
-  const subtitle = user?.email ?? user?.phone ?? "";
+  const accountEmail = displayAccountEmail(user);
+  const displayName = userDisplayName(
+    userProfile?.displayName || altLabel(user),
+    accountEmail,
+    user?.phone,
+  );
+  const avatarLabel =
+    userProfile?.displayName || altLabel(user) || accountEmail || user?.phone || displayName;
+  const subtitle = accountEmail ?? (altLabel(user) ? "Alt account" : user?.phone ?? "");
   const tabIndex = open ? 0 : -1;
 
   const closeAndGo = () => closeSidebar();

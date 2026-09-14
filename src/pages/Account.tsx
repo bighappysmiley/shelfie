@@ -23,6 +23,7 @@ import {
 } from "@/lib/community-profile";
 import { isProEnabled, PRO_PERKS, PROFILE_RINGS, type ProfileRingId } from "@/lib/pro";
 import { AdminAccountSwitcher } from "@/components/AdminAccountSwitcher";
+import { displayAccountEmail, isAltUser } from "@/lib/community-account-switcher";
 import { getReadingAchievements } from "@/lib/reading-achievements";
 import { api } from "@/lib/api";
 import type { SynkIdentityStatus } from "@/lib/synk";
@@ -30,6 +31,8 @@ import { SynkVerifyModal } from "@/components/SynkVerifyModal";
 
 export function AccountPage() {
   const { user, signOut, userProfile, updateProfile, isStaff, isAdmin, isOwner } = useAuth();
+  const onAlt = isAltUser(user);
+  const accountEmail = displayAccountEmail(user);
   const navigate = useNavigate();
 
   const [displayName, setDisplayName] = useState("");
@@ -93,7 +96,10 @@ export function AccountPage() {
   }, [user]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || isAltUser(user)) {
+      setSynkStatus({ linked: false, identity: null });
+      return;
+    }
     void api.synk
       .status()
       .then(setSynkStatus)
@@ -312,7 +318,7 @@ export function AccountPage() {
           )}
         </section>
 
-        {(isAdmin || isOwner) && <AdminAccountSwitcher />}
+        {(isAdmin || isOwner || onAlt) && <AdminAccountSwitcher />}
 
         <section>
           <GroupHeader>Plans &amp; Pro</GroupHeader>
@@ -436,121 +442,160 @@ export function AccountPage() {
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
             />
-            <ListRow title="Email" trailing={user?.email ?? "—"} />
-            <ListRow title="Phone" trailing={userProfile?.phone ?? user?.phone ?? "Not set"} />
+            {accountEmail ? (
+              <ListRow title="Email" trailing={accountEmail} />
+            ) : onAlt ? (
+              <ListRow title="Email" trailing="None (alt account)" />
+            ) : (
+              <ListRow title="Email" trailing="—" />
+            )}
+            {!onAlt && (
+              <ListRow title="Phone" trailing={userProfile?.phone ?? user?.phone ?? "Not set"} />
+            )}
+            {onAlt && (
+              <div className="px-4 py-3">
+                {profileMsg && (
+                  <p
+                    className={`mb-2 text-[0.9375rem] ${
+                      profileMsg.includes("saved") ? "text-success" : "text-destructive"
+                    }`}
+                  >
+                    {profileMsg}
+                  </p>
+                )}
+                <Button className="w-full" onClick={saveProfile} disabled={savingProfile}>
+                  {savingProfile ? "Saving…" : "Save"}
+                </Button>
+              </div>
+            )}
           </Group>
+          {onAlt && (
+            <GroupFooter>
+              Alt accounts have no email or password — switch back from Alt accounts above to use
+              your main login.
+            </GroupFooter>
+          )}
         </section>
 
-        <section>
-          <GroupHeader>Sign-In & Security</GroupHeader>
-          <Group>
-            <div className="px-4 py-3 hairline-b">
-              <SegmentedControl
-                value={preferredAuth}
-                onChange={(v) => setPreferredAuth(v as PreferredAuth)}
-                options={[
-                  { value: "email", label: "Email" },
-                  { value: "phone", label: "Phone" },
-                  { value: "both", label: "Both" },
-                ]}
+        {!onAlt && (
+          <section>
+            <GroupHeader>Sign-In & Security</GroupHeader>
+            <Group>
+              <div className="px-4 py-3 hairline-b">
+                <SegmentedControl
+                  value={preferredAuth}
+                  onChange={(v) => setPreferredAuth(v as PreferredAuth)}
+                  options={[
+                    { value: "email", label: "Email" },
+                    { value: "phone", label: "Phone" },
+                    { value: "both", label: "Both" },
+                  ]}
+                />
+              </div>
+              <TextField
+                label="Phone Number"
+                type="tel"
+                grouped
+                hint="Used for phone sign-in and as a second factor"
+                placeholder="+1 555 0100"
+                value={profilePhone}
+                onChange={(e) => setProfilePhone(e.target.value)}
               />
-            </div>
-            <TextField
-              label="Phone Number"
-              type="tel"
-              grouped
-              hint="Used for phone sign-in and as a second factor"
-              placeholder="+1 555 0100"
-              value={profilePhone}
-              onChange={(e) => setProfilePhone(e.target.value)}
-            />
-            <ToggleRow
-              label="Two-Factor Authentication"
-              hint="Require a code after password sign-in"
-              checked={require2fa}
-              onChange={setRequire2fa}
-            />
-            <div className="px-4 py-3">
-              {profileMsg && (
-                <p
-                  className={`mb-2 text-[0.9375rem] ${
-                    profileMsg.includes("saved") ? "text-success" : "text-destructive"
-                  }`}
-                >
-                  {profileMsg}
-                </p>
-              )}
-              <Button className="w-full" onClick={saveProfile} disabled={savingProfile}>
-                {savingProfile ? "Saving…" : "Save"}
-              </Button>
-            </div>
-          </Group>
-          <GroupFooter>
-            Phone sign-in sends a verification code by SMS when enabled in Supabase.
-          </GroupFooter>
-        </section>
-
-        <section>
-          <GroupHeader>Synk ID</GroupHeader>
-          <Group>
-            <ListRow
-              title="Connection"
-              trailing={
-                synkStatus?.linked
-                  ? synkStatus.identity?.synkCode
-                    ? `Code ${synkStatus.identity.synkCode}`
-                    : "Linked"
-                  : "Not linked"
-              }
-            />
-            {synkMsg ? (
-              <p
-                className={`px-4 pt-3 text-[0.9375rem] ${
-                  (synkMsg.toLowerCase().includes("unlink") || synkMsg.toLowerCase().includes("linked")) ? "text-success" : "text-destructive"
-                }`}
-              >
-                {synkMsg}
-              </p>
-            ) : null}
-            <div className="px-4 py-3">
-              {synkStatus?.linked ? (
-                <Button
-                  className="w-full"
-                  variant="secondary"
-                  disabled={synkBusy}
-                  onClick={() => void unlinkSynk()}
-                >
-                  {synkBusy ? "Unlinking…" : "Unlink Synk ID"}
+              <ToggleRow
+                label="Two-Factor Authentication"
+                hint="Require a code after password sign-in"
+                checked={require2fa}
+                onChange={setRequire2fa}
+              />
+              <div className="px-4 py-3">
+                {profileMsg && (
+                  <p
+                    className={`mb-2 text-[0.9375rem] ${
+                      profileMsg.includes("saved") ? "text-success" : "text-destructive"
+                    }`}
+                  >
+                    {profileMsg}
+                  </p>
+                )}
+                <Button className="w-full" onClick={saveProfile} disabled={savingProfile}>
+                  {savingProfile ? "Saving…" : "Save"}
                 </Button>
-              ) : (
-                <Button
-                  className="w-full"
-                  variant="tinted"
-                  disabled={synkBusy}
-                  onClick={() => {
-                    setSynkMsg("");
-                    setSynkLinkOpen(true);
-                  }}
-                >
-                  Link Synk ID
-                </Button>
-              )}
-            </div>
-          </Group>
-          <GroupFooter>
-            Linking connects this library account to your Synk ID for face or code sign-in.
-          </GroupFooter>
-        </section>
+              </div>
+            </Group>
+            <GroupFooter>
+              Phone sign-in sends a verification code by SMS when enabled in Supabase.
+            </GroupFooter>
+          </section>
+        )}
 
-        <SynkVerifyModal
-          open={synkLinkOpen}
-          onClose={() => setSynkLinkOpen(false)}
-          mode="link"
-          onLinked={(status) => {
-            setSynkStatus(status);
-            setSynkMsg("Synk ID linked.");
-          }}
-        />
+        {!onAlt && (
+          <>
+            <section>
+              <GroupHeader>Synk ID</GroupHeader>
+              <Group>
+                <ListRow
+                  title="Connection"
+                  trailing={
+                    synkStatus?.linked
+                      ? synkStatus.identity?.synkCode
+                        ? `Code ${synkStatus.identity.synkCode}`
+                        : "Linked"
+                      : "Not linked"
+                  }
+                />
+                {synkMsg ? (
+                  <p
+                    className={`px-4 pt-3 text-[0.9375rem] ${
+                      synkMsg.toLowerCase().includes("unlink") ||
+                      synkMsg.toLowerCase().includes("linked")
+                        ? "text-success"
+                        : "text-destructive"
+                    }`}
+                  >
+                    {synkMsg}
+                  </p>
+                ) : null}
+                <div className="px-4 py-3">
+                  {synkStatus?.linked ? (
+                    <Button
+                      className="w-full"
+                      variant="secondary"
+                      disabled={synkBusy}
+                      onClick={() => void unlinkSynk()}
+                    >
+                      {synkBusy ? "Unlinking…" : "Unlink Synk ID"}
+                    </Button>
+                  ) : (
+                    <Button
+                      className="w-full"
+                      variant="tinted"
+                      disabled={synkBusy}
+                      onClick={() => {
+                        setSynkMsg("");
+                        setSynkLinkOpen(true);
+                      }}
+                    >
+                      Link Synk ID
+                    </Button>
+                  )}
+                </div>
+              </Group>
+              <GroupFooter>
+                Linking connects this library account to your Synk ID for face or code sign-in.
+              </GroupFooter>
+            </section>
+
+            <SynkVerifyModal
+              open={synkLinkOpen}
+              onClose={() => setSynkLinkOpen(false)}
+              mode="link"
+              onLinked={(status) => {
+                setSynkStatus(status);
+                setSynkMsg("Synk ID linked.");
+              }}
+            />
+          </>
+        )}
 
         {isStaff && (
           <section>
