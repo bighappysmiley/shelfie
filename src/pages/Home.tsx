@@ -14,7 +14,7 @@ import type { Book, LoanWithDetails } from "@/lib/types";
 import { useLibrary } from "@/lib/library";
 
 export function HomePage() {
-  const { activeLibrary } = useLibrary();
+  const { activeLibrary, catalogEpoch } = useLibrary();
   const [stats, setStats] = useState<{
     totalBooks?: number;
     activeLoans?: number;
@@ -52,7 +52,7 @@ export function HomePage() {
     return () => {
       cancelled = true;
     };
-  }, [activeLibrary?.id]);
+  }, [activeLibrary?.id, catalogEpoch]);
 
   const today = new Date().toISOString().slice(0, 10);
   const soon = new Date();

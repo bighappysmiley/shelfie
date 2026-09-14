@@ -22,7 +22,7 @@ function loadView(): ViewMode {
 }
 
 export function LibraryPage() {
-  const { activeLibrary } = useLibrary();
+  const { activeLibrary, catalogEpoch } = useLibrary();
   const [searchParams, setSearchParams] = useSearchParams();
   const [books, setBooks] = useState<Book[]>([]);
   const [facetBooks, setFacetBooks] = useState<Book[]>([]);
@@ -43,6 +43,7 @@ export function LibraryPage() {
   const [bulkMode, setBulkMode] = useState(false);
   const [bulkRoom, setBulkRoom] = useState("");
   const [bulkShelf, setBulkShelf] = useState("");
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   useEffect(() => {
     if (!activeLibrary?.id) {
@@ -59,63 +60,77 @@ export function LibraryPage() {
     return () => {
       cancelled = true;
     };
-  }, [activeLibrary?.id]);
-
-  const load = async () => {
-    if (!activeLibrary?.id) {
-      setBooks([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    try {
-      if (isOnline()) {
-        const params: Record<string, string> = { sort };
-        if (sort === "added" || sort === "rating" || sort === "published") {
-          params.order = "desc";
-        }
-        if (q) params.q = q;
-        if (status) params.status = status;
-        if (format) params.format = format;
-        if (room) params.room = room;
-        if (tag) params.tag = tag;
-        const data = await api.books.list(params);
-        setBooks(data);
-        await cacheBooks(data);
-      } else {
-        let cached = await getCachedBooks();
-        if (q) {
-          const needle = q.toLowerCase();
-          cached = cached.filter((b) =>
-            [b.title, b.authors, b.isbn, b.seriesName, b.locationRoom, b.locationShelf, ...(b.tags ?? [])]
-              .filter(Boolean)
-              .some((v) => String(v).toLowerCase().includes(needle)),
-          );
-        }
-        if (status === "on_loan") cached = cached.filter((b) => b.activeLoan);
-        else if (status === "available")
-          cached = cached.filter((b) => b.readingStatus === "available" && !b.activeLoan);
-        else if (status) cached = cached.filter((b) => b.readingStatus === status);
-        if (format) cached = cached.filter((b) => b.format === format);
-        if (room) cached = cached.filter((b) => (b.locationRoom ?? "") === room);
-        if (tag) cached = cached.filter((b) => (b.tags ?? []).includes(tag));
-        setBooks(cached);
-      }
-    } catch {
-      const cached = await getCachedBooks();
-      setBooks(cached);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [activeLibrary?.id, catalogEpoch]);
 
   useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      if (!activeLibrary?.id) {
+        setBooks([]);
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      try {
+        if (isOnline()) {
+          const params: Record<string, string> = { sort };
+          if (sort === "added" || sort === "rating" || sort === "published") {
+            params.order = "desc";
+          }
+          if (q) params.q = q;
+          if (status) params.status = status;
+          if (format) params.format = format;
+          if (room) params.room = room;
+          if (tag) params.tag = tag;
+          const data = await api.books.list(params);
+          // Drop responses that finished after an account/library switch.
+          if (cancelled) return;
+          setBooks(data);
+          await cacheBooks(data);
+        } else {
+          let cached = await getCachedBooks();
+          if (cancelled) return;
+          if (q) {
+            const needle = q.toLowerCase();
+            cached = cached.filter((b) =>
+              [b.title, b.authors, b.isbn, b.seriesName, b.locationRoom, b.locationShelf, ...(b.tags ?? [])]
+                .filter(Boolean)
+                .some((v) => String(v).toLowerCase().includes(needle)),
+            );
+          }
+          if (status === "on_loan") cached = cached.filter((b) => b.activeLoan);
+          else if (status === "available")
+            cached = cached.filter((b) => b.readingStatus === "available" && !b.activeLoan);
+          else if (status) cached = cached.filter((b) => b.readingStatus === status);
+          if (format) cached = cached.filter((b) => b.format === format);
+          if (room) cached = cached.filter((b) => (b.locationRoom ?? "") === room);
+          if (tag) cached = cached.filter((b) => (b.tags ?? []).includes(tag));
+          setBooks(cached);
+        }
+      } catch {
+        // Online failures must not resurrect another account's offline catalog.
+        if (cancelled) return;
+        if (!isOnline()) {
+          const cached = await getCachedBooks();
+          if (!cancelled) setBooks(cached);
+        } else if (!cancelled) {
+          setBooks([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
     setBooks([]);
     setSelected(new Set());
     setBulkMode(false);
     void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload when library or filters change
-  }, [activeLibrary?.id, q, status, format, room, tag, sort]);
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload when library, account, or filters change
+  }, [activeLibrary?.id, catalogEpoch, reloadNonce, q, status, format, room, tag, sort]);
 
   useEffect(() => {
     const next = new URLSearchParams();
@@ -166,7 +181,7 @@ export function LibraryPage() {
     }
     setSelected(new Set());
     setBulkMode(false);
-    load();
+    setReloadNonce((n) => n + 1);
   };
 
   const bulkUpdateLocation = async () => {
@@ -181,7 +196,7 @@ export function LibraryPage() {
     setBulkShelf("");
     setSelected(new Set());
     setBulkMode(false);
-    load();
+    setReloadNonce((n) => n + 1);
   };
 
   const bulkDelete = async () => {
@@ -191,7 +206,7 @@ export function LibraryPage() {
     }
     setSelected(new Set());
     setBulkMode(false);
-    load();
+    setReloadNonce((n) => n + 1);
   };
 
   const clearFilters = () => {

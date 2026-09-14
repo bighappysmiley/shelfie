@@ -15,27 +15,38 @@ import { Button } from "@/components/Button";
 import { TextField } from "@/components/form";
 
 export function LoanedOutPage() {
-  const { activeLibrary } = useLibrary();
+  const { activeLibrary, catalogEpoch } = useLibrary();
   const [loans, setLoans] = useState<LoanWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "overdue" | "due_soon">("all");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [dueDate, setDueDate] = useState("");
 
-  const load = () => {
+  const [reloadNonce, setReloadNonce] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
     if (!activeLibrary?.id) {
       setLoans([]);
       setLoading(false);
       return;
     }
     setLoading(true);
-    api.loans.list(true).then(setLoans).finally(() => setLoading(false));
-  };
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeLibrary?.id]);
+    api.loans
+      .list(true)
+      .then((list) => {
+        if (!cancelled) setLoans(list);
+      })
+      .catch(() => {
+        if (!cancelled) setLoans([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeLibrary?.id, catalogEpoch, reloadNonce]);
 
   const today = new Date().toISOString().slice(0, 10);
   const soon = new Date();
@@ -44,13 +55,13 @@ export function LoanedOutPage() {
 
   const handleReturn = async (loanId: string) => {
     await api.loans.return(loanId);
-    load();
+    setReloadNonce((n) => n + 1);
   };
 
   const handleSaveDue = async (loanId: string) => {
     await api.loans.update(loanId, { dueDate: dueDate || null });
     setEditingId(null);
-    load();
+    setReloadNonce((n) => n + 1);
   };
 
   const sorted = [...loans].sort((a, b) => {

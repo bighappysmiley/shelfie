@@ -19,7 +19,7 @@ type RoomGroup = {
 };
 
 export function LocationsPage() {
-  const { activeLibrary } = useLibrary();
+  const { activeLibrary, catalogEpoch } = useLibrary();
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -43,7 +43,7 @@ export function LocationsPage() {
     return () => {
       cancelled = true;
     };
-  }, [activeLibrary?.id]);
+  }, [activeLibrary?.id, catalogEpoch]);
 
   const rooms = useMemo(() => {
     const map = new Map<string, Map<string, Book[]>>();

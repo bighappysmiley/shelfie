@@ -10,7 +10,13 @@ import {
 import { api } from "./api";
 import { useAuth } from "./auth";
 import type { Library, LibraryInvite } from "./library-types";
-import { getActiveLibraryId, setActiveLibraryId, bindLibraryStorageUser, clearLibraryContext } from "./library-storage";
+import {
+  getActiveLibraryId,
+  setActiveLibraryId,
+  bindLibraryStorageUser,
+  clearLibraryContext,
+  peekStickyLibraryId,
+} from "./library-storage";
 import { captureInviteFromUrl, clearPendingInvite, getPendingInvite } from "./pending-invite";
 
 type LibraryContextValue = {
@@ -18,6 +24,10 @@ type LibraryContextValue = {
   activeLibrary: Library | null;
   pendingInvites: LibraryInvite[];
   loading: boolean;
+  /** True after the first successful membership list for the current user. */
+  hasLoaded: boolean;
+  /** Bumps on every account switch so pages can drop in-flight catalog responses. */
+  catalogEpoch: number;
   setActiveLibrary: (id: string) => void;
   refreshLibraries: (opts?: { silent?: boolean }) => Promise<void>;
   createLibrary: (name: string) => Promise<Library>;
@@ -78,6 +88,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const [activeId, setActiveId] = useState<string | null>(() => getActiveLibraryId());
   const [loading, setLoading] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [catalogEpoch, setCatalogEpoch] = useState(0);
 
   const refreshLibraries = useCallback(async (opts?: { silent?: boolean }) => {
     if (!user) {
@@ -121,7 +132,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       setLibraries(list);
       setPendingInvites(invites);
 
-      const stored = getActiveLibraryId();
+      // Only prefer a sticky id that still appears in this account's memberships.
+      const stored = getActiveLibraryId() ?? peekStickyLibraryId(user.id);
       const nextId = pickPreferredLibraryId(list, preferredLibraryId, stored);
 
       setActiveId(nextId);
@@ -148,10 +160,15 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     setPendingInvites([]);
     setHasLoaded(false);
     setActiveId(null);
+    setActiveLibraryId(null);
+    setCatalogEpoch((n) => n + 1);
     // Unbind without wiping the previous user's per-account sticky library id.
     clearLibraryContext();
     bindLibraryStorageUser(user?.id ?? null);
-    if (user) setActiveId(getActiveLibraryId());
+    // Do not restore sticky into memory/React until membership list validates it.
+    void import("./offline")
+      .then(({ clearOfflineCache }) => clearOfflineCache())
+      .catch(() => undefined);
     void refreshLibraries({ silent: false });
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps -- reload when user changes
 
@@ -206,6 +223,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       activeLibrary,
       pendingInvites,
       loading,
+      hasLoaded,
+      catalogEpoch,
       setActiveLibrary,
       refreshLibraries,
       createLibrary,
@@ -217,6 +236,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       activeLibrary,
       pendingInvites,
       loading,
+      hasLoaded,
+      catalogEpoch,
       setActiveLibrary,
       refreshLibraries,
       createLibrary,
