@@ -3,6 +3,7 @@ const LEGACY_KEY = "pine-bookkeeping-library-id";
 const USER_KEY_PREFIX = "pine-bookkeeping-library-id:";
 
 let boundUserId: string | null = null;
+/** Only set after membership validation — used for API headers. */
 let activeLibraryId: string | null = null;
 
 function userKey(userId: string) {
@@ -12,6 +13,8 @@ function userKey(userId: string) {
 /**
  * Bind storage to the signed-in user. Call whenever auth user id changes.
  * Clears the legacy global key without copying it into this account.
+ * Does not restore a sticky library id into memory — that happens only after
+ * the server membership list confirms the id still belongs to this user.
  */
 export function bindLibraryStorageUser(userId: string | null) {
   if (boundUserId === userId) return;
@@ -28,14 +31,20 @@ export function bindLibraryStorageUser(userId: string | null) {
   }
 }
 
+/**
+ * Library id for API/offline scoping. Memory only — never read unvalidated
+ * sticky ids from localStorage (those can belong to a prior account on this
+ * browser until the membership list runs).
+ */
 export function getActiveLibraryId(): string | null {
-  if (activeLibraryId) return activeLibraryId;
+  return activeLibraryId;
+}
+
+/** Peek at this user's last-chosen library id (may be stale / foreign). */
+export function peekStickyLibraryId(userId: string | null | undefined): string | null {
+  if (!userId) return null;
   try {
-    if (boundUserId) {
-      return localStorage.getItem(userKey(boundUserId));
-    }
-    // Unbound: never read the legacy global key (cross-account leak).
-    return null;
+    return localStorage.getItem(userKey(userId));
   } catch {
     return null;
   }

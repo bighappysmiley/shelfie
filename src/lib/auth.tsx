@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -241,6 +242,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sub.subscription.unsubscribe();
     };
   }, [applyUser]);
+
+  // Wipe library/offline state whenever the signed-in user id changes (including
+  // account switches that never call signOut).
+  const prevAuthUserIdRef = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    const nextId = session?.user?.id ?? null;
+    const prev = prevAuthUserIdRef.current;
+    prevAuthUserIdRef.current = nextId;
+    if (prev === undefined) return; // skip initial mount
+    if (prev === nextId) return;
+    clearLibraryContext();
+    void clearOfflineCache();
+  }, [session?.user?.id]);
 
   const refreshProfile = useCallback(async () => {
     const { data } = await supabase.auth.getUser();
