@@ -12,7 +12,7 @@ export default withLibraryAuth(async (request, ctx) => {
   const id = url.searchParams.get("id");
   const activeOnly = url.searchParams.get("active") === "true";
 
-  const data = await loadData(ctx.libraryId, ctx.user.id);
+  const data = await loadData(ctx.libraryId);
 
     if (request.method === "GET") {
       let loans = data.loans;

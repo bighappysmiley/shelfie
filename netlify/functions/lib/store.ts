@@ -94,26 +94,14 @@ async function readKey(key: string): Promise<ShelfieData | null> {
   return normalizeData(raw);
 }
 
-/** Load library blob, migrating from legacy per-user key when needed. */
-export async function loadData(
-  libraryId: string,
-  legacyUserId?: string,
-): Promise<ShelfieData> {
+/**
+ * Load a library blob by id only.
+ * Legacy per-user migration happens in recoverLibraryData for owned libraries —
+ * never on read, so one account cannot seed another user's/team library.
+ */
+export async function loadData(libraryId: string): Promise<ShelfieData> {
   const key = dataKey(libraryId);
-  let raw = await store().get(key, { type: "json" });
-
-  // Only migrate this user's own legacy keys — never the shared "library" blob
-  // (that copied one account's catalog onto every empty library).
-  if (!raw && legacyUserId && legacyUserId !== libraryId) {
-    const legacy =
-      (await store().get(dataKey(legacyUserId), { type: "json" })) ??
-      (await store().get(legacyUserId, { type: "json" }));
-    if (legacy) {
-      await store().setJSON(key, legacy);
-      raw = legacy;
-    }
-  }
-
+  const raw = await store().get(key, { type: "json" });
   return normalizeData(raw);
 }
 
@@ -122,8 +110,9 @@ export async function saveData(libraryId: string, data: ShelfieData): Promise<vo
 }
 
 /**
- * Find the richest catalog among a user's libraries + legacy keys and
- * copy it onto the primary library (usually the oldest owned one).
+ * Find the richest catalog among a user's OWNED libraries + legacy keys and
+ * copy it onto that user's owned primary library.
+ * Callers must pass only library ids this user owns — never shared/team libs.
  */
 export async function recoverLibraryData(opts: {
   primaryLibraryId: string;

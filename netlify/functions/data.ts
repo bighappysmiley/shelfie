@@ -27,7 +27,7 @@ export default withLibraryAuth(async (request, ctx) => {
   const url = new URL(request.url);
   const action = url.searchParams.get("action");
 
-  const data = await loadData(ctx.libraryId, ctx.user.id);
+  const data = await loadData(ctx.libraryId);
 
     if (request.method === "GET" && action === "export") {
       const bookHeaders = [

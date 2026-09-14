@@ -11,22 +11,17 @@ function userKey(userId: string) {
 
 /**
  * Bind storage to the signed-in user. Call whenever auth user id changes.
- * Migrates a one-time legacy global value into the user-scoped key, then
- * removes the global key so it cannot leak to the next account.
+ * Clears the legacy global key without copying it into this account.
  */
 export function bindLibraryStorageUser(userId: string | null) {
   if (boundUserId === userId) return;
   boundUserId = userId;
   activeLibraryId = null;
 
-  if (!userId) return;
-
+  // Drop the legacy global key without copying it into this user — that
+  // one-shot migration could stick another account's library id onto a
+  // newly signed-in ready user.
   try {
-    const scoped = localStorage.getItem(userKey(userId));
-    if (!scoped) {
-      const legacy = localStorage.getItem(LEGACY_KEY);
-      if (legacy) localStorage.setItem(userKey(userId), legacy);
-    }
     localStorage.removeItem(LEGACY_KEY);
   } catch {
     /* ignore */

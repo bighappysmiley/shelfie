@@ -40,7 +40,7 @@ export default withLibraryAuth(async (request, ctx) => {
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
 
-  const data = await loadData(ctx.libraryId, ctx.user.id);
+  const data = await loadData(ctx.libraryId);
 
     if (request.method === "GET") {
       if (id) {

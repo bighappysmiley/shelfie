@@ -92,7 +92,7 @@ async function ensureDefaultLibrary(
     return lib?.owner_id === userId;
   });
 
-  // Prefer invited/shared libraries over a forced personal "My Library".
+  // Prefer invited/shared libraries for the active UI selection.
   const shared = memberships.find((m) => {
     const lib = m.libraries as LibRow;
     return lib?.owner_id && lib.owner_id !== userId;
@@ -105,19 +105,27 @@ async function ensureDefaultLibrary(
     const lib = m.libraries as LibRow;
     return lib?.name && lib.name !== "My Library";
   });
-  const primary = shared ?? namedOwned ?? namedAny ?? owned[0] ?? memberships[0];
+  const preferred = shared ?? namedOwned ?? namedAny ?? owned[0] ?? memberships[0];
+  const preferredId = preferred.library_id as string;
 
-  const primaryId = primary.library_id as string;
-  const candidateIds = memberships.map((m) => m.library_id as string);
+  // Catalog recovery must stay inside libraries this user owns. Never copy
+  // one ready user's books into a shared/team library (or another account).
+  const ownedIds = owned.map((m) => m.library_id as string);
+  const ownedPrimaryId =
+    (namedOwned?.library_id as string | undefined) ??
+    (owned[0]?.library_id as string | undefined) ??
+    null;
 
-  try {
-    await recoverLibraryData({
-      primaryLibraryId: primaryId,
-      candidateLibraryIds: candidateIds,
-      legacyUserId: userId,
-    });
-  } catch (err) {
-    console.error("Library data recovery failed:", err);
+  if (ownedPrimaryId) {
+    try {
+      await recoverLibraryData({
+        primaryLibraryId: ownedPrimaryId,
+        candidateLibraryIds: ownedIds,
+        legacyUserId: userId,
+      });
+    } catch (err) {
+      console.error("Library data recovery failed:", err);
+    }
   }
 
   // Remove empty duplicate "My Library" rows created by the setup loop,
@@ -125,7 +133,11 @@ async function ensureDefaultLibrary(
   try {
     const duplicates = owned.filter((m) => {
       const lib = m.libraries as LibRow;
-      return m.library_id !== primaryId && lib?.name === "My Library";
+      return (
+        m.library_id !== ownedPrimaryId &&
+        m.library_id !== preferredId &&
+        lib?.name === "My Library"
+      );
     });
 
     for (const dup of duplicates) {
@@ -145,7 +157,7 @@ async function ensureDefaultLibrary(
     console.error("Duplicate library cleanup failed:", err);
   }
 
-  return primaryId;
+  return preferredId;
 }
 
 export default withAuth(async (request, user) => {
