@@ -1069,10 +1069,10 @@ export async function uploadCommunityImage(
     shouldModerate = await shouldModerateCommunityImage(options.serverId, options.userId);
   }
   if (shouldModerate === undefined) shouldModerate = true;
-  if (shouldModerate) {
-    const blocked = isBlockedImageFile(file);
-    if (blocked) throw new Error(blocked);
-  }
+  // Always reject GIFs; AI moderation is optional for trusted admin assets.
+  const blocked = isBlockedImageFile(file);
+  if (blocked) throw new Error(blocked);
+
 
   const raw = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
