@@ -31,7 +31,6 @@ import {
 import type { ProfileBadge } from "@/lib/community-types";
 import { BadgeIcon } from "@/components/community/ProfileBadges";
 import { AdminBadgesPanel } from "@/components/admin/AdminBadgesPanel";
-import { roleColorTextStyle } from "@/lib/role-color";
 
 type AdminTab = "support" | "users" | "badges" | "libraries" | "enterprise" | "pricing";
 
@@ -410,7 +409,7 @@ function UserModPanel({
                     }}
                   />
                   <BadgeIcon badge={badge} />
-                  <span style={roleColorTextStyle(badge.color)}>{badge.name}</span>
+                  <span>{badge.name}</span>
                 </label>
               );
             })}

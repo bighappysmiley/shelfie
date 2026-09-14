@@ -6,6 +6,7 @@ import { AddServerModal } from "@/components/AddServerModal";
 import { CommunityAvatar, ProBadge } from "@/components/community/CommunityAvatar";
 import { AuthedImage } from "@/components/AuthedImage";
 import { ProfileBadgeChips } from "@/components/community/ProfileBadges";
+import { AssignProfileBadges } from "@/components/community/AssignProfileBadges";
 import { getCommunityProfileByUsername, communityProfileLabel } from "@/lib/community-profile";
 import { listUserProfileBadges } from "@/lib/community-badges";
 import { openDmThread } from "@/lib/community-dms";
@@ -15,7 +16,7 @@ import { useAuth } from "@/lib/auth";
 export function CommunityProfilePage() {
   const { username } = useParams<{ username: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isStaff } = useAuth();
   const [profile, setProfile] = useState<CommunityProfile | null>(null);
   const [badges, setBadges] = useState<ProfileBadge[]>([]);
   const [loading, setLoading] = useState(true);
@@ -86,6 +87,15 @@ export function CommunityProfilePage() {
               {badges.length > 0 && (
                 <div className="mt-2">
                   <ProfileBadgeChips badges={badges} />
+                </div>
+              )}
+              {isStaff && profile && (
+                <div className="mt-3">
+                  <AssignProfileBadges
+                    userId={profile.userId}
+                    assigned={badges}
+                    onAssigned={setBadges}
+                  />
                 </div>
               )}
               {(profile.statusEmoji || profile.statusText) && (

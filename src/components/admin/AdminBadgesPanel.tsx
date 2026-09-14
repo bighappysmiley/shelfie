@@ -7,8 +7,6 @@ import {
 } from "@/lib/community-badges";
 import { uploadCommunityImage } from "@/lib/community";
 import type { ProfileBadge } from "@/lib/community-types";
-import { RoleColorPicker } from "@/components/community-settings/panels";
-import { roleColorTextStyle } from "@/lib/role-color";
 import { BadgeIcon } from "@/components/community/ProfileBadges";
 import { Button } from "@/components/Button";
 import { EmptyState } from "@/components/layout";
@@ -66,7 +64,7 @@ export function AdminBadgesPanel({ onError }: { onError: (msg: string) => void }
       const badge = await createProfileBadge({ name });
       setNewName("");
       await refresh(badge.id);
-      setStatus(`Created “${badge.name}”. Upload an icon or assign it on Users.`);
+      setStatus(`Created “${badge.name}”. Upload an icon, then assign it from a profile.`);
     } catch (err) {
       onError(err instanceof Error ? err.message : "Could not create badge");
     } finally {
@@ -78,8 +76,8 @@ export function AdminBadgesPanel({ onError }: { onError: (msg: string) => void }
     <div className="grid gap-4 lg:grid-cols-[14rem_minmax(0,1fr)]">
       <div className="space-y-1 rounded-[var(--radius-group)] bg-surface p-2 shadow-sm ring-1 ring-black/[0.04] dark:ring-white/[0.06]">
         <p className="px-2 pb-1 text-[0.75rem] text-muted">
-          Global profile badges (optional icons). Assign on Users — shown on profiles only, never
-          beside chat names.
+          Global profile badges (icons). Assign from a member’s profile or Admin → Users — shown on
+          profiles only, never beside chat names.
         </p>
         {badges.map((b) => (
           <button
@@ -91,9 +89,7 @@ export function AdminBadgesPanel({ onError }: { onError: (msg: string) => void }
             }`}
           >
             <BadgeIcon badge={b} />
-            <span className="truncate" style={roleColorTextStyle(b.color)}>
-              {b.name}
-            </span>
+            <span className="truncate">{b.name}</span>
           </button>
         ))}
         {badges.length === 0 && (
@@ -159,19 +155,21 @@ export function AdminBadgesPanel({ onError }: { onError: (msg: string) => void }
             />
           </label>
 
-          <RoleColorPicker value={editColor} onChange={setEditColor} canUseHolo />
+          <p className="text-[0.8125rem] text-muted">
+            Badges are Discord-style icons on profiles (no role colors).
+          </p>
 
           <div>
             <p className="mb-2 text-[0.8125rem] font-medium text-muted">Badge icon</p>
             <div className="flex flex-wrap items-center gap-3">
               <BadgeIcon
-                badge={{ ...selected, color: editColor, iconUrl: editIcon }}
+                badge={{ name: editName.trim() || selected.name, iconUrl: editIcon }}
                 size="lg"
               />
               <input
                 ref={iconInput}
                 type="file"
-                accept="image/*"
+                accept="image/png,image/webp,image/jpeg,image/*"
                 className="hidden"
                 onChange={async (e) => {
                   const file = e.target.files?.[0];
@@ -183,7 +181,7 @@ export function AdminBadgesPanel({ onError }: { onError: (msg: string) => void }
                   try {
                     // Admin-only decorative icons — skip AI image moderation so badge
                     // setup isn't blocked when Gemini/gateway is unavailable.
-                    const url = await uploadCommunityImage(file, { moderate: false });
+                    const url = await uploadCommunityImage(file, { moderate: false, preserveTransparency: true });
                     setEditIcon(url);
                     // Persist immediately so icon upload “just works”.
                     const updated = await updateProfileBadge(selected.id, {
@@ -276,7 +274,7 @@ export function AdminBadgesPanel({ onError }: { onError: (msg: string) => void }
       ) : (
         <EmptyState
           title="Create a badge"
-          description="Owner, Staff, Bookworm — shown on member profiles (not next to chat names)."
+          description="Owner, Staff, Bookworm — Discord-style icons on profiles (not next to chat names)."
         />
       )}
     </div>

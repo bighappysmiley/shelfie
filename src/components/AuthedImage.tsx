@@ -18,10 +18,12 @@ export function AuthedImage({
   src,
   alt = "",
   className = "",
+  title,
 }: {
   src: string;
   alt?: string;
   className?: string;
+  title?: string;
 }) {
   const [resolved, setResolved] = useState(() => (isDirectImageSrc(src) ? src : ""));
 
@@ -61,5 +63,5 @@ export function AuthedImage({
     return <div className={className} aria-hidden />;
   }
 
-  return <img src={resolved} alt={alt} className={className} />;
+  return <img src={resolved} alt={alt} title={title} className={className} />;
 }

@@ -1062,7 +1062,7 @@ export async function deleteServerRole(roleId: string): Promise<void> {
 
 export async function uploadCommunityImage(
   file: File,
-  options?: { moderate?: boolean; serverId?: string; userId?: string },
+  options?: { moderate?: boolean; serverId?: string; userId?: string; preserveTransparency?: boolean },
 ): Promise<string> {
   let shouldModerate = options?.moderate;
   if (shouldModerate === undefined && options?.serverId && options?.userId) {
@@ -1080,7 +1080,9 @@ export async function uploadCommunityImage(
     reader.onerror = () => reject(new Error("Could not read file"));
     reader.readAsDataURL(file);
   });
-  const { dataUrl, mediaType } = await compressCover(raw, 256, 0.85);
+  const { dataUrl, mediaType } = await compressCover(raw, 256, 0.85, {
+    preserveTransparency: options?.preserveTransparency,
+  });
 
   if (shouldModerate) {
     const verdict = await moderateImageContent(dataUrl, mediaType);

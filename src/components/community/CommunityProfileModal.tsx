@@ -5,12 +5,14 @@ import { CommunityDrawer } from "@/components/CommunityDrawer";
 import { CommunityAvatar, ProBadge } from "@/components/community/CommunityAvatar";
 import { AuthedImage } from "@/components/AuthedImage";
 import { ProfileBadgeChips } from "@/components/community/ProfileBadges";
+import { AssignProfileBadges } from "@/components/community/AssignProfileBadges";
 import { getCommunityProfile, getCommunityProfileByUsername, communityProfileLabel } from "@/lib/community-profile";
 import { listUserProfileBadges } from "@/lib/community-badges";
 import { getReadingAchievements } from "@/lib/reading-achievements";
 import { openDmThread } from "@/lib/community-dms";
 import type { CommunityProfile, ProfileBadge } from "@/lib/community-types";
 import { Button } from "@/components/Button";
+import { useAuth } from "@/lib/auth";
 
 export function CommunityProfileModal({
   open,
@@ -26,6 +28,7 @@ export function CommunityProfileModal({
   isSelf?: boolean;
 }) {
   const navigate = useNavigate();
+  const { isStaff } = useAuth();
   const [profile, setProfile] = useState<CommunityProfile | null>(null);
   const [badges, setBadges] = useState<ProfileBadge[]>([]);
   const [loading, setLoading] = useState(false);
@@ -94,6 +97,15 @@ export function CommunityProfileModal({
                 {badges.length > 0 && (
                   <div className="mt-2">
                     <ProfileBadgeChips badges={badges} />
+                  </div>
+                )}
+                {isStaff && profile && (
+                  <div className="mt-3">
+                    <AssignProfileBadges
+                      userId={profile.userId}
+                      assigned={badges}
+                      onAssigned={setBadges}
+                    />
                   </div>
                 )}
                 {(profile.statusEmoji || profile.statusText) && (

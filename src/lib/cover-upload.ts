@@ -3,6 +3,7 @@ export async function compressCover(
   dataUrl: string,
   maxWidth = 600,
   quality = 0.82,
+  options?: { preserveTransparency?: boolean },
 ): Promise<{ dataUrl: string; mediaType: string }> {
   const img = await loadImage(dataUrl);
   const scale = Math.min(1, maxWidth / img.width);
@@ -15,6 +16,16 @@ export async function compressCover(
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Could not process image");
 
+  if (options?.preserveTransparency) {
+    ctx.clearRect(0, 0, width, height);
+    ctx.drawImage(img, 0, 0, width, height);
+    const out = canvas.toDataURL("image/png");
+    return { dataUrl: out, mediaType: "image/png" };
+  }
+
+  // JPEG has no alpha — fill white so transparent sources are not black.
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, width, height);
   ctx.drawImage(img, 0, 0, width, height);
   const out = canvas.toDataURL("image/jpeg", quality);
   return { dataUrl: out, mediaType: "image/jpeg" };
