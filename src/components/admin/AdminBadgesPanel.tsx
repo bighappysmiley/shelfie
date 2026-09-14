@@ -181,7 +181,9 @@ export function AdminBadgesPanel({ onError }: { onError: (msg: string) => void }
                   onError("");
                   setStatus("");
                   try {
-                    const url = await uploadCommunityImage(file);
+                    // Admin-only decorative icons — skip AI image moderation so badge
+                    // setup isn't blocked when Gemini/gateway is unavailable.
+                    const url = await uploadCommunityImage(file, { moderate: false });
                     setEditIcon(url);
                     // Persist immediately so icon upload “just works”.
                     const updated = await updateProfileBadge(selected.id, {
