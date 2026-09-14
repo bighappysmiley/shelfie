@@ -81,10 +81,14 @@ export function SetupPage() {
     }
   }, [activeLibrary?.name, joiningTeam]);
 
-  const resolvedDisplayName = pickSynkDisplayName(userProfile?.displayName, yourName, metaName);
-  const nameFromSynk = Boolean(resolvedDisplayName);
+  // Only treat Synk/profile as a locked-in name — never the in-progress form
+  // value. Including `yourName` here unmounted the name field on the first
+  // keystroke (keyboard dismissed) and could redirect mid-typing.
+  const synkProvidedName = pickSynkDisplayName(userProfile?.displayName, metaName);
+  const nameFromSynk = Boolean(synkProvidedName);
+  const resolvedDisplayName = pickSynkDisplayName(synkProvidedName, yourName);
   const setupNeeded = needsSetup({
-    displayName: resolvedDisplayName,
+    displayName: userProfile?.displayName,
     libraryCount: libraries.length,
   });
 
