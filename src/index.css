@@ -855,3 +855,70 @@ h1, h2, h3 {
     animation: none !important;
   }
 }
+
+
+/* —— Community “Be Back Soon” maintenance screen —— */
+.community-be-back {
+  background:
+    radial-gradient(120% 80% at 50% -10%, rgba(168, 192, 173, 0.22), transparent 55%),
+    radial-gradient(90% 60% at 100% 100%, rgba(61, 82, 72, 0.08), transparent 50%),
+    linear-gradient(180deg, #f7f8f3 0%, #eef1e8 100%);
+}
+
+html.dark .community-be-back {
+  background:
+    radial-gradient(120% 80% at 50% -10%, rgba(168, 192, 173, 0.14), transparent 55%),
+    radial-gradient(90% 60% at 0% 100%, rgba(61, 82, 72, 0.28), transparent 50%),
+    linear-gradient(180deg, #1a2426 0%, #141c1e 100%);
+}
+
+.community-be-back-glow {
+  background:
+    radial-gradient(ellipse 50% 35% at 50% 42%, rgba(255, 255, 255, 0.55), transparent 70%);
+  opacity: 0.9;
+}
+
+html.dark .community-be-back-glow {
+  background:
+    radial-gradient(ellipse 50% 35% at 50% 42%, rgba(168, 192, 173, 0.08), transparent 70%);
+  opacity: 1;
+}
+
+@keyframes community-be-back-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes community-be-back-mark {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.04);
+    opacity: 0.92;
+  }
+}
+
+.community-be-back-enter {
+  animation: community-be-back-enter 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.community-be-back-mark {
+  animation: community-be-back-mark 4.5s ease-in-out infinite;
+  animation-delay: 0.7s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .community-be-back-enter,
+  .community-be-back-mark {
+    animation: none !important;
+  }
+}
