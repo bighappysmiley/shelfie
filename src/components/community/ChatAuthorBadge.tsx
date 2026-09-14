@@ -2,7 +2,7 @@ import { AuthedImage } from "@/components/AuthedImage";
 
 /**
  * Labels beside chat usernames only:
- * - Bots (Pine / Suggestions / Support) → BOT pill
+ * - Bots (Pine Hall / Suggestions / Support) → BOT pill
  * - App owners → OWNER pill
  * - Server role icon when the member's assigned role has `icon_url`
  *

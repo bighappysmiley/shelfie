@@ -2,6 +2,7 @@ import { supabase } from "./supabase";
 import {
   createCommunityCategory,
   createCommunityGroup,
+  getServer,
   listCommunityCategories,
   listCommunityGroups,
   recomputeServerScore,
@@ -14,21 +15,22 @@ import { upsertPermissionOverride } from "./community-permissions";
 import type { CommunityGroupKind, CommunityServer } from "./community-types";
 
 export const PINE_HALL_NAME = "Pine Hall";
-export const PINE_BOT_NAME = "Pine";
+/** Hall bot — separate from a human “Pine” official account you can create yourself. */
+export const PINE_BOT_NAME = "Pine Hall";
 export const SUGGESTIONS_BOT_NAME = "Suggestions";
 export const SUPPORT_BOT_NAME = "Support";
 
 const PINE_HALL_DESCRIPTION =
-  "Pine’s official reading community — share what you’re reading, swap recommendations, and hang out with fellow book people.";
+  "The official Pine reading hall — currently reading, recommendations, reviews, and a cozy place to talk books.";
 
 const PINE_HALL_RULES = `1. Be kind — treat readers and their tastes with respect.
-2. No spoilers without a clear warning in the first line.
-3. Keep discussion bookish or friendly; spam and harassment get removed.
-4. Don’t share pirated books or illegal download links.
+2. Spoilers need a clear warning in the first line.
+3. Keep it bookish or friendly; spam and harassment get removed.
+4. No pirated books or illegal download links.
 5. Have fun — this hall is for discovering the next great read.`;
 
 const PINE_HALL_WELCOME =
-  "Welcome to Pine Hall! Say hi in #👋 | Introductions, read #📕 | Rules, and tell us what you’re reading in #📖 | Currently Reading.";
+  "Welcome to Pine Hall! Start in #🌲 | Start Here, say hi in #👋 | Introductions, then share what you’re reading in #📖 | Currently Reading.";
 
 /** `emoji | Title Case` channel display name. */
 export function pineChannelLabel(emoji: string, title: string): string {
@@ -53,14 +55,24 @@ const KEY_ALIASES: Record<string, string> = {
   "currently-reading": "currently-reading",
   bookrecs: "book-recs",
   "book-recs": "book-recs",
-  readinggoals: "reading-goals",
-  "reading-goals": "reading-goals",
+  recommendations: "book-recs",
+  readinggoals: "challenges",
+  "reading-goals": "challenges",
+  challenges: "challenges",
   offtopic: "off-topic",
   "off-topic": "off-topic",
-  readinglounge: "reading-lounge",
-  "reading-lounge": "reading-lounge",
+  general: "lounge",
+  lounge: "lounge",
+  readinglounge: "quiet-reading",
+  "reading-lounge": "quiet-reading",
+  "quiet-reading": "quiet-reading",
   bookclub: "book-club",
   "book-club": "book-club",
+  shelves: "shelves",
+  reviews: "reviews",
+  events: "events",
+  introductions: "introductions",
+  media: "media",
 };
 
 export function normalizeChannelKey(name: string): string {
@@ -76,10 +88,17 @@ export function isSupportChannel(name: string): boolean {
   return normalizeChannelKey(name) === "support";
 }
 
+/** Bot / system authors (null author_id). Keeps legacy "Pine" messages marked as bots. */
 export function isBotAuthorName(name: string | null | undefined): boolean {
   if (!name) return false;
   const n = name.trim().toLowerCase();
-  return n === "pine" || n === "suggestions" || n === "support" || n === "server";
+  return (
+    n === "pine hall" ||
+    n === "pine" ||
+    n === "suggestions" ||
+    n === "support" ||
+    n === "server"
+  );
 }
 
 type ChannelSeed = {
@@ -89,7 +108,7 @@ type ChannelSeed = {
   kind: CommunityGroupKind;
   topic: string;
   description?: string;
-  /** Member role cannot send; staff roles can. */
+  /** @everyone cannot send; Owner / Admin / Moderator can. */
   staffWriteOnly?: boolean;
   bot?: { name: string; marker: string; body: string };
 };
@@ -103,26 +122,32 @@ function channelDisplayName(ch: ChannelSeed): string {
   return pineChannelLabel(ch.emoji, ch.title);
 }
 
+/**
+ * Official Pine Hall layout — clearer categories, stronger onboarding,
+ * and reading-first channels that stay easy to browse.
+ */
 const PINE_HALL_LAYOUT: CategorySeed[] = [
   {
-    name: "Welcome",
+    name: "Information",
     channels: [
       {
         key: "announcements",
         emoji: "📢",
         title: "Announcements",
         kind: "announcement",
-        topic: "Official Pine updates and community news",
-        description: "Staff posts only — follow for server news.",
+        topic: "Official Pine Hall updates and community news",
+        description: "Staff posts only — follow for hall news.",
         staffWriteOnly: true,
         bot: {
           name: PINE_BOT_NAME,
           marker: "<!--pine-bot:announcements-->",
           body: `**Welcome to Pine Hall** <!--pine-bot:announcements-->
 
-This is the official announcements channel. Pine staff post product updates, reading events, and community news here.
+This is the official announcements channel for Pine Hall.
 
-You’ll get notified for important posts — sit back and enjoy the bookshelf.`,
+Staff post product updates, reading events, and community news here. You’ll get notified for important posts — settle in and enjoy the bookshelf.
+
+Looking for a human voice from the team? Create or follow the **Pine** official account — this bot stays as **Pine Hall**.`,
         },
       },
       {
@@ -144,6 +169,49 @@ Thanks for helping keep this a cozy place to talk books.`,
         },
       },
       {
+        key: "start-here",
+        emoji: "🌲",
+        title: "Start Here",
+        kind: "text",
+        topic: "New to Pine Hall? Start with this short path",
+        bot: {
+          name: PINE_BOT_NAME,
+          marker: "<!--pine-bot:start-here-->",
+          body: `**Start here** <!--pine-bot:start-here-->
+
+1. Read **#📕 | Rules**
+2. Say hi in **#👋 | Introductions**
+3. Share what you’re reading in **#📖 | Currently Reading**
+4. Want a rec? Post in **#✨ | Book Recs**
+5. Need help? **#🛟 | Support** · Have an idea? **#💡 | Suggestions**
+
+Your **server role** controls what you can do in each channel — ask a mod if you need access.`,
+        },
+      },
+      {
+        key: "events",
+        emoji: "🗓️",
+        title: "Events",
+        kind: "text",
+        topic: "Read-alongs, buddy reads, and hall events",
+        description: "Staff and hosts post upcoming reading events.",
+        staffWriteOnly: true,
+        bot: {
+          name: PINE_BOT_NAME,
+          marker: "<!--pine-bot:events-->",
+          body: `**Events board** <!--pine-bot:events-->
+
+Buddy reads, seasonal challenges, and live book-club nights get posted here.
+
+Want to host something? Ask a Moderator in **#💬 | Lounge** and we’ll help you get it on the calendar.`,
+        },
+      },
+    ],
+  },
+  {
+    name: "Lobby",
+    channels: [
+      {
         key: "introductions",
         emoji: "👋",
         title: "Introductions",
@@ -157,78 +225,43 @@ Thanks for helping keep this a cozy place to talk books.`,
 New to Pine Hall? Introduce yourself with:
 • What you like to be called
 • A favorite book (or three)
-• What you’re reading right now`,
+• What you’re reading right now
+
+We’re glad you’re here.`,
         },
       },
       {
-        key: "start-here",
-        emoji: "🌲",
-        title: "Start Here",
+        key: "lounge",
+        emoji: "💬",
+        title: "Lounge",
         kind: "text",
-        topic: "How Pine Community works — tips for new members",
-        bot: {
-          name: PINE_BOT_NAME,
-          marker: "<!--pine-bot:start-here-->",
-          body: `**Start here** <!--pine-bot:start-here-->
-
-1. Read **#📕 | Rules**
-2. Say hi in **#👋 | Introductions**
-3. Share what you’re reading in **#📖 | Currently Reading**
-4. Need help? Visit **#🛟 | Support**
-5. Have an idea? Drop it in **#💡 | Suggestions**
-
-Your **server role** controls what you can do in each channel — ask a mod if you need access.`,
-        },
+        topic: "Everyday chat for Pine Hall",
       },
       {
-        key: "suggestions",
-        emoji: "💡",
-        title: "Suggestions",
-        kind: "forum",
-        topic: "Feature ideas and community improvements",
-        description: "One idea per post — Moderators review with roles.",
-        bot: {
-          name: SUGGESTIONS_BOT_NAME,
-          marker: "<!--pine-bot:suggestions-->",
-          body: `**How to submit a suggestion** <!--pine-bot:suggestions-->
-
-1. Create a new post with a clear title.
-2. Describe the idea and why it helps readers.
-3. Staff will mark it Open → Accepted / Declined / Implemented.
-
-One idea per post. Moderators and Admins manage suggestion status via their **server roles**.`,
-        },
-      },
-      {
-        key: "support",
-        emoji: "🛟",
-        title: "Support",
+        key: "off-topic",
+        emoji: "🎲",
+        title: "Off Topic",
         kind: "text",
-        topic: "Get help with Pine — bugs, account, and access questions",
-        description: "Community help here; private issues go to in-app Support.",
-        bot: {
-          name: SUPPORT_BOT_NAME,
-          marker: "<!--pine-bot:support-->",
-          body: `**Need help?** <!--pine-bot:support-->
-
-• **Account / billing / private issues** → open **Support** in the Pine app (keeps it private)
-• **Community questions** → ask here and a Moderator will help
-• **Bug reports** → include what you tried, device, and a screenshot if you can
-
-Moderators and Admins watch this channel (role-synced permissions).`,
-        },
+        topic: "Life beyond books — still keep it friendly",
+      },
+      {
+        key: "media",
+        emoji: "🎬",
+        title: "Media",
+        kind: "text",
+        topic: "Bookish shows, podcasts, and adaptations",
       },
     ],
   },
   {
-    name: "Reading",
+    name: "Books",
     channels: [
       {
         key: "currently-reading",
         emoji: "📖",
         title: "Currently Reading",
         kind: "text",
-        topic: "What are you reading right now?",
+        topic: "What page are you on right now?",
       },
       {
         key: "book-recs",
@@ -254,37 +287,54 @@ Moderators and Admins watch this channel (role-synced permissions).`,
         topic: "Show off a shelf, stack, or TBR pile",
       },
       {
-        key: "reading-goals",
+        key: "challenges",
         emoji: "🎯",
-        title: "Reading Goals",
+        title: "Challenges",
         kind: "text",
-        topic: "Yearly challenges, streaks, and progress",
+        topic: "Reading goals, streaks, and seasonal challenges",
       },
     ],
   },
   {
-    name: "Hangout",
+    name: "Help",
     channels: [
       {
-        key: "general",
-        emoji: "💬",
-        title: "General",
-        kind: "text",
-        topic: "Everyday chat for Pine Hall",
+        key: "suggestions",
+        emoji: "💡",
+        title: "Suggestions",
+        kind: "forum",
+        topic: "Feature ideas and hall improvements",
+        description: "One idea per post — Moderators review with roles.",
+        bot: {
+          name: SUGGESTIONS_BOT_NAME,
+          marker: "<!--pine-bot:suggestions-->",
+          body: `**How to submit a suggestion** <!--pine-bot:suggestions-->
+
+1. Create a new post with a clear title.
+2. Describe the idea and why it helps readers.
+3. Staff will mark it Open → Accepted / Declined / Implemented.
+
+One idea per post. Moderators and Admins manage status via their **server roles**.`,
+        },
       },
       {
-        key: "off-topic",
-        emoji: "🎲",
-        title: "Off Topic",
+        key: "support",
+        emoji: "🛟",
+        title: "Support",
         kind: "text",
-        topic: "Life beyond books (still keep it friendly)",
-      },
-      {
-        key: "media",
-        emoji: "🎬",
-        title: "Media",
-        kind: "text",
-        topic: "Bookish shows, podcasts, and adaptations",
+        topic: "Get help with Pine — bugs, account, and access",
+        description: "Community help here; private issues go to in-app Support.",
+        bot: {
+          name: SUPPORT_BOT_NAME,
+          marker: "<!--pine-bot:support-->",
+          body: `**Need help?** <!--pine-bot:support-->
+
+• **Account / billing / private issues** → open **Support** in the Pine app
+• **Hall questions** → ask here and a Moderator will help
+• **Bug reports** → include what you tried, device, and a screenshot if you can
+
+Moderators and Admins watch this channel (role-synced permissions).`,
+        },
       },
     ],
   },
@@ -292,11 +342,11 @@ Moderators and Admins watch this channel (role-synced permissions).`,
     name: "Voice",
     channels: [
       {
-        key: "reading-lounge",
+        key: "quiet-reading",
         emoji: "🎧",
-        title: "Reading Lounge",
+        title: "Quiet Reading",
         kind: "voice",
-        topic: "Quiet co-reading and soft hangouts",
+        topic: "Soft co-reading and quiet hangouts",
       },
       {
         key: "book-club",
@@ -387,30 +437,6 @@ async function seedRoles(serverId: string): Promise<void> {
       { onConflict: "server_id,name", ignoreDuplicates: true },
     );
   }
-}
-
-function mapServerRow(row: Record<string, unknown>): CommunityServer {
-  return {
-    id: row.id as string,
-    libraryId: (row.library_id as string | null) ?? null,
-    name: row.name as string,
-    description: (row.description as string | null) ?? null,
-    iconUrl: (row.icon_url as string | null) ?? null,
-    isPublic: Boolean(row.is_public),
-    isOfficial: Boolean(row.is_official),
-    officialPosition: (row.official_position as number | null) ?? null,
-    inviteCode: (row.invite_code as string | null) ?? "",
-    joinMode: "open",
-    memberCount: Number(row.member_count ?? 1),
-    messageCount: Number(row.message_count ?? 0),
-    activityScore: Number(row.activity_score ?? 0),
-    lastActivityAt: (row.last_activity_at as string | null) ?? null,
-    createdBy: (row.created_by as string | null) ?? null,
-    createdAt: String(row.created_at ?? ""),
-    updatedAt: String(row.updated_at ?? ""),
-    canManage: true,
-    isMember: true,
-  };
 }
 
 async function upsertBotMessage(input: {
@@ -512,7 +538,19 @@ async function syncStaffManageOverrides(
   }
 }
 
-/** Idempotent category + channel seed for Pine Hall (emoji | Title Case). */
+async function renameCategoryIfNeeded(
+  categoryByName: Map<string, Awaited<ReturnType<typeof listCommunityCategories>>[number]>,
+  fromName: string,
+  toName: string,
+): Promise<void> {
+  const from = categoryByName.get(fromName.toLowerCase());
+  if (!from || categoryByName.has(toName.toLowerCase())) return;
+  await supabase.from("community_categories").update({ name: toName }).eq("id", from.id);
+  categoryByName.delete(fromName.toLowerCase());
+  categoryByName.set(toName.toLowerCase(), { ...from, name: toName });
+}
+
+/** Idempotent category + channel seed for Pine Hall. */
 export async function seedPineHallLayout(serverId: string, userId: string): Promise<void> {
   const existingCategories = await listCommunityCategories(serverId);
   const existingGroups = await listCommunityGroups(userId, serverId);
@@ -522,6 +560,10 @@ export async function seedPineHallLayout(serverId: string, userId: string): Prom
   const groupByKey = new Map(
     existingGroups.map((g) => [normalizeChannelKey(g.name), g] as const),
   );
+
+  await renameCategoryIfNeeded(categoryByName, "Welcome", "Information");
+  await renameCategoryIfNeeded(categoryByName, "Reading", "Books");
+  await renameCategoryIfNeeded(categoryByName, "Hangout", "Lobby");
 
   const { data: roleRows } = await supabase
     .from("community_server_roles")
@@ -604,25 +646,45 @@ export async function seedPineHallLayout(serverId: string, userId: string): Prom
       }
     }
   }
+
+  // Rename leftover bot posts still signed as "Pine" → "Pine Hall".
+  const groupIds = [...groupByKey.values()].map((g) => g.id);
+  if (groupIds.length > 0) {
+    try {
+      await supabase
+        .from("community_messages")
+        .update({ author_name: PINE_BOT_NAME, edited_at: new Date().toISOString() })
+        .is("author_id", null)
+        .eq("author_name", "Pine")
+        .in("group_id", groupIds);
+    } catch {
+      /* best-effort rename of legacy bot posts */
+    }
+  }
 }
 
 async function finalizePineHall(serverId: string, userId: string): Promise<void> {
   const groups = await listCommunityGroups(userId, serverId);
   const byKey = new Map(groups.map((g) => [normalizeChannelKey(g.name), g] as const));
   const rules = byKey.get("rules");
-  const general = byKey.get("general");
+  const introductions = byKey.get("introductions");
+  const lounge = byKey.get("lounge");
   const announcements = byKey.get("announcements");
 
   await updateServer(serverId, {
+    name: PINE_HALL_NAME,
+    description: PINE_HALL_DESCRIPTION,
     rules: PINE_HALL_RULES,
     welcomeMessage: PINE_HALL_WELCOME,
     rulesChannelId: rules?.id ?? null,
-    systemChannelId: general?.id ?? announcements?.id ?? null,
+    systemChannelId: introductions?.id ?? lounge?.id ?? announcements?.id ?? null,
     vanitySlug: "pine-hall",
     isPublic: true,
     joinMode: "open",
     isOfficial: true,
     officialPosition: 0,
+    libraryId: null,
+    verificationLevel: "low",
   });
 }
 
@@ -638,12 +700,8 @@ export async function ensureOfficialPineHall(userId: string): Promise<CommunityS
     await finalizePineHall(rpcId as string, userId).catch(() => undefined);
     await recomputeServerScore(rpcId as string).catch(() => undefined);
     bumpCommunityRail();
-    const { data } = await supabase
-      .from("community_servers")
-      .select("*")
-      .eq("id", rpcId as string)
-      .maybeSingle();
-    if (data) return mapServerRow(data as Record<string, unknown>);
+    const server = await getServer(rpcId as string).catch(() => null);
+    if (server) return { ...server, isMember: true, canManage: true };
   }
 
   await supabase
@@ -653,7 +711,7 @@ export async function ensureOfficialPineHall(userId: string): Promise<CommunityS
 
   const { data: existing } = await supabase
     .from("community_servers")
-    .select("*")
+    .select("id")
     .ilike("name", PINE_HALL_NAME)
     .order("created_at", { ascending: true })
     .limit(1)
@@ -697,23 +755,6 @@ export async function ensureOfficialPineHall(userId: string): Promise<CommunityS
       role_id: ownerRole?.id ?? null,
     });
   } else {
-    await supabase
-      .from("community_servers")
-      .update({
-        name: PINE_HALL_NAME,
-        description: existing?.description || PINE_HALL_DESCRIPTION,
-        is_public: true,
-        is_official: true,
-        official_position: existing?.official_position ?? 0,
-        library_id: null,
-        join_mode: "open",
-        rules: existing?.rules || PINE_HALL_RULES,
-        welcome_message: PINE_HALL_WELCOME,
-        vanity_slug: existing?.vanity_slug || "pine-hall",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", serverId);
-
     await seedRoles(serverId);
     const { data: ownerRole } = await supabase
       .from("community_server_roles")
@@ -733,12 +774,7 @@ export async function ensureOfficialPineHall(userId: string): Promise<CommunityS
   await recomputeServerScore(serverId);
   bumpCommunityRail();
 
-  const { data: fresh, error: freshError } = await supabase
-    .from("community_servers")
-    .select("*")
-    .eq("id", serverId)
-    .single();
-  if (freshError || !fresh) throw freshError ?? new Error("Pine Hall missing after create");
-
-  return mapServerRow(fresh as Record<string, unknown>);
+  const fresh = await getServer(serverId);
+  if (!fresh) throw new Error("Pine Hall missing after create");
+  return { ...fresh, isMember: true, canManage: true };
 }

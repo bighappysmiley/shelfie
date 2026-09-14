@@ -727,7 +727,7 @@ export async function syncServerRulesToChannel(serverId: string): Promise<void> 
       .from("community_messages")
       .update({
         body: rulesBody,
-        author_name: "Pine",
+        author_name: "Pine Hall",
         kind: "chat",
         edited_at: new Date().toISOString(),
       })
@@ -740,7 +740,7 @@ export async function syncServerRulesToChannel(serverId: string): Promise<void> 
     author_id: null,
     body: rulesBody,
     kind: "chat",
-    author_name: "Pine",
+    author_name: "Pine Hall",
   });
 }
 
@@ -1308,7 +1308,7 @@ export async function createCommunityGroup(input: {
       author_id: input.userId,
       body: `Welcome to #${group.name}.`,
       kind: "system",
-      author_name: "Pine",
+      author_name: "Pine Hall",
     });
   }
 
