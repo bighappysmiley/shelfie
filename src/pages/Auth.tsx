@@ -10,6 +10,7 @@ import { TextField, FormError } from "@/components/form";
 import { Container, Group, SegmentedControl } from "@/components/layout";
 import { storePendingInvite } from "@/lib/pending-invite";
 import { SynkVerifyModal } from "@/components/SynkVerifyModal";
+import { SYNK_NEW_MEMBER_UNAVAILABLE } from "@/lib/synk-availability";
 
 function useInviteParams() {
   const [searchParams] = useSearchParams();
@@ -315,6 +316,9 @@ export function LoginPage() {
         >
           Sign in with Synk ID
         </Button>
+        <p className="mt-2 text-center text-[0.8125rem] text-muted">
+          For existing Pine members with Synk linked. New Synk sign-up is temporarily unavailable.
+        </p>
       </div>
 
       <SynkVerifyModal open={synkOpen} onClose={() => setSynkOpen(false)} mode="signin" />
@@ -345,7 +349,7 @@ export function SignupPage() {
   const [busy, setBusy] = useState(false);
   const [awaitingConfirm, setAwaitingConfirm] = useState(false);
   const [resendBusy, setResendBusy] = useState(false);
-  const [synkOpen, setSynkOpen] = useState(false);
+  const [synkNotice, setSynkNotice] = useState(false);
 
   if (redirect) return redirect;
 
@@ -519,13 +523,16 @@ export function SignupPage() {
           variant="tinted"
           className="w-full"
           disabled={busy}
-          onClick={() => setSynkOpen(true)}
+          onClick={() => setSynkNotice(true)}
         >
           Continue with Synk ID
         </Button>
+        {synkNotice ? (
+          <p className="mt-3 text-center text-[0.9375rem] leading-relaxed text-muted">
+            {SYNK_NEW_MEMBER_UNAVAILABLE}
+          </p>
+        ) : null}
       </div>
-
-      <SynkVerifyModal open={synkOpen} onClose={() => setSynkOpen(false)} mode="signin" />
 
       <p className="mt-6 text-center text-[0.9375rem] text-muted">
         Already registered?{" "}

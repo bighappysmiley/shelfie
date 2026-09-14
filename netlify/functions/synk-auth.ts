@@ -1,8 +1,9 @@
 import type { Config } from "@netlify/functions";
 import { json, error, handleOptions, parseBody } from "./utils";
 import { getBearerToken, requireUser, AuthError } from "./lib/auth";
-import { SUPABASE_URL, SUPABASE_ANON_KEY, supabaseForToken } from "./lib/supabase";
+import { supabaseForToken, supabaseAnon } from "./lib/supabase";
 import { exchangeSynkPass, SynkError, type SynkProfile } from "./lib/synk";
+import { SYNK_NEW_MEMBER_UNAVAILABLE } from "./lib/synk-availability";
 
 function siteOrigin(req: Request): string {
   const fromEnv = (process.env.URL || process.env.DEPLOY_PRIME_URL || process.env.APP_URL || "").replace(
@@ -174,6 +175,19 @@ export default async (req: Request) => {
           photoUrl: profile.photoUrl || null,
         },
       });
+    }
+
+    // Synk sign-in is for existing Pine members who already linked Synk.
+    // New Synk profiles must not mint/create accounts until signup is ready.
+    {
+      const { data: linked, error: lookupError } = await supabaseAnon().rpc(
+        "synk_identity_is_linked",
+        { p_synk_profile_id: profile.id },
+      );
+      if (lookupError) throw lookupError;
+      if (!linked) {
+        return error(SYNK_NEW_MEMBER_UNAVAILABLE, 403);
+      }
     }
 
     const session = await mintSessionViaEdge(profile, `${siteOrigin(req)}/auth/callback`);

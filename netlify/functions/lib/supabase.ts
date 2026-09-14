@@ -17,3 +17,10 @@ export function supabaseForToken(accessToken: string): SupabaseClient {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }
+
+/** Anonymous client (for public RPCs such as Synk link checks). */
+export function supabaseAnon(): SupabaseClient {
+  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
