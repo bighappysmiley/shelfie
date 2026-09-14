@@ -33,11 +33,11 @@ export function CommunityBeBackSoonPage() {
           </p>
 
           <h1 className="mt-3 font-logo text-[2.25rem] leading-[1.1] tracking-[-0.02em] text-foreground sm:text-[2.75rem]">
-            We’ll Be Back Soon
+            We’ll be back soon.
           </h1>
 
-          <p className="mt-4 text-[1.0625rem] leading-relaxed text-muted sm:text-[1.125rem]">
-            Pine Community is temporarily closed while we finish a few updates.
+          <p className="mt-4 max-w-[22rem] text-[1.0625rem] leading-relaxed text-muted sm:text-[1.125rem]">
+            Community is temporarily unavailable while we make a few improvements.
             Please check back shortly.
           </p>
 
