@@ -38,7 +38,7 @@ export function BorrowersPage() {
         }
       }
     };
-    setReloadNonce((n) => n + 1);
+    void load();
     return () => {
       cancelled = true;
     };
