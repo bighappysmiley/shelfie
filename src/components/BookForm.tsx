@@ -46,13 +46,18 @@ export function BookForm({
     setError("");
     try {
       const data = await api.isbn.lookup(isbn);
-      if (!data.title && !data.coverUrl) {
-        setError("No catalog record found for this ISBN. You may save the entry manually.");
-        update("isbn", isbn);
+      if (data.found === false || !data.title) {
+        setError(
+          data.coverUrl
+            ? "No catalog metadata for this ISBN yet — cover may still load. Enter title and author manually."
+            : "No catalog record found for this ISBN. Enter details manually.",
+        );
+        setForm((f) => ({
+          ...f,
+          isbn: (data.isbn as string) || isbn,
+          coverUrl: (data.coverUrl as string) || f.coverUrl,
+        }));
         return;
-      }
-      if (!data.title) {
-        setError("No metadata available. Cover image will be attached if provided.");
       }
       setForm((f) => ({
         ...f,

@@ -56,16 +56,25 @@ export function AddBookPage() {
     setStatus("Looking up ISBN…");
     try {
       const data = await api.isbn.lookup(isbn);
-      if (!data.title && !data.coverUrl) {
-        setForm((f) => ({ ...f, isbn }));
+      if (data.found === false || !data.title) {
+        setForm((f) => ({
+          ...f,
+          isbn: (data.isbn as string) || isbn,
+          coverUrl: (data.coverUrl as string) || f.coverUrl,
+        }));
         setFormKey((k) => k + 1);
+        setScanError(
+          "Barcode read, but no catalog metadata was found. Title and author can be entered manually.",
+        );
         setMode("manual");
         return;
       }
+      setScanError("");
       fillFromLookup(data, isbn);
-    } catch {
+    } catch (err) {
       setForm((f) => ({ ...f, isbn }));
       setFormKey((k) => k + 1);
+      setScanError(err instanceof Error ? err.message : "ISBN lookup failed.");
       setMode("manual");
     } finally {
       setLoading(false);
