@@ -8,7 +8,7 @@ import {
   type Book,
 } from "./lib/store";
 import { json, error, parseBody, corsHeaders } from "./utils";
-import { withLibraryAuth } from "./lib/library-auth";
+import { withLibraryAuth, assertLibraryWrite } from "./lib/library-auth";
 
 export const config: Config = {
   path: "/api/data",
@@ -129,6 +129,7 @@ export default withLibraryAuth(async (request, ctx) => {
       });
     }
 
+      assertLibraryWrite(ctx);
     if (request.method === "POST" && action === "import") {
       const body = await parseBody<{ books: Record<string, string>[] }>(request);
       if (!body.books?.length) return error("No books to import");

@@ -164,6 +164,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     setCatalogEpoch((n) => n + 1);
     // Unbind without wiping the previous user's per-account sticky library id.
     clearLibraryContext();
+    clearPendingInvite();
     bindLibraryStorageUser(user?.id ?? null);
     // Do not restore sticky into memory/React until membership list validates it.
     void import("./offline")

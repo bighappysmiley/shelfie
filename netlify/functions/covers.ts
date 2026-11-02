@@ -2,7 +2,7 @@ import type { Config } from "@netlify/functions";
 import { getStore } from "@netlify/blobs";
 import { randomUUID } from "node:crypto";
 import { json, error, parseBody, corsHeaders } from "./utils";
-import { withLibraryAuth } from "./lib/library-auth";
+import { withLibraryAuth, assertLibraryWrite } from "./lib/library-auth";
 import { supabaseForToken } from "./lib/supabase";
 
 export const config: Config = {
@@ -78,6 +78,7 @@ export default withLibraryAuth(async (request, ctx) => {
     });
   }
 
+      assertLibraryWrite(ctx);
   if (request.method === "POST") {
     const body = await parseBody<{
       image: string;
@@ -105,6 +106,7 @@ export default withLibraryAuth(async (request, ctx) => {
     return json({ id: coverId, url: `/api/covers?id=${coverId}` }, 201);
   }
 
+      assertLibraryWrite(ctx);
   if (request.method === "DELETE") {
     if (!id) return error("Cover id required");
     const store = coversStore();

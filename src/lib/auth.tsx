@@ -13,7 +13,8 @@ import { supabase } from "./supabase";
 import type { StaffMember } from "./support-types";
 import type { PreferredAuth, UserProfile } from "./library-types";
 import { normalizePhone, clearLibraryContext } from "./library-storage";
-import { clearOfflineCache } from "./offline";
+import { clearOfflineCache, syncPending } from "./offline";
+import { clearPendingInvite } from "./pending-invite";
 import {
   isValidCommunityUsername,
   normalizeCommunityUsername,
@@ -243,8 +244,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [applyUser]);
 
-  // Wipe library/offline state whenever the signed-in user id changes (including
-  // account switches that never call signOut).
+  // Wipe library/offline/invite state whenever the signed-in user id changes
+  // (including account switches that never call signOut). Do not syncPending
+  // here — the session is already the new user, so headers would be wrong.
   const prevAuthUserIdRef = useRef<string | null | undefined>(undefined);
   useEffect(() => {
     const nextId = session?.user?.id ?? null;
@@ -253,6 +255,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (prev === undefined) return; // skip initial mount
     if (prev === nextId) return;
     clearLibraryContext();
+    clearPendingInvite();
     void clearOfflineCache();
   }, [session?.user?.id]);
 
@@ -534,12 +537,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    // Flush offline mutations under this account before the session ends.
+    await syncPending().catch(() => 0);
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
     setStaffProfile(null);
     setUserProfile(null);
     setPending2fa(false);
     setSecondFactor(null);
+    clearPendingInvite();
     clearLibraryContext();
     void clearOfflineCache();
     try {

@@ -87,7 +87,9 @@ export function LibraryPage() {
           // Drop responses that finished after an account/library switch.
           if (cancelled) return;
           setBooks(data);
-          await cacheBooks(data);
+          // Never overwrite the offline full catalog with a filtered view.
+          const unfiltered = !q && !status && !format && !room && !tag;
+          if (unfiltered) await cacheBooks(data);
         } else {
           let cached = await getCachedBooks();
           if (cancelled) return;

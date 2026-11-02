@@ -1,7 +1,7 @@
 import type { Config } from "@netlify/functions";
 import { loadData, saveData, newId, nowIso, todayDate, type Loan } from "./lib/store";
 import { json, error, parseBody } from "./utils";
-import { withLibraryAuth } from "./lib/library-auth";
+import { withLibraryAuth, assertLibraryWrite } from "./lib/library-auth";
 
 export const config: Config = {
   path: "/api/loans",
@@ -35,6 +35,7 @@ export default withLibraryAuth(async (request, ctx) => {
       return json(rows);
     }
 
+      assertLibraryWrite(ctx);
     if (request.method === "POST") {
       const body = await parseBody<{
         bookId: string;
@@ -69,6 +70,7 @@ export default withLibraryAuth(async (request, ctx) => {
       return json(loan, 201);
     }
 
+      assertLibraryWrite(ctx);
     if (request.method === "PATCH") {
       if (!id) return error("Loan id required");
       const body = await parseBody<{
