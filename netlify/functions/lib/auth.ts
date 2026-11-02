@@ -1,15 +1,6 @@
-import { createClient, type User } from "@supabase/supabase-js";
+import type { User } from "@supabase/auth-js";
 import { error, handleOptions } from "../utils";
-
-const SUPABASE_URL =
-  process.env.SUPABASE_URL ||
-  process.env.VITE_SUPABASE_URL ||
-  "https://xdsnoqckoolwatgwtyfy.supabase.co";
-
-const SUPABASE_ANON_KEY =
-  process.env.SUPABASE_ANON_KEY ||
-  process.env.VITE_SUPABASE_ANON_KEY ||
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhkc25vcWNrb29sd2F0Z3d0eWZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgxMzMzODksImV4cCI6MjEwMzcwOTM4OX0.3Nx7Aq40Tj10-Woc_5gcPUNU23qJWWI8X7kdwKvHXgg";
+import { supabaseAnon } from "./supabase";
 
 export function getBearerToken(request: Request): string | null {
   const header = request.headers.get("Authorization") || request.headers.get("authorization");
@@ -23,11 +14,8 @@ export async function requireUser(request: Request): Promise<User> {
     throw new AuthError("Sign in to continue", 401);
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-
-  const { data, error: authError } = await supabase.auth.getUser(token);
+  const neon = supabaseAnon();
+  const { data, error: authError } = await neon.auth.getUser(token);
   if (authError || !data.user) {
     throw new AuthError("Session expired. Please sign in again.", 401);
   }

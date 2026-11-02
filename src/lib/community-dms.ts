@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import { moderateTextContent } from "./content-moderation";
+import { startPolling } from "./poll";
 
 export type DmThreadSummary = {
   threadId: string;
@@ -138,21 +139,7 @@ export function subscribeDmMessages(
   threadId: string,
   onMessage: () => void,
 ): () => void {
-  const channel = supabase
-    .channel(`dm:${threadId}`)
-    .on(
-      "postgres_changes",
-      {
-        event: "INSERT",
-        schema: "public",
-        table: "community_dm_messages",
-        filter: `thread_id=eq.${threadId}`,
-      },
-      () => onMessage(),
-    )
-    .subscribe();
-
-  return () => {
-    void supabase.removeChannel(channel);
-  };
+  void threadId;
+  // Neon has no Realtime — poll for new DM messages.
+  return startPolling(onMessage, 3000);
 }

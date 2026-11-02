@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import { normalizeTier, type SubscriptionTier, getTierLimits } from "./tiers";
+import { startPolling } from "./poll";
 
 export type AdminUserRow = {
   userId: string;
@@ -208,40 +209,33 @@ export async function purgeExpiredNotifications(hours: number | null): Promise<n
   return data?.length ?? 0;
 }
 
-/** Live updates for in-app notification toasts. Returns an unsubscribe fn. */
+/** Live updates for in-app notification toasts (polling on Neon). */
 export function subscribeToNotifications(
   userId: string,
   onInsert: (note: AppNotification) => void,
 ): () => void {
-  const channel = supabase
-    .channel(`app-notifications:${userId}`)
-    .on(
-      "postgres_changes",
-      {
-        event: "INSERT",
-        schema: "public",
-        table: "app_notifications",
-        filter: `user_id=eq.${userId}`,
-      },
-      (payload) => {
-        const r = payload.new as Record<string, unknown>;
-        if (!r?.id) return;
-        onInsert({
-          id: r.id as string,
-          kind: (r.kind as string) ?? "admin_message",
-          title: (r.title as string) ?? "Notification",
-          body: (r.body as string) ?? "",
-          payload: (r.payload as Record<string, unknown>) ?? {},
-          readAt: (r.read_at as string | null) ?? null,
-          createdAt: (r.created_at as string) ?? new Date().toISOString(),
-        });
-      },
-    )
-    .subscribe();
-
-  return () => {
-    void supabase.removeChannel(channel);
-  };
+  let lastSeen = new Date().toISOString();
+  return startPolling(async () => {
+    const { data, error } = await supabase
+      .from("app_notifications")
+      .select("id, kind, title, body, payload, read_at, created_at")
+      .eq("user_id", userId)
+      .gt("created_at", lastSeen)
+      .order("created_at", { ascending: true });
+    if (error || !data?.length) return;
+    for (const r of data) {
+      lastSeen = (r.created_at as string) || lastSeen;
+      onInsert({
+        id: r.id as string,
+        kind: (r.kind as string) ?? "admin_message",
+        title: (r.title as string) ?? "Notification",
+        body: (r.body as string) ?? "",
+        payload: (r.payload as Record<string, unknown>) ?? {},
+        readAt: (r.read_at as string | null) ?? null,
+        createdAt: (r.created_at as string) ?? new Date().toISOString(),
+      });
+    }
+  }, 4000);
 }
 
 export async function notifyUser(input: {

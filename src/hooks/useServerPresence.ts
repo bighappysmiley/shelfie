@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
 
-/** Track which users are currently viewing this server (Supabase presence). */
+/**
+ * Online presence without Realtime: show the current user as online only.
+ * Full multi-user presence requires Neon Realtime (not enabled) or a custom heartbeat table.
+ */
 export function useServerPresence(serverId: string | undefined, userId: string | undefined) {
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(() => new Set());
 
@@ -10,22 +12,7 @@ export function useServerPresence(serverId: string | undefined, userId: string |
       setOnlineUserIds(new Set());
       return;
     }
-
-    const channel = supabase
-      .channel(`server-presence:${serverId}`, { config: { presence: { key: userId } } })
-      .on("presence", { event: "sync" }, () => {
-        const state = channel.presenceState();
-        setOnlineUserIds(new Set(Object.keys(state)));
-      })
-      .subscribe(async (status) => {
-        if (status === "SUBSCRIBED") {
-          await channel.track({ online: true });
-        }
-      });
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
+    setOnlineUserIds(new Set([userId]));
   }, [serverId, userId]);
 
   return onlineUserIds;

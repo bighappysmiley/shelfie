@@ -1,26 +1,58 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@neon/neon-js/supabase";
 
-export const SUPABASE_URL =
-  process.env.SUPABASE_URL ||
-  process.env.VITE_SUPABASE_URL ||
-  "https://xdsnoqckoolwatgwtyfy.supabase.co";
+export { createClient };
 
-export const SUPABASE_ANON_KEY =
-  process.env.SUPABASE_ANON_KEY ||
-  process.env.VITE_SUPABASE_ANON_KEY ||
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhkc25vcWNrb29sd2F0Z3d0eWZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgxMzMzODksImV4cCI6MjEwMzcwOTM4OX0.3Nx7Aq40Tj10-Woc_5gcPUNU23qJWWI8X7kdwKvHXgg";
+export const NEON_URL =
+  process.env.NEON_URL ||
+  process.env.VITE_NEON_URL ||
+  "https://ep-shy-night-bd768856.c-8.us-east-2.aws.neon.tech/neondb";
 
-/** Supabase client authenticated as the requesting user (RLS applies). */
-export function supabaseForToken(accessToken: string): SupabaseClient {
-  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    global: { headers: { Authorization: `Bearer ${accessToken}` } },
-    auth: { persistSession: false, autoRefreshToken: false },
+export const NEON_AUTH_URL =
+  process.env.NEON_AUTH_URL ||
+  process.env.VITE_NEON_AUTH_URL ||
+  "https://ep-shy-night-bd768856.neonauth.c-8.us-east-2.aws.neon.tech/neondb/auth";
+
+export const NEON_DATA_API_URL =
+  process.env.NEON_DATA_API_URL ||
+  process.env.VITE_NEON_DATA_API_URL ||
+  "https://ep-shy-night-bd768856.apirest.c-8.us-east-2.aws.neon.tech/neondb/rest/v1";
+
+/** @deprecated Use NEON_URL — kept for gradual rename in callers. */
+export const SUPABASE_URL = NEON_URL;
+/** @deprecated Neon Auth does not use an anon JWT key. */
+export const SUPABASE_ANON_KEY = "";
+
+export type NeonClient = ReturnType<typeof createClient>;
+/** @deprecated Alias for NeonClient. */
+export type SupabaseClient = NeonClient;
+
+function clientWithBearer(accessToken: string | null): NeonClient {
+  if (!accessToken) {
+    return createClient(NEON_URL, { auth: { allowAnonymous: true } });
+  }
+  return createClient({
+    auth: { url: NEON_AUTH_URL, allowAnonymous: true },
+    dataApi: {
+      url: NEON_DATA_API_URL,
+      options: {
+        global: {
+          fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
+            const headers = new Headers(init?.headers);
+            headers.set("Authorization", `Bearer ${accessToken}`);
+            return fetch(input, { ...init, headers });
+          },
+        },
+      },
+    },
   });
 }
 
+/** Neon client authenticated as the requesting user (RLS applies). */
+export function supabaseForToken(accessToken: string): NeonClient {
+  return clientWithBearer(accessToken);
+}
+
 /** Anonymous client (for public RPCs such as Synk link checks). */
-export function supabaseAnon(): SupabaseClient {
-  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+export function supabaseAnon(): NeonClient {
+  return createClient(NEON_URL, { auth: { allowAnonymous: true } });
 }

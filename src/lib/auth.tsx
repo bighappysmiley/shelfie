@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { Session, User } from "@supabase/supabase-js";
+import type { Session, User } from "@supabase/auth-js";
 import { supabase } from "./supabase";
 import type { StaffMember } from "./support-types";
 import type { PreferredAuth, UserProfile } from "./library-types";
@@ -315,12 +315,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw error;
       }
 
-      if (patch.phone && patch.phone !== data.user.phone) {
-        const { error: phoneErr } = await supabase.auth.updateUser({
-          phone: normalizePhone(patch.phone),
-        });
-        if (phoneErr) throw phoneErr;
-      }
+      // Neon Auth does not support phone on the auth user — keep phone on user_profiles only.
 
       // Optimistic local update so setup → home doesn't bounce on a stale profile.
       setUserProfile((prev) => ({
@@ -367,8 +362,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const target = usePhone ? "phone" : "email";
 
       if (target === "phone") {
-        const { error } = await supabase.auth.signInWithOtp({ phone: contact });
-        if (error) throw error;
+        throw new Error(
+          "Phone verification is not available on Neon Auth. Use email for two-factor, or turn off require 2FA.",
+        );
       } else {
         const { error } = await supabase.auth.signInWithOtp({
           email: contact,
@@ -406,27 +402,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [maybeRequireSecondFactor],
   );
 
-  const signInWithPhone = useCallback(async (phone: string) => {
-    const normalized = normalizePhone(phone);
-    const { error } = await supabase.auth.signInWithOtp({ phone: normalized });
-    if (error) throw error;
+  const signInWithPhone = useCallback(async (_phone: string) => {
+    throw new Error(
+      "Phone sign-in is not supported after migrating to Neon Auth. Sign in with email and password.",
+    );
   }, []);
 
-  const verifyPhoneOtp = useCallback(async (phone: string, token: string) => {
-    const normalized = normalizePhone(phone);
-    const { data, error } = await supabase.auth.verifyOtp({
-      phone: normalized,
-      token,
-      type: "sms",
-    });
-    if (error) throw error;
-    if (data.user) {
-      const synced = await ensurePhoneOnProfile(data.user.id, normalized);
-      const profile = synced ?? (await fetchUserProfile(data.user.id));
-      setUserProfile(profile);
-      await maybeRequireSecondFactor(data.user, profile);
-    }
-  }, [maybeRequireSecondFactor]);
+  const verifyPhoneOtp = useCallback(async (_phone: string, _token: string) => {
+    throw new Error(
+      "Phone verification is not supported after migrating to Neon Auth. Use email instead.",
+    );
+  }, []);
 
   const verifyEmailOtp = useCallback(async (email: string, token: string) => {
     const { data, error } = await supabase.auth.verifyOtp({
@@ -527,13 +513,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error;
   }, []);
 
-  const signUpWithPhone = useCallback(async (phone: string) => {
-    const normalized = normalizePhone(phone);
-    const { error } = await supabase.auth.signInWithOtp({
-      phone: normalized,
-      options: { shouldCreateUser: true },
-    });
-    if (error) throw error;
+  const signUpWithPhone = useCallback(async (_phone: string) => {
+    throw new Error(
+      "Phone sign-up is not supported after migrating to Neon Auth. Create an account with email and password.",
+    );
   }, []);
 
   const signOut = useCallback(async () => {
