@@ -5,6 +5,7 @@ import type { Ticket, TicketMessage } from "@/lib/support-types";
 import { ChatBubble } from "@/components/ChatBubble";
 import { Button } from "@/components/Button";
 import { FormError } from "@/components/form";
+import { startPolling } from "@/lib/poll";
 
 type SupportChatProps = {
   ticketId?: string;
@@ -77,24 +78,9 @@ export function SupportChat({ ticketId, showHeader = true, onTicketChange }: Sup
   useEffect(() => {
     const id = ticket?.id ?? ticketId;
     if (!id) return;
-    const channel = supabase
-      .channel(`ticket-live:${id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "ticket_messages",
-          filter: `ticket_id=eq.${id}`,
-        },
-        () => {
-          loadTicket(id);
-        },
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return startPolling(() => {
+      void loadTicket(id);
+    }, 3000);
   }, [ticket?.id, ticketId, loadTicket]);
 
   useEffect(() => {

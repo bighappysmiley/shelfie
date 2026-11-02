@@ -1,4 +1,4 @@
-import type { User } from "@supabase/supabase-js";
+import type { User } from "@supabase/auth-js";
 import { AuthError, authErrorResponse, getBearerToken } from "./auth";
 import { handleOptions } from "../utils";
 import { supabaseForToken } from "./supabase";

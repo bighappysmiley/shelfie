@@ -1,16 +1,19 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@neon/neon-js/supabase";
 
-const url =
-  import.meta.env.VITE_SUPABASE_URL || "https://xdsnoqckoolwatgwtyfy.supabase.co";
+/** Neon base URL — SDK derives Auth + Data API endpoints from this. */
+export const NEON_URL =
+  import.meta.env.VITE_NEON_URL ||
+  "https://ep-shy-night-bd768856.c-8.us-east-2.aws.neon.tech/neondb";
 
-const anonKey =
-  import.meta.env.VITE_SUPABASE_ANON_KEY ||
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhkc25vcWNrb29sd2F0Z3d0eWZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgxMzMzODksImV4cCI6MjEwMzcwOTM4OX0.3Nx7Aq40Tj10-Woc_5gcPUNU23qJWWI8X7kdwKvHXgg";
+export const NEON_AUTH_URL =
+  import.meta.env.VITE_NEON_AUTH_URL ||
+  "https://ep-shy-night-bd768856.neonauth.c-8.us-east-2.aws.neon.tech/neondb/auth";
 
-export const supabase = createClient(url, anonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-  },
-});
+export const NEON_DATA_API_URL =
+  import.meta.env.VITE_NEON_DATA_API_URL ||
+  "https://ep-shy-night-bd768856.apirest.c-8.us-east-2.aws.neon.tech/neondb/rest/v1";
+
+/** App data + auth client (Supabase-compatible API via Neon Auth adapter). */
+export const supabase = createClient(NEON_URL);
+
+export type NeonClient = typeof supabase;

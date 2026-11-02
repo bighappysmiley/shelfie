@@ -28,3 +28,4 @@ dist-ssr
 *.sw?
 deno.lock
 supabase/.temp/
+neon/migrations/_compiled/

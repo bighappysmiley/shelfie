@@ -1,8 +1,8 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { NeonClient } from "./supabase";
 import { currentPeriodYm, getTierLimits, normalizeTier } from "./tiers";
 
 export async function loadUserEntitlements(
-  supabase: SupabaseClient,
+  supabase: NeonClient,
   userId: string,
 ) {
   const { data } = await supabase
@@ -32,7 +32,7 @@ export async function loadUserEntitlements(
 }
 
 export async function assertBookLimit(
-  supabase: SupabaseClient,
+  supabase: NeonClient,
   userId: string,
   currentBookCount: number,
 ) {
@@ -48,7 +48,7 @@ export async function assertBookLimit(
 }
 
 export async function assertAndIncrementShelfScan(
-  supabase: SupabaseClient,
+  supabase: NeonClient,
   userId: string,
 ) {
   const { limits } = await loadUserEntitlements(supabase, userId);
@@ -87,7 +87,7 @@ export async function assertAndIncrementShelfScan(
 }
 
 export async function staffCanEditLibrary(
-  supabase: SupabaseClient,
+  supabase: NeonClient,
   libraryId: string,
 ): Promise<boolean> {
   const { data, error } = await supabase.rpc("staff_has_library_edit_access", {

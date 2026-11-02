@@ -10,7 +10,7 @@ import {
 import { Link, useNavigate, useParams, useLocation, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { useLibrary } from "@/lib/library";
-import { supabase } from "@/lib/supabase";
+import { startPolling } from "@/lib/poll";
 import {
   archiveCommunityGroup,
   acceptServerRules,
@@ -1229,8 +1229,8 @@ function ChannelRoom({
   const [channelPerms, setChannelPerms] = useState<ResolvedChannelPermissions | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Map<string, HTMLLIElement>>(new Map());
-  const presenceRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-  const voiceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const presenceRef = useRef<{ track: (payload: Record<string, unknown>) => void } | null>(null);
+  const voiceChannelRef = useRef<{ track: (payload: Record<string, unknown>) => Promise<void> } | null>(null);
 
   const memberByUserId = useMemo(
     () => new Map(serverMembers.map((m) => [m.userId, m])),
@@ -1469,51 +1469,13 @@ function ChannelRoom({
   }, [load]);
 
   useEffect(() => {
-    const channel = supabase
-      .channel(`community:${group.id}`, { config: { presence: { key: userId } } })
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "community_messages",
-          filter: `group_id=eq.${group.id}`,
-        },
-        () => {
-          void load();
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "community_message_reactions",
-        },
-        () => {
-          void load();
-        },
-      )
-      .on("presence", { event: "sync" }, () => {
-        const state = channel.presenceState() as Record<string, { name?: string; typing?: boolean }[]>;
-        const names = Object.entries(state)
-          .filter(([key]) => key !== userId)
-          .flatMap(([, presences]) => presences)
-          .filter((p) => p.typing && p.name)
-          .map((p) => p.name as string);
-        setTypingUsers([...new Set(names)].slice(0, 3));
-      })
-      .subscribe(async (status) => {
-        if (status === "SUBSCRIBED") {
-          await channel.track({ name: authorLabel, typing: false });
-        }
-      });
-    presenceRef.current = channel;
-    return () => {
-      presenceRef.current = null;
-      void supabase.removeChannel(channel);
-    };
-  }, [group.id, load, userId, authorLabel]);
+    // Neon: poll for new messages/reactions instead of Realtime channels.
+    presenceRef.current = { track: () => undefined };
+    setTypingUsers([]);
+    return startPolling(() => {
+      void load();
+    }, 3500);
+  }, [group.id, load]);
 
   useEffect(() => {
     if (scrolledUp) return;
@@ -1571,36 +1533,18 @@ function ChannelRoom({
 
   useEffect(() => {
     if (!isVoice || !isMember) return;
-
-    const channel = supabase
-      .channel(`voice:${group.id}`, { config: { presence: { key: userId } } })
-      .on("presence", { event: "sync" }, () => {
-        const state = channel.presenceState() as Record<
-          string,
-          { name?: string; inVoice?: boolean }[]
-        >;
-        const participants: { userId: string; name: string }[] = [];
-        for (const [key, presences] of Object.entries(state)) {
-          for (const p of presences) {
-            if (p.inVoice) {
-              participants.push({ userId: key, name: p.name || "Member" });
-            }
-          }
-        }
-        setVoiceParticipants(participants);
-        setJoinedVoice(participants.some((p) => p.userId === userId));
-      })
-      .subscribe(async (status) => {
-        if (status === "SUBSCRIBED") {
-          voiceChannelRef.current = channel;
-        }
-      });
-
+    // Local-only voice join state (no Neon Realtime presence).
+    voiceChannelRef.current = {
+      track: async (payload) => {
+        const inVoice = Boolean(payload.inVoice);
+        setJoinedVoice(inVoice);
+        setVoiceParticipants(inVoice ? [{ userId, name: authorLabel }] : []);
+      },
+    };
     return () => {
       voiceChannelRef.current = null;
-      void supabase.removeChannel(channel);
     };
-  }, [group.id, isVoice, isMember, userId]);
+  }, [group.id, isVoice, isMember, userId, authorLabel]);
 
   const toggleVoice = async () => {
     if (!channelPerms?.connect) {
