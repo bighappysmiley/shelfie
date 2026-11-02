@@ -108,11 +108,14 @@ export async function syncPending(): Promise<number> {
 
   for (const item of pending) {
     try {
-      await fetch(`/api${item.path}`, {
+      const res = await fetch(`/api${item.path}`, {
         method: item.method,
         headers,
         body: item.body ? JSON.stringify(item.body) : undefined,
       });
+      // Keep the queue item on auth/network/server failure so we never
+      // silently drop an offline mutation after an account/library mismatch.
+      if (!res.ok) break;
       if (item.id) await db.delete("pending", item.id);
       synced++;
     } catch {

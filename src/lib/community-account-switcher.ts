@@ -148,8 +148,10 @@ export async function returnToMainAccount(): Promise<{ tokenHash: string }> {
 /** Apply a minted session and wipe library/offline state so the app feels brand new. */
 export async function applyAltSession(tokenHash: string): Promise<void> {
   const { clearLibraryContext } = await import("./library-storage");
-  const { clearOfflineCache } = await import("./offline");
+  const { clearOfflineCache, syncPending } = await import("./offline");
   const { clearPendingInvite } = await import("./pending-invite");
+  // Flush the current account's queue before wiping and swapping sessions.
+  await syncPending().catch(() => 0);
   clearLibraryContext();
   clearPendingInvite();
   await clearOfflineCache().catch(() => undefined);

@@ -1,7 +1,7 @@
 import type { Config } from "@netlify/functions";
 import { loadData, saveData, newId, nowIso, type Borrower } from "./lib/store";
 import { json, error, parseBody } from "./utils";
-import { withLibraryAuth } from "./lib/library-auth";
+import { withLibraryAuth, assertLibraryWrite } from "./lib/library-auth";
 
 export const config: Config = {
   path: "/api/borrowers",
@@ -36,6 +36,7 @@ export default withLibraryAuth(async (request, ctx) => {
       return json(borrowers);
     }
 
+      assertLibraryWrite(ctx);
     if (request.method === "POST") {
       const body = await parseBody<{
         name: string;
@@ -60,6 +61,7 @@ export default withLibraryAuth(async (request, ctx) => {
       return json(borrower, 201);
     }
 
+      assertLibraryWrite(ctx);
     if (request.method === "PUT") {
       if (!id) return error("Borrower id required");
       const idx = data.borrowers.findIndex((b) => b.id === id);
@@ -83,6 +85,7 @@ export default withLibraryAuth(async (request, ctx) => {
       return json(borrower);
     }
 
+      assertLibraryWrite(ctx);
     if (request.method === "DELETE") {
       if (!id) return error("Borrower id required");
       const active = data.loans.some((l) => l.borrowerId === id && !l.dateReturned);
